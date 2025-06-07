@@ -30,9 +30,9 @@ public:
 		bool con_opened;
 	};
 	
-	NetworkThread( std::function<void(context &)> f, const ProgramOptions &opts ) : 
+	NetworkThread( const std::function<void(context &)> &f, const ProgramOptions &opts ) : 
 	ctx(opts)
-	{ ctx.thread = new std::thread(std::ref(f), std::ref(ctx)); }
+	{ ctx.thread = new std::thread(f, std::ref(ctx)); }
 	virtual ~NetworkThread()
 	{ kill(); ctx.active.wait(true); ctx.thread->join(); delete ctx.thread; }
 
@@ -50,21 +50,21 @@ class ServerThread : public NetworkThread
 {
 public:
 	ServerThread(const ProgramOptions &opts) :
-	NetworkThread(std::ref(f), opts) {}
+	NetworkThread(runserver, opts) {}
 private:
 	static void runserver(context & ctx);
-	const std::function<void(context &)> f = runserver;
+	//const std::function<void(context &)> f = runserver;
 };
 
 class ClientThread : public NetworkThread
 {
 public:
 	ClientThread(const ProgramOptions &opts) : 
-	NetworkThread(std::ref(f), opts) {}
+	NetworkThread(runclient, opts) {}
 private:
 	static void runclient(context & ctx);
 	static int requestIndexFromServer(const std::map<std::string, std::string>& options);
-	const std::function<void(context &)> f = runclient;
+	//const std::function<void(context &)> f = runclient;
 };
 
 #endif //_NETWORK_THREAD_H_
