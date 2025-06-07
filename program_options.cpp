@@ -1,5 +1,5 @@
 #include "program_options.h"
-#include <bits/getopt_core.h>
+#include <unistd.h>
 #include <cstring>
 #include <iostream>
 
