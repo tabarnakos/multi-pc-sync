@@ -39,3 +39,7 @@ build/CMakeFiles/multi_pc_sync.dir/socket_helpers.cpp.o
 build/CMakeFiles/multi_pc_sync.dir/sync_command.cpp.o
 build/CMakeFiles/multi_pc_sync.dir/tcp_command.cpp.o
 build/CMakeFiles/multi_pc_sync.dir/hash/md5_wrapper.cpp.o
+file.pb.cc
+file.pb.h
+folder.pb.cc
+folder.pb.h
