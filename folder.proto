@@ -1,0 +1,29 @@
+// proto3 file
+syntax = "proto3";
+import "file.proto";
+
+package com.fileindexer;
+
+message Folder {
+  // in proto3, optional fields have explicit presence
+  optional string name = 1;
+  optional string modifiedTime = 2;
+  optional int32 permissions = 3;  
+
+  enum FileType {
+    FILETYPE_NONE = 0;
+    FILETYPE_NOT_FOUND = -1;
+    FILETYPE_REGULAR = 1;
+    FILETYPE_DIRECTORY = 2;
+    FILETYPE_SYMLINK = 3;
+    FILETYPE_BLOCK = 4;
+    FILETYPE_CHARACTER = 5;
+    FILETYPE_FIFO = 6;
+    FILETYPE_SOCKET = 7;
+    FILETYPE_UNKNOWN = 8;
+  }
+  
+  optional FileType type = 4;
+  repeated Folder Folders = 5;
+  repeated File Files = 6;
+}
