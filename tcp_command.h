@@ -23,7 +23,7 @@ public:
         CMD_ID_FETCH_FILE_REQUEST,
         CMD_ID_PUSH_FILE,
         CMD_ID_REMOTE_LOCAL_COPY,
-        CMD_ID_ERROR_MESSAGE,
+        CMD_ID_MESSAGE,
         CMD_ID_RMDIR_REQUEST, // Add new command ID
     } cmd_id_t;
 
@@ -43,7 +43,7 @@ public:
             return "FilePushCmd";
         else if (command() == CMD_ID_REMOTE_LOCAL_COPY)
             return "RemoteLocalCopyCmd";
-        else if (command() == CMD_ID_ERROR_MESSAGE)
+        else if (command() == CMD_ID_MESSAGE)
             return "ErrorMessageCmd";
         else if (command() == CMD_ID_RMDIR_REQUEST)
             return "RmdirCmd";
@@ -169,18 +169,18 @@ public:
     virtual int execute(const std::map<std::string, std::string> &args);
 };
 
-class ErrorMessageCmd : public TcpCommand
+class MessageCmd : public TcpCommand
 {
 public:
     static constexpr size_t kErrorMessageSizeIndex = kPayloadIndex;
     static constexpr size_t kErrorMessageSizeSize = sizeof(size_t);
     static constexpr size_t kErrorMessageIndex = INDEX_AFTER(kErrorMessageSizeIndex, kErrorMessageSizeSize);
 
-    ErrorMessageCmd(GrowingBuffer &data) : TcpCommand(data) {}
-    ErrorMessageCmd(const std::string &message);
+    MessageCmd(GrowingBuffer &data) : TcpCommand(data) {}
+    MessageCmd(const std::string &message);
     virtual int execute(const std::map<std::string, std::string> &args);
 
-    static void sendError(const int socket, const std::string &message);
+    static void sendMessage(const int socket, const std::string &message);
 };
 
 class RmdirCmd : public TcpCommand

@@ -17,7 +17,7 @@
 #define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  //64MiB
 
-ErrorMessageCmd::ErrorMessageCmd(const std::string &message) : TcpCommand()
+MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
 {
     // Calculate the total size of the command
     size_t messageSize = message.size();
@@ -27,7 +27,7 @@ ErrorMessageCmd::ErrorMessageCmd(const std::string &message) : TcpCommand()
     mData.write(&commandSize, TcpCommand::kSizeSize);
 
     // Write the command ID
-    cmd_id_t cmd = CMD_ID_ERROR_MESSAGE; // Add a new command ID for error messages
+    cmd_id_t cmd = CMD_ID_MESSAGE;
     mData.write(&cmd, TcpCommand::kCmdSize);
 
     // Write the error message size
@@ -37,9 +37,9 @@ ErrorMessageCmd::ErrorMessageCmd(const std::string &message) : TcpCommand()
     mData.write(message.data(), messageSize);
 }
 
-int ErrorMessageCmd::execute(const std::map<std::string, std::string> &args)
+int MessageCmd::execute(const std::map<std::string, std::string> &args)
 {
-        mData.seek(kErrorMessageSizeIndex, SEEK_SET);
+    mData.seek(kErrorMessageSizeIndex, SEEK_SET);
     size_t messageSize;
     mData.read(&messageSize, kErrorMessageSizeSize);
 
@@ -47,19 +47,20 @@ int ErrorMessageCmd::execute(const std::map<std::string, std::string> &args)
     mData.read(message, messageSize);
     message[messageSize] = '\0';
 
-    std::cerr << "Error: " << message << std::endl;
+    std::cout << "[" << args.at("ip") << "] " << message << std::endl;
     delete[] message;
 
-    return -1;
+    return 0;
 }
 
-void ErrorMessageCmd::sendError(const int socket, const std::string &message)
+void MessageCmd::sendMessage(const int socket, const std::string &message)
 {
-    ErrorMessageCmd errorCmd(message);
-    errorCmd.transmit({{"txsocket", std::to_string(socket)}});
+    MessageCmd cmd(message);
+    std::cout << "[localhost] " << message << std::endl;
+    cmd.transmit({{"txsocket", std::to_string(socket)}});
 }
 
-TcpCommand::TcpCommand(GrowingBuffer &data) : mData() // Initialize mData
+TcpCommand::TcpCommand(GrowingBuffer &data) : mData()
 {
     const size_t size = data.size();
     uint8_t *buf = new uint8_t[size];
@@ -126,12 +127,12 @@ void TcpCommand::setCmdSize(size_t size)
 
 int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
 {
-        const std::string indexfilename = std::filesystem::path(args.at("path")) / ".folderindex";
+    const std::string indexfilename = std::filesystem::path(args.at("path")) / ".folderindex";
 	const std::string lastrunIndexFilename = indexfilename + ".last_run";
 
     if ( std::filesystem::exists(indexfilename) )
     {
-        std::cout << "Local index from last run found, creating a backup" << std::endl;
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Local index from last run found, creating a backup");
         std::filesystem::rename( indexfilename, lastrunIndexFilename );
     }
     
@@ -170,7 +171,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     TcpCommand * command = TcpCommand::create(commandbuf);
     if ( !command )
     {
-        std::cerr << "Failed to create command for sending index." << std::endl;
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
     }
     command->transmit(args);
@@ -535,14 +536,14 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
     size_t commandSize = 0;
     if (recv(socket, &commandSize, kSizeSize, 0) <= 0)
     {
-        ErrorMessageCmd::sendError(socket, "Failed to receive command size");
+        MessageCmd::sendMessage(socket, "Failed to receive command size");
         return nullptr;
     }
     buffer.write(commandSize);
     cmd_id_t cmd;
     if (recv(socket, &cmd, kCmdSize, 0) <= 0)
     {
-        ErrorMessageCmd::sendError(socket, "Failed to receive command ID");
+        MessageCmd::sendMessage(socket, "Failed to receive command ID");
         return nullptr;
     }
     buffer.write(cmd);
@@ -576,7 +577,7 @@ size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
 
         if (receivedBytes <= 0)
         {
-            ErrorMessageCmd::sendError(socket, "Failed to receive command data");
+            MessageCmd::sendMessage(socket, "Failed to receive command data");
             break;
         }
 
