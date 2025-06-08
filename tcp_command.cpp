@@ -548,7 +548,15 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
     }
     buffer.write(cmd);
 
-    return TcpCommand::create(buffer);
+    TcpCommand *command = TcpCommand::create(buffer);
+    if (!command)
+    {
+        MessageCmd::sendMessage(socket, "Unknown command received");
+        return nullptr;
+    }
+    std::cout << "Received command " << command->commandName() << " of size " << commandSize << std::endl;
+    
+    return command;
 }
 
 size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
