@@ -1,13 +1,11 @@
 #include "network_thread.h"
 #include <arpa/inet.h>
 #include <cstddef>
-#include <cstdint>
 #include <iostream>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
 #include "tcp_command.h"
-#include "socket_helpers.h"
 
 #define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
 

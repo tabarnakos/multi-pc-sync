@@ -57,9 +57,17 @@ int main(int argc, char *argv[])
 
         while (server->isActive())
         {
-            if ( server->isConnected() )
-
-                std::cout << "Client connected, waiting for commands..." << std::endl;
+            static bool connected = false;
+            if (server->isConnected() && !connected)
+            {
+                std::cout << "Client connected." << std::endl;
+                connected = true;
+            }
+            else if (!server->isConnected() && connected)
+            {
+                std::cout << "Client disconnected." << std::endl;
+                connected = false;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
