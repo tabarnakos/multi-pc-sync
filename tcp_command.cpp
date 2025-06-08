@@ -110,6 +110,8 @@ TcpCommand * TcpCommand::create( GrowingBuffer & data )
             return new RemoteLocalCopyCmd(data);
         case CMD_ID_RMDIR_REQUEST:
             return new RmdirCmd(data);
+        case CMD_ID_MESSAGE:
+            return new MessageCmd(data);
     }
 }
 
