@@ -15,11 +15,11 @@ size_t GrowingBuffer::read(void * buf, const size_t size)
 {
     advise_access(size);
 
-    size_t bytes_left = size;
+    size_t bytes_left = std::min(size, mSize - mPublicIndex);
 
     while ( bytes_left > 0 )
     {
-        size_t readlen = mBufferSizes[mBufferIndex] - mIndex - 1 < bytes_left ? mBufferSizes[mBufferIndex] - mIndex - 1 : bytes_left;
+        size_t readlen = mBufferSizes[mBufferIndex] - mIndex < bytes_left ? mBufferSizes[mBufferIndex] - mIndex : bytes_left;
         memcpy(buf, &((uint8_t *)mBuffers[mBufferIndex])[mIndex], readlen);
 
         move( readlen );
