@@ -77,6 +77,10 @@ int main(int argc, char *argv[])
         }
 
         client->start();
+        while (!client->isActive() )
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
 
         while (client->isActive())
         {
