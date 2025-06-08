@@ -584,7 +584,8 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
     block_receive();
     if (recv(socket, &commandSize, kSizeSize, 0) <= 0)
     {
-        MessageCmd::sendMessage(socket, "Failed to receive command size");
+        //client disconnected
+        unblock_receive();
         return nullptr;
     }
     buffer.write(commandSize);
