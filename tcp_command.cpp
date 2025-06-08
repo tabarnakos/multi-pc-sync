@@ -579,9 +579,8 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
 
 size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
 {
-    size_t bytes_to_receive;
-    size_t commandSize = cmdSize();
-    if (commandSize < kPayloadIndex + kSizeSize)
+    size_t bytes_to_receive = cmdSize();
+    if (bytes_to_receive < kPayloadIndex + kSizeSize)
     {
         MessageCmd::sendMessage(socket, "Invalid command size received");
         return 0;
