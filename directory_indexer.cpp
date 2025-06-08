@@ -109,7 +109,8 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
     for ( auto file : std::filesystem::directory_iterator( mDir.path() ) )
     {
         if ( file.path().filename() == ".folderindex" || file.path().filename() == ".remote.folderindex" ||
-             file.path().filename() == ".folderindex.last_run" || file.path().filename() == ".remote.folderindex.last_run" )
+             file.path().filename() == ".folderindex.last_run" || file.path().filename() == ".remote.folderindex.last_run" ||
+             file.path().filename() == "sync_commands.sh" )
             continue;
 
         indexpath( file.path(), verbose );

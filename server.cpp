@@ -64,16 +64,6 @@ void ServerThread::runserver(context &ctx)
                 break;
             }
 
-            size_t commandSize = receivedCommand->cmdSize();
-            size_t bytesReceived = receivedCommand->receivePayload(clientSocket, ALLOCATION_SIZE);
-            if (bytesReceived < commandSize)
-            {
-                std::cout << "Error receiving command payload from client" << std::endl;
-                delete receivedCommand;
-                ctx.con_opened = false;
-                break;
-            }
-
             std::cout << "Executing received command" << std::endl;
             if (receivedCommand->execute(options) < 0)
             {

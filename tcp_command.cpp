@@ -17,6 +17,21 @@
 #define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  //64MiB
 
+struct HumanReadable
+{
+    std::uintmax_t size{};
+ 
+private:
+    friend std::ostream& operator<<(std::ostream& os, HumanReadable hr)
+    {
+        int o{};
+        double mantissa = hr.size;
+        for (; mantissa >= 1024.; mantissa /= 1024., ++o);
+        os << std::ceil(mantissa * 10.) / 10. << "BKMGTPE"[o];
+        return o ? os << "B (" << hr.size << ')' : os;
+    }
+};
+
 MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
 {
     // Calculate the total size of the command
@@ -138,7 +153,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     
     /* kick off the indexing */
     std::cout << "starting to index " << args.at("path") << std::endl;
-    DirectoryIndexer indexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
+    DirectoryIndexer indexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     indexer.indexonprotobuf(false);
 
     const size_t path_lenght = args.at("path").length();
@@ -428,7 +443,10 @@ void TcpCommand::SendFile(const std::map<std::string,std::string> &args)
             //Read Data from file and send it so the other computer
             const size_t read_size = file.readsome(scratchbuf, sizeof(scratchbuf) );
             send( txsock, scratchbuf, read_size, 0 );
+            packet_bytes += read_size;
         } while (  packet_bytes < MAX_PAYLOAD_SIZE );
+        file_bytes += packet_bytes;
+        std::cout << "Sent " << HumanReadable{file_bytes} << " of " << HumanReadable{file_size} << " bytes." << std::endl;
     } while ( file_bytes < file_size );
     //Close file
     file.close();
