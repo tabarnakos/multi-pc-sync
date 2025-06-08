@@ -17,7 +17,6 @@ void ServerThread::runserver(context &ctx)
     ctx.active.notify_all();
     std::map<std::string, std::string> options;
     options["path"] = ctx.opts.path.string();
-    options["ip"] = ctx.opts.ip;
 
     const int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -52,7 +51,8 @@ void ServerThread::runserver(context &ctx)
             break;
         }
         options["txsocket"] = std::to_string(clientSocket);
-        std::cout << "Incoming connection from " << inet_ntoa(clientAddress.sin_addr) << ":" << clientAddress.sin_port << std::endl;
+        options["ip"] = inet_ntoa(clientAddress.sin_addr);
+        std::cout << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << std::endl;
         ctx.con_opened = true;
 
         while (!ctx.quit.load() && ctx.con_opened)
