@@ -193,7 +193,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
     }
-    command->transmit(args);
+    command->transmit(args, false);
     delete command;
 
     // Now send the index files
@@ -520,13 +520,14 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string> &args)
     return fail ? -1 : 0;
 }
 
-int TcpCommand::transmit(const std::map<std::string, std::string> &args)
+int TcpCommand::transmit(const std::map<std::string, std::string> &args, bool calculateSize)
 {
     const int txsock = std::stoi(args.at("txsocket"));
 
     // Get the size of the data to send
     const size_t data_size = mData.size();
-    setCmdSize(data_size);
+    if (calculateSize)
+        setCmdSize(mData.size());
     mData.seek(0, SEEK_SET);
 
     size_t bytes_sent = 0;

@@ -17,6 +17,7 @@ void ServerThread::runserver(context &ctx)
     ctx.active.notify_all();
     std::map<std::string, std::string> options;
     options["path"] = ctx.opts.path.string();
+    options["ip"] = ctx.opts.ip;
 
     const int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 

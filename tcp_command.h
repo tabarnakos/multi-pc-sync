@@ -54,7 +54,7 @@ public:
     static TcpCommand * create( GrowingBuffer & data );
     static TcpCommand* receiveHeader( const int socket );
     size_t receivePayload( const int socket, const size_t maxlen );
-    int transmit(const std::map<std::string, std::string> &args);
+    int transmit(const std::map<std::string, std::string> &args, bool calculateSize = true);
     void SendFile(const std::map<std::string,std::string> &args);
 
     size_t cmdSize();
