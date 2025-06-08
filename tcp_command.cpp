@@ -446,9 +446,22 @@ void TcpCommand::SendFile(const std::map<std::string,std::string> &args)
         {
             //Read Data from file and send it so the other computer
             const size_t read_size = file.readsome(scratchbuf, sizeof(scratchbuf) );
-            send( txsock, scratchbuf, read_size, 0 );
+            if (read_size > 0)
+            {
+                ssize_t sent_bytes = 0;
+                while (sent_bytes < read_size) {
+                    ssize_t result = send(txsock, scratchbuf + sent_bytes, read_size - sent_bytes, 0);
+                    if (result <= 0) {
+                        std::cerr << "Error sending data: " << strerror(errno) << std::endl;
+                        return; // Handle the error appropriately
+                    }
+                    sent_bytes += result;
+                }
+            }
+            else
+                break; // No more data to read
             packet_bytes += read_size;
-        } while (  packet_bytes < MAX_PAYLOAD_SIZE );
+        } while ( packet_bytes < MAX_PAYLOAD_SIZE );
         file_bytes += packet_bytes;
         std::cout << "Sent " << HumanReadable{file_bytes} << " of " << HumanReadable{file_size} << " bytes." << std::endl;
     } while ( file_bytes < file_size );

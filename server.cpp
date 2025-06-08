@@ -64,7 +64,6 @@ void ServerThread::runserver(context &ctx)
                 break;
             }
 
-            std::cout << "Executing received command" << std::endl;
             if (receivedCommand->execute(options) < 0)
             {
                 std::cout << "Error executing command" << std::endl;
