@@ -175,8 +175,8 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     // char lastrunIndexFilename[lastrunIndexFilename_size]
     // size_t lastrunIndexFiledata_size
     // char lastrunIndexFiledata[lastrunIndexFiledata_size]
-    size_t commandSize = kCmdSize + 
-                         kSizeSize + path_lenght + 
+    size_t commandSize = kPayloadIndex +
+                         kSizeSize + indexfilename.length() + 
                          kSizeSize + std::filesystem::file_size(indexfilename) + 
                          kSizeSize + lastrunIndexFilename.length() + 
                          kSizeSize + (std::filesystem::exists(lastrunIndexFilename) ? std::filesystem::file_size(lastrunIndexFilename) : 0);
@@ -507,8 +507,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string> &args)
 
 int TcpCommand::transmit(const std::map<std::string, std::string> &args)
 {
-    const auto txsock_str = args.at("txsocket");
-    const int txsock = std::strtol(txsock_str.c_str(), NULL, 10);
+    const int txsock = std::stoi(args.at("txsocket"));
 
     // Get the size of the data to send
     const size_t data_size = mData.size();
@@ -527,12 +526,6 @@ int TcpCommand::transmit(const std::map<std::string, std::string> &args)
         // Read data from mData into the buffer
         mData.seek(bytes_sent, SEEK_SET);
         size_t read_bytes = mData.read(scratchbuf, chunk_size);
-
-        if (read_bytes == 0)
-        {
-            std::cerr << "Failed to read data from mData" << std::endl;
-            return -1;
-        }
 
         // Send the chunk over the socket
         ssize_t sent_bytes = send(txsock, scratchbuf, read_bytes, 0);
@@ -581,33 +574,17 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
 
 size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
 {
-    size_t bytes_to_receive = cmdSize();
-    if (bytes_to_receive < kPayloadIndex + kSizeSize)
+    const size_t payloadSize = cmdSize() - kPayloadIndex;
+    if ( cmdSize() <= kPayloadIndex )
     {
-        MessageCmd::sendMessage(socket, "Invalid command size received");
+        MessageCmd::sendMessage(socket, "Command has empty payload");
         return 0;
     }
-    mData.seek(kPayloadIndex, SEEK_SET);
+
     // If maxlen is 0, we will read the entire payload
-    if (maxlen == 0)
-    {
-        // If maxlen is 0, we read the entire payload size from the command
-        mData.seek(kSizeIndex, SEEK_SET);
-        mData.read(&bytes_to_receive, kSizeSize);
-        bytes_to_receive -= kPayloadIndex + kSizeSize; // Adjust for header size
-    }
-    else
-    {
-        // If maxlen is specified, we use it as the limit
-        bytes_to_receive = std::min<size_t>(bytes_to_receive, maxlen);
-    }
-    if ( !maxlen )
-    {
-        mData.seek(0, SEEK_SET);
-        // check the size of the command
-        mData.read(&bytes_to_receive, kSizeSize);
-        bytes_to_receive -= mData.tell();  // Adjust commandSize to account for the header size
-    }
+    // If maxlen is specified, we use it as the limit
+    const size_t bytes_to_receive = maxlen == 0 ? payloadSize : std::min<size_t>(payloadSize, maxlen);
+
     // to avoid having a 12GB buffer, we always use the start of the payload buffer
     mData.seek(kPayloadIndex, SEEK_SET);
 
