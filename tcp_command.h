@@ -44,7 +44,7 @@ public:
         else if (command() == CMD_ID_REMOTE_LOCAL_COPY)
             return "RemoteLocalCopyCmd";
         else if (command() == CMD_ID_MESSAGE)
-            return "ErrorMessageCmd";
+            return "Message";
         else if (command() == CMD_ID_RMDIR_REQUEST)
             return "RmdirCmd";
         else
@@ -62,6 +62,12 @@ public:
     size_t bufferSize();
     cmd_id_t command();
     virtual int execute(const std::map<std::string,std::string> &args) = 0;
+    static void executeInDetachedThread(TcpCommand *command, const std::map<std::string, std::string> &args) {
+        std::thread([command, args]() {
+            command->execute(args);
+            delete command;
+        }).detach();
+    }
 
     static constexpr size_t kSizeIndex = 0;
     static constexpr size_t kSizeSize = sizeof(size_t);
@@ -84,13 +90,6 @@ protected:
         mData.read(path.data(), size);
         path[size] = '\0';
         return std::string(path.data());
-    }
-
-    static void executeInDetachedThread(TcpCommand *command, const std::map<std::string, std::string> &args) {
-        std::thread([command, args]() {
-            command->execute(args);
-            delete command;
-        }).detach();
     }
 
     int ReceiveFile(const std::map<std::string,std::string> &args);
