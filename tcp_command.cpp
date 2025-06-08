@@ -182,11 +182,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     // char lastrunIndexFilename[lastrunIndexFilename_size]
     // size_t lastrunIndexFiledata_size
     // char lastrunIndexFiledata[lastrunIndexFiledata_size]
-    size_t commandSize = kPayloadIndex +
-                         kSizeSize + indexfilename.length() + 
-                         kSizeSize + std::filesystem::file_size(indexfilename) + 
-                         kSizeSize + lastrunIndexFilename.length() + 
-                         kSizeSize + (std::filesystem::exists(lastrunIndexFilename) ? std::filesystem::file_size(lastrunIndexFilename) : 0);
+    size_t commandSize = 0; //placeholder
     commandbuf.write(commandSize);
     commandbuf.write(cmd);
     commandbuf.write(path_lenght);
@@ -200,7 +196,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     }
     command->dump(std::cout);
     
-    command->transmit(args, false);
+    command->transmit(args, true);
     delete command;
 
     // Now send the index files
@@ -600,7 +596,8 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
     block_receive();
     if (recv(socket, &commandSize, kSizeSize, 0) <= 0)
     {
-        MessageCmd::sendMessage(socket, "Failed to receive command size");
+        //client disconnected
+        unblock_receive();
         return nullptr;
     }
     buffer.write(commandSize);
