@@ -1,5 +1,6 @@
 #include "growing_buffer.h"
 #include <iostream>
+#include <iomanip>
 
 GrowingBuffer::GrowingBuffer() 
 {
@@ -93,6 +94,21 @@ void GrowingBuffer::seek( int off, int whence )
 size_t GrowingBuffer::tell()
 {
     return mPublicIndex;
+}
+
+void GrowingBuffer::dump(std::ostream& os)
+{
+    this->seek(0, SEEK_SET);
+    size_t dataSize = this->size();
+    std::vector<uint8_t> buffer(dataSize);
+    this->read(buffer.data(), dataSize);
+
+    os << "Raw mData (" << dataSize << " bytes):" << std::endl;
+    for (size_t i = 0; i < dataSize; ++i) {
+        if (i % 16 == 0) os << std::endl << std::hex << std::setw(8) << std::setfill('0') << i << ": ";
+        os << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
+    }
+    os << std::dec << std::endl;
 }
     
 void GrowingBuffer::move( int off )

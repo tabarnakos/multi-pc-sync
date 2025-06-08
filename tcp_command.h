@@ -56,6 +56,7 @@ public:
     size_t receivePayload( const int socket, const size_t maxlen );
     int transmit(const std::map<std::string, std::string> &args, bool calculateSize = true);
     void SendFile(const std::map<std::string,std::string> &args);
+    void dump(std::ostream& os);
 
     size_t cmdSize();
     void setCmdSize(size_t size);
@@ -99,6 +100,7 @@ protected:
     }
 
     int ReceiveFile(const std::map<std::string,std::string> &args);
+    std::string extractStringFromPayload();
 };
 
 class IndexFolderCmd : public TcpCommand
@@ -112,13 +114,6 @@ class IndexPayloadCmd : public TcpCommand
 public:
     IndexPayloadCmd( GrowingBuffer & data ) : TcpCommand(data) {}
     virtual int execute(const std::map<std::string,std::string> &args);
-private:
-    struct Paths {
-        char *remote;
-        char *lastRunIndex;
-        char *local;
-    };
-    Paths extractPathsFromPayload();
 };
 class MkdirCmd : public TcpCommand
 {

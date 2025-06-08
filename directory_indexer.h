@@ -45,8 +45,8 @@ public:
 	inline const std::filesystem::path path() { return mDir.path(); }
 
 	inline void setPath( const std::string &path ) 
-	{ 
-		std::filesystem::directory_entry d(std::filesystem::canonical(path)); 
+	{
+		const std::filesystem::directory_entry d(path); 
 		mDir = d;
 		mFolderIndex.set_name( mDir.path() );
 	}

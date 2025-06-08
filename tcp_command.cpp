@@ -198,6 +198,8 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
     }
+    command->dump(std::cout);
+    
     command->transmit(args, false);
     delete command;
 
@@ -211,49 +213,62 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     
     return 0;
 }
-IndexPayloadCmd::Paths IndexPayloadCmd::extractPathsFromPayload() {
-    Paths paths;
-
-    // Extract remotePath
-    size_t remotePathSize;
-    mData.seek(kPayloadIndex, SEEK_SET);
-    mData.read(&remotePathSize, sizeof(size_t));
-    paths.remote = new char[remotePathSize + 1];
-    mData.read(paths.remote, remotePathSize);
-    paths.remote[remotePathSize] = '\0';
-
-    // Extract lastRunIndexPath
-    size_t lastRunIndexPathSize;
-    mData.read(&lastRunIndexPathSize, sizeof(size_t));
-    paths.lastRunIndex = new char[lastRunIndexPathSize + 1];
-    mData.read(paths.lastRunIndex, lastRunIndexPathSize);
-    paths.lastRunIndex[lastRunIndexPathSize] = '\0';
-
-    // Extract localPath
-    size_t localPathSize;
-    mData.read(&localPathSize, sizeof(size_t));
-    paths.local = new char[localPathSize + 1];
-    mData.read(paths.local, localPathSize);
-    paths.local[localPathSize] = '\0';
-
-    return paths;
+std::string TcpCommand::extractStringFromPayload() {
+    char buffer[ALLOCATION_SIZE];
+    size_t size;
+    std::string result;
+    
+    mData.read(&size, sizeof(size_t));
+    mData.read(buffer, size);
+    result.assign(buffer, size);
+    return result;
+}
+void TcpCommand::dump(std::ostream& os)
+{
+    mData.dump(os);
 }
 
 int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 {
-    size_t commandSize = cmdSize();
-    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for IndexPayloadCmd" << std::endl;
         return -1;
     }
 
-    // Use the implemented function
-    auto paths = extractPathsFromPayload();
-    char *remotePath = paths.remote;
-    char *lastRunIndexPath = paths.lastRunIndex;
-    char *localPath = paths.local;
+    mData.seek(kPayloadIndex, SEEK_SET);
+    std::string remotePath = extractStringFromPayload();
+
+    std::cout << "Received index for remote path: " << remotePath << std::endl;
+
+    const std::filesystem::path localPath = args.at("path");
+    const std::filesystem::path indexpath = std::filesystem::path(localPath) / ".folderindex";
+    const std::filesystem::path lastRunIndexPath = std::filesystem::path(localPath) / ".folderindex.last_run";;
+    //local path used intentionally to save the remote index
+    const std::filesystem::path remoteIndexPath = std::filesystem::path(localPath) / ".remote.folderindex";
+    const std::filesystem::path remoteLastRunIndexPath = std::filesystem::path(localPath) / ".remote.folderindex.last_run";
+
+    
+
+    auto fileargs = args;
+    fileargs["path"] = remoteIndexPath;
+    int ret = ReceiveFile(fileargs);
+    if ( ret < 0 )
+    {
+        std::cerr << "Error receiving remote index file." << std::endl;
+        return ret;
+    }
+
+    fileargs["path"] = remoteLastRunIndexPath;
+    ret = ReceiveFile(fileargs);
+    if ( ret < 0 )
+    {
+        std::cerr << "Error receiving remote last run index file." << std::endl;
+        return ret;
+    }
+    unblock_receive();
 
     std::cout << "importing remote index" << std::endl;
     DirectoryIndexer remoteIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE);
@@ -268,8 +283,14 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     }
 
     std::cout << "remote and local indexes in hand, ready to sync" << std::endl;
-
+    DirectoryIndexer *lastRunIndexer = nullptr;
+    if (std::filesystem::exists(indexpath))
+    {
+        std::cout << "importing local index from last run" << std::endl;
+        lastRunIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
+    }
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
+    localIndexer.indexonprotobuf(false);
 
     std::cout << "local index size: " << localIndexer.count() << std::endl;
     std::cout << "remote index size: " << remoteIndexer.count() << std::endl;
@@ -277,7 +298,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     std::cout << "Exporting Sync commands." << std::endl;
 
     SyncCommands syncCommands;
-    localIndexer.sync(nullptr, nullptr, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true);
+    localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true);
 
     std::cout << std::endl << "Sync Commands: " << std::endl;
     for (auto &command : syncCommands)
@@ -285,7 +306,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         command.print();
     }
 
-    std::filesystem::path exportPath = std::filesystem::path(localPath) / "sync_commands.sh";
+    std::filesystem::path exportPath = localPath / "sync_commands.sh";
     syncCommands.exportToFile(exportPath);
 
     std::string answer;
@@ -309,11 +330,6 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         delete lastRunRemoteIndexer;
         lastRunRemoteIndexer = nullptr;
     }
-
-    delete[] remotePath;
-    delete[] lastRunIndexPath;
-    delete[] localPath;
-
     return 0;
 }
 
@@ -599,7 +615,7 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
     TcpCommand *command = TcpCommand::create(buffer);
     if (!command)
     {
-        MessageCmd::sendMessage(socket, "Unknown command received");
+        std::cout << "Received unknown command ID: " << cmd << std::endl;
         return nullptr;
     }
     std::cout << "Received command " << command->commandName() << " of size " << commandSize << std::endl;

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ostream>
 #include <vector>
 
 
@@ -25,6 +26,7 @@ public:
 	}
 
 	void dumpToFile( FILE * fd, uintmax_t size );
+	void dump(std::ostream& os);
 
 	void seek( int off, int whence );
 	size_t tell();

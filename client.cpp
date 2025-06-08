@@ -77,7 +77,8 @@ void ClientThread::runclient(context &ctx)
                 delete receivedCommand;
                 continue;
             default:
-                std::cout << "Unknown command received: " << receivedCommand->commandName() << std::endl;
+                std::cout << "Unknown command received: " << std::endl;
+                receivedCommand->dump(std::cout);
                 delete receivedCommand;
                 continue;
         }
