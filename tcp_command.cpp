@@ -36,7 +36,7 @@ MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
 {
     // Calculate the total size of the command
     size_t messageSize = message.size();
-    size_t commandSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize + messageSize;
+    size_t commandSize = 0; //placeholder
 
     // Write the command size
     mData.write(&commandSize, TcpCommand::kSizeSize);
@@ -54,6 +54,8 @@ MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
 
 int MessageCmd::execute(const std::map<std::string, std::string> &args)
 {
+    receivePayload(std::stoi(args.at("txsocket")), 0);
+
     mData.seek(kErrorMessageSizeIndex, SEEK_SET);
     size_t messageSize;
     mData.read(&messageSize, kErrorMessageSizeSize);
@@ -511,8 +513,8 @@ int TcpCommand::transmit(const std::map<std::string, std::string> &args)
 
     // Get the size of the data to send
     const size_t data_size = mData.size();
+    setCmdSize(data_size);
     mData.seek(0, SEEK_SET);
-    mData.write(&data_size, kSizeSize); // Write the size at the beginning
 
     size_t bytes_sent = 0;
     char scratchbuf[ALLOCATION_SIZE];
@@ -524,7 +526,6 @@ int TcpCommand::transmit(const std::map<std::string, std::string> &args)
         const size_t chunk_size = std::min(remaining_bytes, sizeof(scratchbuf));
 
         // Read data from mData into the buffer
-        mData.seek(bytes_sent, SEEK_SET);
         size_t read_bytes = mData.read(scratchbuf, chunk_size);
 
         // Send the chunk over the socket
