@@ -77,8 +77,14 @@ public:
 
     virtual ~TcpCommand() = default;
 
+    static void block_transmit() { TCPSendMutex.lock();}
+    static void unblock_transmit() { TCPSendMutex.unlock();}
+    static void block_receive() { TCPReceiveMutex.lock();}
+    static void unblock_receive() { TCPReceiveMutex.unlock();}
 
 protected:
+    static std::mutex TCPSendMutex;
+    static std::mutex TCPReceiveMutex;
     GrowingBuffer mData;
 
     // Add new helper function

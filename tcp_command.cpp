@@ -17,6 +17,9 @@
 #define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  //64MiB
 
+std::mutex TcpCommand::TCPSendMutex;
+std::mutex TcpCommand::TCPReceiveMutex;
+
 struct HumanReadable
 {
     std::uintmax_t size{};
@@ -55,6 +58,7 @@ MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
 int MessageCmd::execute(const std::map<std::string, std::string> &args)
 {
     receivePayload(std::stoi(args.at("txsocket")), 0);
+    unblock_receive();
 
     mData.seek(kErrorMessageSizeIndex, SEEK_SET);
     size_t messageSize;
@@ -146,6 +150,7 @@ void TcpCommand::setCmdSize(size_t size)
 
 int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
 {
+    unblock_receive();
     const std::string indexfilename = std::filesystem::path(args.at("path")) / ".folderindex";
 	const std::string lastrunIndexFilename = indexfilename + ".last_run";
 
@@ -202,6 +207,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     SendFile(fileargs);
     fileargs["path"] = lastrunIndexFilename;
     SendFile(fileargs);
+    unblock_transmit();
     
     return 0;
 }
@@ -237,6 +243,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for IndexPayloadCmd" << std::endl;
         return -1;
@@ -314,6 +321,7 @@ int MkdirCmd::execute(const std::map<std::string,std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for MkdirCmd" << std::endl;
         return -1;
@@ -327,6 +335,7 @@ int RmCmd::execute(const std::map<std::string,std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for RmCmd" << std::endl;
         return -1;
@@ -340,6 +349,7 @@ int RmdirCmd::execute(const std::map<std::string,std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for RmdirCmd" << std::endl;
         return -1;
@@ -353,6 +363,7 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for FileFetchCmd" << std::endl;
         return -1;
@@ -381,13 +392,16 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
     auto fileargs = args;
     fileargs["path"] = path;
     
-    return ReceiveFile(fileargs);
+    int ret = ReceiveFile(fileargs);
+    unblock_receive();
+    return ret;
 }
 
 int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
 {
     size_t commandSize = cmdSize();
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
     if (bytesReceived < commandSize) {
         std::cerr << "Error receiving payload for RemoteLocalCopyCmd" << std::endl;
         return -1;
@@ -533,6 +547,7 @@ int TcpCommand::transmit(const std::map<std::string, std::string> &args, bool ca
     size_t bytes_sent = 0;
     char scratchbuf[ALLOCATION_SIZE];
 
+    block_transmit();
     // Send the actual data in chunks
     while (bytes_sent < data_size)
     {
@@ -547,11 +562,15 @@ int TcpCommand::transmit(const std::map<std::string, std::string> &args, bool ca
         if (sent_bytes <= 0)
         {
             std::cerr << "Failed to send data chunk" << std::endl;
+            if ( calculateSize )
+                unblock_transmit();
             return -1;
         }
 
         bytes_sent += sent_bytes;
     }
+    if ( calculateSize )
+        unblock_transmit();
 
     return 0; // Success
 }
@@ -562,6 +581,7 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
 
     // Receive the size of the command
     size_t commandSize = 0;
+    block_receive();
     if (recv(socket, &commandSize, kSizeSize, 0) <= 0)
     {
         MessageCmd::sendMessage(socket, "Failed to receive command size");
