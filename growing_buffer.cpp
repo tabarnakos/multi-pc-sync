@@ -19,14 +19,14 @@ size_t GrowingBuffer::read(void * buf, const size_t size)
 
     while ( bytes_left > 0 )
     {
-        size_t readlen = mBufferSizes[mBufferIndex] - mIndex - 1 < size ? mBufferSizes[mBufferIndex] - mIndex - 1 : size;
+        size_t readlen = mBufferSizes[mBufferIndex] - mIndex - 1 < bytes_left ? mBufferSizes[mBufferIndex] - mIndex - 1 : bytes_left;
         memcpy(buf, &((uint8_t *)mBuffers[mBufferIndex])[mIndex], readlen);
 
         move( readlen );
         bytes_left -= readlen;
         buf = (uint8_t *)buf + readlen;
     }
-    return size;
+    return size - bytes_left;
 }
     
 void GrowingBuffer::write(const void * buf, const size_t size)
