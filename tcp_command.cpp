@@ -561,7 +561,27 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
 
 size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
 {
-    size_t bytes_to_receive = maxlen;
+    size_t bytes_to_receive;
+    size_t commandSize = cmdSize();
+    if (commandSize < kPayloadIndex + kSizeSize)
+    {
+        MessageCmd::sendMessage(socket, "Invalid command size received");
+        return 0;
+    }
+    mData.seek(kPayloadIndex, SEEK_SET);
+    // If maxlen is 0, we will read the entire payload
+    if (maxlen == 0)
+    {
+        // If maxlen is 0, we read the entire payload size from the command
+        mData.seek(kSizeIndex, SEEK_SET);
+        mData.read(&bytes_to_receive, kSizeSize);
+        bytes_to_receive -= kPayloadIndex + kSizeSize; // Adjust for header size
+    }
+    else
+    {
+        // If maxlen is specified, we use it as the limit
+        bytes_to_receive = std::min<size_t>(bytes_to_receive, maxlen);
+    }
     if ( !maxlen )
     {
         mData.seek(0, SEEK_SET);
