@@ -57,23 +57,30 @@ void ClientThread::runclient(context &ctx)
             break;
         }
 
-        std::cout << "Received" << receivedCommand->commandName() << "command" << std::endl;
-
-        size_t commandSize = receivedCommand->cmdSize();
-        size_t bytesReceived = receivedCommand->receivePayload(serverSocket, ALLOCATION_SIZE);
-        if (bytesReceived < commandSize)
+        switch (receivedCommand->command())
         {
-            std::cout << "Error receiving command payload from server" << std::endl;
-            delete receivedCommand;
-            break;
+            case TcpCommand::CMD_ID_INDEX_FOLDER:
+            case TcpCommand::CMD_ID_MKDIR_REQUEST:
+            case TcpCommand::CMD_ID_RM_REQUEST:
+            case TcpCommand::CMD_ID_FETCH_FILE_REQUEST:
+            case TcpCommand::CMD_ID_PUSH_FILE:
+            case TcpCommand::CMD_ID_REMOTE_LOCAL_COPY:
+            case TcpCommand::CMD_ID_RMDIR_REQUEST:
+                //not possible in the client
+                delete receivedCommand;
+                continue;
+            case TcpCommand::CMD_ID_INDEX_PAYLOAD:
+                TcpCommand::executeInDetachedThread(receivedCommand, options);
+                continue;
+            case TcpCommand::CMD_ID_MESSAGE:
+                receivedCommand->execute(options);
+                delete receivedCommand;
+                continue;
+            default:
+                std::cout << "Unknown command received: " << receivedCommand->commandName() << std::endl;
+                delete receivedCommand;
+                continue;
         }
-
-        std::cout << "Executing received command" << std::endl;
-        if (receivedCommand->execute(options) < 0)
-        {
-            std::cout << "Error executing command" << std::endl;
-        }
-        delete receivedCommand;
     }
 
     ctx.active = false;
