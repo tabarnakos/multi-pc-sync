@@ -1,6 +1,5 @@
 #include "network_thread.h"
 #include <arpa/inet.h>
-#include <cstddef>
 #include <iostream>
 #include <netinet/in.h>
 #include <string>
