@@ -423,12 +423,13 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
         std::cerr << "Error receiving payload for FilePushCmd" << std::endl;
         return -1;
     }
-
+    // I think it will have the correct path in the TCP command directly.
+/*
     std::string path = readPathFromBuffer(kPathSizeIndex);
     auto fileargs = args;
     fileargs["path"] = path;
-    
-    int ret = ReceiveFile(fileargs);
+*/  
+    int ret = ReceiveFile({});
     unblock_receive();
     return ret;
 }
@@ -538,9 +539,12 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string> &args)
     size_t filename_size = 0;
     recv(rxsock, &filename_size, sizeof(size_t), 0);
     recv(rxsock, scratchbuf, filename_size, 0);
-    const std::string filename(scratchbuf, filename_size);
+    std::string filename(scratchbuf, filename_size);
     std::cout << "Receiving file: " << filename << std::endl;
     
+    if ( args.find("path") != args.end() )
+        filename = args.at("path");
+
     // Open file for writing
     std::ofstream file(filename, std::ios::binary | std::ios::out);
     
