@@ -355,10 +355,10 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 
 int MkdirCmd::execute(const std::map<std::string,std::string> &args)
 {
-    size_t commandSize = cmdSize();
-    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for MkdirCmd" << std::endl;
         return -1;
     }
@@ -369,10 +369,10 @@ int MkdirCmd::execute(const std::map<std::string,std::string> &args)
 
 int RmCmd::execute(const std::map<std::string,std::string> &args)
 {
-    size_t commandSize = cmdSize();
+    size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for RmCmd" << std::endl;
         return -1;
     }
@@ -383,10 +383,10 @@ int RmCmd::execute(const std::map<std::string,std::string> &args)
 
 int RmdirCmd::execute(const std::map<std::string,std::string> &args)
 {
-    size_t commandSize = cmdSize();
+    size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for RmdirCmd" << std::endl;
         return -1;
     }
@@ -397,10 +397,10 @@ int RmdirCmd::execute(const std::map<std::string,std::string> &args)
 
 int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 {
-    size_t commandSize = cmdSize();
+    size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for FileFetchCmd" << std::endl;
         return -1;
     }
@@ -417,9 +417,9 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 
 int FilePushCmd::execute(const std::map<std::string,std::string> &args)
 {
-    size_t commandSize = cmdSize();
+    size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for FilePushCmd" << std::endl;
         return -1;
     }
@@ -435,10 +435,10 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
 
 int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
 {
-    size_t commandSize = cmdSize();
+    size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
-    if (bytesReceived < commandSize) {
+    if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for RemoteLocalCopyCmd" << std::endl;
         return -1;
     }
