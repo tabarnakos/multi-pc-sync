@@ -297,119 +297,6 @@ size_t DirectoryIndexer::count( com::fileindexer::Folder *folderIndex, int recur
     return result;
 }
 
-void DirectoryIndexer::syncFrom( DirectoryIndexer &other, std::list<SyncCommand> &syncCommands, bool verbose )
-{
-    for ( auto &otherfile : *other.mFolderIndex.mutable_files() )
-    {
-        auto otherfilepath = std::filesystem::path( otherfile.name() );
-        if ( verbose )
-            std::cout << otherfilepath << std::endl;
-
-        std::string localfilepath = otherfilepath.string().replace(0, other.mDir.path().string().length(), mDir.path().c_str());
-
-        if ( std::filesystem::exists(localfilepath) )
-        {
-            /* Best case scenario, file exists */
-            auto localFile = findFileAtPath( nullptr, localfilepath, verbose );
-            if ( localFile != nullptr )
-            {
-                if ( otherfile.hash() == localFile->hash() )
-                {
-                    /* file has identical content, nothing to do */
-                    if ( verbose )
-                        std::cout << "File found!" << otherfilepath << " <==> " << localfilepath << std::endl;
-                    
-                    continue;
-                }
-                else
-                {
-                    /* file has different content, copy the newer onto the older */
-                    int comp = compareFileTime( otherfile.modifiedtime(), localFile->modifiedtime() );
-                    if ( comp == -1000 )
-                        std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << std::endl;
-                    else if ( comp > 0 )
-                    {
-                        /* local file is younger */
-                        syncCommands.push_back( SyncCommand("cp", localfilepath, otherfile.name(), false ) );
-                    } else if ( comp < 0 )
-                    {
-                        /* remote file is younger */
-                        syncCommands.push_back( SyncCommand("cp", otherfile.name(), localfilepath, true ) );
-                    }
-                    else
-                        std::cout << "ERROR: Different files at same location with same modified time" << std::endl;
-                }
-
-            }
-
-        }
-
-        auto localFiles = findFileFromName( nullptr, otherfilepath.filename(), verbose );
-        if ( localFiles.empty() )
-        {
-            localFiles = findFileFromHash( nullptr, otherfile.hash(), false, verbose );
-            if ( localFiles.empty() )
-            {
-                /* file not there, copy from remote */
-                
-                syncCommands.push_back( SyncCommand("cp", otherfile.name(), localfilepath, true ) );
-            }
-        } else
-        {
-            /* we may have multiple files with the same name*/
-            for ( auto &localFile : localFiles )
-            {
-                if ( localFile->hash() == otherfile.hash() )
-                {
-                    /* we found a match, file was moved */
-                    int comp = compareFileTime( otherfile.modifiedtime(), localFile->modifiedtime() );
-                    if ( comp == -1000 )
-                        std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << std::endl;
-                    else if ( comp > 0 )
-                    {
-                        /* remote file is younger */
-                        syncCommands.push_back( SyncCommand("mv", localFile->name(), localfilepath, false ) );
-                    } else if ( comp < 0 )
-                    {
-                        /* local file is younger */
-                        /* don't do anything in this case, when sync happens the other way it will be added */
-                        //syncCommands.push_back( SyncCommand("mv2", localfilepath, localFile->name() ) );
-                    }
-                    else
-                        std::cout << "ERROR: Same file at different location with same modified time" << std::endl;
-                }
-            }
-        }
-    }
-
-    for ( auto &otherfolder: *other.mFolderIndex.mutable_folders() )
-    {
-        auto otherfolderpath = std::filesystem::path( otherfolder.name() );
-        if ( verbose )
-            std::cout << otherfolderpath << std::endl;
-
-        std::string localfolderpath = otherfolderpath.string().replace(0, other.mDir.path().string().length(), mDir.path().c_str());
-
-        if ( std::filesystem::exists( localfolderpath ) )
-        {
-            /* Deal with it */
-        } else
-        {
-            /* folder not there, it is deleted or do we need to create it ? */
-            syncCommands.push_back( SyncCommand("mkdir", "-p", localfolderpath, false ) );
-        }
-
-        auto localFolder = findFolderFromName( otherfolderpath, verbose );
-        if ( localFolder == nullptr )
-        {
-            /* folder not there, copy from remote */
-            std::string localfilepath =  otherfolderpath.string().replace(0, other.mDir.path().string().length(), mDir.path().c_str());
-            syncCommands.push_back( SyncCommand("cp -r", otherfolder.name(), localfilepath, true ) );
-        }
-    }
-
-}
-
 void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote )
 {
     if ( remote == nullptr )
@@ -488,13 +375,13 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 {
                     /* remote file is younger */
                     syncCommands.push_back( SyncCommand("rm", localFilePath, "", isRemote ) );
-                    syncCommands.push_back( SyncCommand("fetch", remoteFilePath, localFilePath, !isRemote ) );
+                    syncCommands.push_back( SyncCommand(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
                     localFile->set_hash( remoteFile.hash() );
                 } else
                 {
                     /* local file is younger */
                     syncCommands.push_back( SyncCommand("rm", remoteFilePath, "", !isRemote ) );
-                    syncCommands.push_back( SyncCommand("push", localFilePath, remoteFilePath, !isRemote ) );
+                    syncCommands.push_back( SyncCommand(isRemote ? "fetch" : "push", localFilePath, remoteFilePath, !isRemote ) );
                     remoteFile.set_hash( localFile->hash() );
                 }
             }
@@ -510,11 +397,11 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 if ( fileList.empty() )
                 {
                     /* no local copy found, copy from remote instead */
-                    syncCommands.push_back( SyncCommand( "fetch", remoteFilePath, localFilePath, true ) );
+                    syncCommands.push_back( SyncCommand( isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
                 } else
                 {
                     /* we have a local copy, save some bandwidth and copy locally */
-                    syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, false ) );
+                    syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, isRemote ) );
                 }
                 /* update the local index to reflect the new file */
                 copyTo( nullptr, &remoteFile, localFilePath, FILE );
@@ -526,7 +413,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 if ( localPastFile )
                 {
                     /* file was deleted locally, remove it from the remote */
-                    syncCommands.push_back( SyncCommand( "rm", remoteFilePath, "", true ) );
+                    syncCommands.push_back( SyncCommand( "rm", remoteFilePath, "", !isRemote ) );
                 } else
                 {
                     /* file was never there, try to find a local copy */
@@ -534,11 +421,11 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                     if ( fileList.empty() )
                     {
                         /* no local copy found, copy from remote instead */
-                        syncCommands.push_back( SyncCommand( "fetch", remoteFilePath, localFilePath, true ) );
+                        syncCommands.push_back( SyncCommand( isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
                     } else
                     {
                         /* we have a local copy, save some bandwidth and copy locally */
-                        syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, false ) );
+                        syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, isRemote ) );
                     }
                     /* update the local index to reflect the new file */
                     copyTo( nullptr, &remoteFile, localFilePath, FILE );
