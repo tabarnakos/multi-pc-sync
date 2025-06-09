@@ -55,7 +55,8 @@ public:
     static TcpCommand* receiveHeader( const int socket );
     size_t receivePayload( const int socket, const size_t maxlen );
     int transmit(const std::map<std::string, std::string> &args, bool calculateSize = true);
-    void SendFile(const std::map<std::string,std::string> &args);
+    int SendFile(const std::map<std::string,std::string> &args);
+    int ReceiveFile(const std::map<std::string,std::string> &args);
     void dump(std::ostream& os);
 
     size_t cmdSize();
@@ -99,7 +100,6 @@ protected:
         return std::string(path.data());
     }
 
-    int ReceiveFile(const std::map<std::string,std::string> &args);
     std::string extractStringFromPayload();
 };
 

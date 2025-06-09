@@ -194,17 +194,26 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
     }
-    command->dump(std::cout);
-    
     command->transmit(args, true);
     delete command;
 
     // Now send the index files
     auto fileargs = args;
     fileargs["path"] = indexfilename;
-    SendFile(fileargs);
+    if ( SendFile(fileargs) < 0 )
+    {
+        unblock_transmit();
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to send index file.");
+        return -1;
+    }
+
     fileargs["path"] = lastrunIndexFilename;
-    SendFile(fileargs);
+    if ( SendFile(fileargs) < 0 )
+    {
+        unblock_transmit();
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to send last run index file.");
+        return -1;
+    }
     unblock_transmit();
     
     return 0;
@@ -335,7 +344,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     {
         for (auto &command : syncCommands)
         {
-            command.execute(args,true);
+            command.execute(args,false);
         }
     }
 
@@ -409,7 +418,19 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
     if (std::filesystem::exists(path)) {
         auto fileargs = args;
         fileargs["path"] = path;
-        SendFile(fileargs);
+        block_transmit();
+        if ( SendFile(fileargs) < 0 ) {
+            unblock_transmit();
+            std::cerr << "Error sending file: " << path << std::endl;
+            MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Error sending file: " + path);
+            return -1;
+        }
+        unblock_transmit();
+    }
+    else {
+        std::cerr << "File not found: " << path << std::endl;
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "File not found: " + path);
+        return -1;
     }
     
     return 0;
@@ -460,7 +481,7 @@ int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
     }
 }
 
-void TcpCommand::SendFile(const std::map<std::string,std::string> &args)
+int TcpCommand::SendFile(const std::map<std::string,std::string> &args)
 {
     const auto path = args.at("path");
     const auto txsock_str = args.at("txsocket");
@@ -472,39 +493,55 @@ void TcpCommand::SendFile(const std::map<std::string,std::string> &args)
     // size_t filedata_size
     // char filedata[indexfiledata_size]
 
-    //Allocate buffers
+    // Allocate buffers
     char scratchbuf[ALLOCATION_SIZE];
     const size_t filename_size = path.length();
-    send( txsock, &filename_size, sizeof(size_t), 0 );
-    send( txsock, path.data(), filename_size, 0 );
-    //Send file size
-    if ( !std::filesystem::exists(path) )
-    {
+    if (send(txsock, &filename_size, sizeof(size_t), 0) != sizeof(size_t)) {
+        std::cerr << "Error sending filename size: " << strerror(errno) << std::endl;
+        return -1;
+    }
+    if (send(txsock, path.data(), filename_size, 0) != (ssize_t)filename_size) {
+        std::cerr << "Error sending filename: " << strerror(errno) << std::endl;
+        return -1;
+    }
+    // Send file size
+    if (!std::filesystem::exists(path)) {
         constexpr size_t file_size = 0;
-        send( txsock, &file_size, sizeof(size_t), 0 );
-        return;
+        if (send(txsock, &file_size, sizeof(size_t), 0) != sizeof(size_t)) {
+            std::cerr << "Error sending zero file size: " << strerror(errno) << std::endl;
+            return -1;
+        }
+        return 0;
     }
     const size_t file_size = std::filesystem::file_size(path);
-    send( txsock, &file_size, sizeof(size_t), 0 );
+    if (send(txsock, &file_size, sizeof(size_t), 0) != sizeof(size_t)) {
+        std::cerr << "Error sending file size: " << strerror(errno) << std::endl;
+        return -1;
+    }
 
-    //open file and send it
+    // Open file and send it
     std::ifstream file(path, std::ios::binary | std::ios::in);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file for sending: " << path << std::endl;
+        return -1;
+    }
     size_t file_bytes = 0;
     do
     {
         size_t packet_bytes = 0;
         do
         {
-            //Read Data from file and send it so the other computer
-            const size_t read_size = file.readsome(scratchbuf, sizeof(scratchbuf) );
+            // Read Data from file and send it to the other computer
+            const size_t read_size = file.readsome(scratchbuf, sizeof(scratchbuf));
             if (read_size > 0)
             {
                 ssize_t sent_bytes = 0;
-                while (sent_bytes < read_size) {
+                while (sent_bytes < (ssize_t)read_size) {
                     ssize_t result = send(txsock, scratchbuf + sent_bytes, read_size - sent_bytes, 0);
                     if (result <= 0) {
                         std::cerr << "Error sending data: " << strerror(errno) << std::endl;
-                        return; // Handle the error appropriately
+                        file.close();
+                        return -1;
                     }
                     sent_bytes += result;
                 }
@@ -512,12 +549,13 @@ void TcpCommand::SendFile(const std::map<std::string,std::string> &args)
             else
                 break; // No more data to read
             packet_bytes += read_size;
-        } while ( packet_bytes < MAX_PAYLOAD_SIZE );
+        } while (packet_bytes < MAX_PAYLOAD_SIZE);
         file_bytes += packet_bytes;
         std::cout << "Sent " << HumanReadable{file_bytes} << " of " << HumanReadable{file_size} << " bytes." << std::endl;
-    } while ( file_bytes < file_size );
-    //Close file
+    } while (file_bytes < file_size);
+    // Close file
     file.close();
+    return 0;
 }
 
 int TcpCommand::ReceiveFile(const std::map<std::string, std::string> &args)
@@ -619,16 +657,41 @@ TcpCommand* TcpCommand::receiveHeader(const int socket)
 {
     GrowingBuffer buffer;
 
-    // Receive the size of the command
+    // Receive the size of the command with a 10ms timeout and retry loop
     size_t commandSize = 0;
-    block_receive();
-    if (recv(socket, &commandSize, kSizeSize, 0) <= 0)
-    {
-        //client disconnected
-        unblock_receive();
-        return nullptr;
+    fd_set readfds;
+    struct timeval timeout;
+    int ret;
+    ssize_t received = 0;
+    char *sizePtr = reinterpret_cast<char*>(&commandSize);
+    size_t bytesLeft = kSizeSize;
+    while (bytesLeft > 0) {
+        FD_ZERO(&readfds);
+        FD_SET(socket, &readfds);
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 10000; // 10ms
+        
+        if (received == 0) {
+            block_receive();
+        }
+        ret = select(socket + 1, &readfds, nullptr, nullptr, &timeout);
+        if (ret > 0 && FD_ISSET(socket, &readfds)) {
+            ssize_t n = recv(socket, sizePtr + received, bytesLeft-received, 0);
+            if (n <= 0) {
+                // client disconnected or error
+                unblock_receive();
+                return nullptr;
+            }
+            received += n;
+            bytesLeft -= n;
+        }
+        if (received == 0) {
+            // No data received, unlock mutex
+            unblock_receive();
+        }
     }
     buffer.write(commandSize);
+
     cmd_id_t cmd;
     if (recv(socket, &cmd, kCmdSize, 0) <= 0)
     {

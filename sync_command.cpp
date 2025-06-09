@@ -70,6 +70,20 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
     }
+    else if (mCmd == "push" || mCmd == "fetch") {
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + 
+                        srcPathStripped.length();
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = (mCmd == "push") ? TcpCommand::CMD_ID_PUSH_FILE : TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        
+        pathSize = srcPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(srcPathStripped.c_str(), pathSize);
+    } else {
+        std::cerr << "Unknown command: " << mCmd << std::endl;
+        return nullptr;
+    }
 
     return TcpCommand::create(commandbuf);
 }
@@ -81,17 +95,39 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         return -1;
     }
 
+    if (mCmd == "fetch")
+        cmd->block_receive();
+
     int result = cmd->transmit(args);
     if (result < 0) {
         std::cerr << "Failed to transmit TCP command: " << string() << std::endl;
         delete cmd;
         return -1;
     }
-    if (mCmd == "cp") {
+    if (mCmd == "push") {
         // If it's a copy command, we need to send the file as well
         std::map<std::string, std::string> fileArgs = args;
-        fileArgs["path"] = mSrcPath;
+        std::string srcPathStripped = mSrcPath;
+        stripQuotes(srcPathStripped);
+        fileArgs["path"] = srcPathStripped;
         cmd->SendFile(fileArgs);
+        cmd->unblock_transmit();
+    } else if (mCmd == "fetch") {
+        cmd->unblock_transmit();
+        // If it's a fetch command, we need to receive the file
+        std::map<std::string, std::string> fileArgs = args;
+        std::string destPathStripped = mDestPath;
+        stripQuotes(destPathStripped);
+        fileArgs["path"] = destPathStripped;
+        if (cmd->ReceiveFile(fileArgs) < 0) {
+            std::cerr << "Error receiving file: " << destPathStripped << std::endl;
+            cmd->unblock_receive();
+            delete cmd;
+            return -1;
+        }
+        cmd->unblock_receive();
+    } else {
+        cmd->unblock_transmit();
     }
 
     delete cmd;
