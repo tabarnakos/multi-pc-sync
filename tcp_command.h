@@ -2,6 +2,7 @@
 #define _TCP_COMMAND_H_
 
 #include "growing_buffer.h"
+#include <cstdio>
 #include <map>
 #include <string>
 #include <thread>
@@ -90,8 +91,8 @@ protected:
     GrowingBuffer mData;
 
     // Add new helper function
-    std::string readPathFromBuffer(size_t pathSizeIndex) {
-        mData.seek(pathSizeIndex, SEEK_SET);
+    std::string readPathFromBuffer(size_t off, int whence = SEEK_SET) {
+        mData.seek(off, whence);
         size_t size;
         mData.read(&size, kSizeSize);
         std::vector<char> path(size + 1);
