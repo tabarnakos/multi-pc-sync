@@ -438,19 +438,22 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 
 int FilePushCmd::execute(const std::map<std::string,std::string> &args)
 {
+    /*
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     if (bytesReceived < payloadSize) {
         std::cerr << "Error receiving payload for FilePushCmd" << std::endl;
         return -1;
-    }
+    }*/
     // I think it will have the correct path in the TCP command directly.
 /*
     std::string path = readPathFromBuffer(kPathSizeIndex);
     auto fileargs = args;
     fileargs["path"] = path;
 */  
-    int ret = ReceiveFile({});
+    std::map <std::string,std::string> fileargs;
+    fileargs["txsocket"] = args.at("txsocket");
+    int ret = ReceiveFile(fileargs);
     unblock_receive();
     return ret;
 }
@@ -465,8 +468,8 @@ int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
         return -1;
     }
 
-    std::string srcPath = readPathFromBuffer(kSrcPathSizeIndex);
-    std::string destPath = readPathFromBuffer(kDestPathSizeIndex);
+    std::string srcPath = readPathFromBuffer(kSrcPathSizeIndex, SEEK_SET);
+    std::string destPath = readPathFromBuffer(0, SEEK_CUR);
 
     try {
         std::filesystem::copy(srcPath, destPath, 
