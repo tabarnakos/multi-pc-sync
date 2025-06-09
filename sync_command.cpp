@@ -70,7 +70,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
     }
-    else if (mCmd == "push" || mCmd == "fetch") {
+    else if (mCmd == "fetch") {
         size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + 
                         srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
@@ -80,6 +80,11 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
+    } else if (mCmd == "push") {
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize;
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = (mCmd == "push") ? TcpCommand::CMD_ID_PUSH_FILE : TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
     } else {
         std::cerr << "Unknown command: " << mCmd << std::endl;
         return nullptr;
@@ -145,7 +150,7 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
         }
     }
 
-    if (mRemote) {
+    if (mRemote || mCmd == "push" || mCmd == "fetch") {
         return executeTcpCommand(args);
     } else {
         int err = system(string().c_str());
