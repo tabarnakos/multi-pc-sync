@@ -228,8 +228,9 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
-    unblock_receive();
+    
     if (bytesReceived < payloadSize) {
+        unblock_receive();
         std::cerr << "Error receiving payload for IndexPayloadCmd" << std::endl;
         return -1;
     }
@@ -246,7 +247,6 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     const std::filesystem::path remoteIndexPath = std::filesystem::path(localPath) / ".remote.folderindex";
     const std::filesystem::path remoteLastRunIndexPath = std::filesystem::path(localPath) / ".remote.folderindex.last_run";
 
-    
 
     auto fileargs = args;
     fileargs["path"] = remoteIndexPath;
@@ -285,26 +285,25 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         std::cout << "importing local index from last run" << std::endl;
         lastRunIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
     }
-    DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
+    DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     localIndexer.indexonprotobuf(false);
 
-    std::cout << "local index size: " << localIndexer.count() << std::endl;
-    std::cout << "remote index size: " << remoteIndexer.count() << std::endl;
+    std::cout << "local index size: " << localIndexer.count(nullptr, 10) << std::endl;
+    std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << std::endl;
 
     std::cout << "Exporting Sync commands." << std::endl;
 
     SyncCommands syncCommands;
-    localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true);
+    localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true, false);
 
-    std::cout << std::endl << "Sync Commands: " << std::endl;
-    for (auto &command : syncCommands)
+    if (syncCommands.empty())
     {
-        command.print();
+        std::cout << "No sync commands generated." << std::endl;
+        return 0;
     }
 
-    std::filesystem::path exportPath = localPath / "sync_commands.sh";
-    syncCommands.exportToFile(exportPath);
-
+    std::cout << std::endl << "Display Generated Sync Commands: ?" << std::endl;
+    std::cout << "Total commands: " << syncCommands.size() << std::endl;
     std::string answer;
     do
     {
@@ -312,6 +311,25 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         std::cin >> answer;
     } while (!answer.starts_with('y') && !answer.starts_with('Y') &&
              !answer.starts_with('n') && !answer.starts_with('N'));
+    
+    if (answer.starts_with('y') || answer.starts_with('Y'))
+    {
+        for (auto &command : syncCommands)
+        {
+            command.print();
+        }
+    }
+    std::filesystem::path exportPath = localPath / "sync_commands.sh";
+    std::cout << "Exporting sync commands to file: " << exportPath << std::endl;
+    syncCommands.exportToFile(exportPath);
+
+    answer = "Y";/* // Uncomment this block to ask for confirmation before executing commands
+    do
+    {
+        std::cout << "Execute ? (Y/N) ";
+        std::cin >> answer;
+    } while (!answer.starts_with('y') && !answer.starts_with('Y') &&
+             !answer.starts_with('n') && !answer.starts_with('N'));*/
 
     if (answer.starts_with('y') || answer.starts_with('Y'))
     {
@@ -319,6 +337,12 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         {
             command.execute(args,true);
         }
+    }
+
+    if (lastRunIndexer)
+    {
+        delete lastRunIndexer;
+        lastRunIndexer = nullptr;
     }
 
     if (lastRunRemoteIndexer)

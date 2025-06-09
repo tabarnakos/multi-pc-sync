@@ -410,7 +410,7 @@ void DirectoryIndexer::syncFrom( DirectoryIndexer &other, std::list<SyncCommand>
 
 }
 
-void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose )
+void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote )
 {
     if ( remote == nullptr )
         return;
@@ -434,7 +434,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
             if ( verbose )
                 std::cout << "folder exists! " << localFolderPath << std::endl;
             /* matching local folder with identical name exists, simplest case. recurse */
-            sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose );
+            sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
         }
         else
         {
@@ -445,16 +445,16 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
             if ( forcePull || !past->extract(nullptr, localFolderPath, FOLDER) )
             {
                 /* no local history or folder never existed, create folder locally and recurse */
-                syncCommands.push_back( SyncCommand( "mkdir", localFolderPath, "", false ) );
+                syncCommands.push_back( SyncCommand( "mkdir", localFolderPath, "", isRemote ) );
                 /* update the local index to reflect the new folder */
                 copyTo( nullptr, &remoteFolder, localFolderPath, FOLDER );
                 /* recurse */
-                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose );
+                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
             } else
             {
                 /* folder was deleted, recurse first then delete it on the remote*/
-                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose );
-                syncCommands.push_back( SyncCommand( "rmdir", remoteFolderPath, "", true ) );
+                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
+                syncCommands.push_back( SyncCommand( "rmdir", remoteFolderPath, "", !isRemote ) );
             }
         }
     }
@@ -487,14 +487,14 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 } else if ( compResult > 0 )
                 {
                     /* remote file is younger */
-                    syncCommands.push_back( SyncCommand("rm", localFilePath, "", false ) );
-                    syncCommands.push_back( SyncCommand("fetch", remoteFilePath, localFilePath, true ) );
+                    syncCommands.push_back( SyncCommand("rm", localFilePath, "", isRemote ) );
+                    syncCommands.push_back( SyncCommand("fetch", remoteFilePath, localFilePath, !isRemote ) );
                     localFile->set_hash( remoteFile.hash() );
                 } else
                 {
                     /* local file is younger */
-                    syncCommands.push_back( SyncCommand("rm", remoteFilePath, "", true ) );
-                    syncCommands.push_back( SyncCommand("push", localFilePath, remoteFilePath, true ) );
+                    syncCommands.push_back( SyncCommand("rm", remoteFilePath, "", !isRemote ) );
+                    syncCommands.push_back( SyncCommand("push", localFilePath, remoteFilePath, !isRemote ) );
                     remoteFile.set_hash( localFile->hash() );
                 }
             }
@@ -598,7 +598,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
         if ( verbose )
             std::cout << std::endl << "Exporting sync commands from local to remote" << std::endl;
         
-        remote->sync( &mFolderIndex, remotePast, this, past, syncCommands, verbose );
+        remote->sync( &mFolderIndex, remotePast, this, past, syncCommands, verbose, true );
     }
 }
 

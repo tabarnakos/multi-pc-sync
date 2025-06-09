@@ -38,7 +38,7 @@ public:
 	int indexonprotobuf( bool verbose = false );
 
 	void syncFrom( DirectoryIndexer &other, std::list<SyncCommand> &syncCommands, bool verbose = false );
-	void sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose );
+	void sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote );
 
 	size_t count( com::fileindexer::Folder *folderIndex = nullptr, int recursionLevel = 0 );
 

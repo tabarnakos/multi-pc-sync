@@ -29,7 +29,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
     stripQuotes(destPathStripped);
 
     if (mCmd == "rm") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize + srcPathStripped.length();
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_RM_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
@@ -38,7 +38,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(srcPathStripped.c_str(), pathSize);
     }
     else if (mCmd == "rmdir") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize + srcPathStripped.length();
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_RMDIR_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
@@ -47,7 +47,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(srcPathStripped.c_str(), pathSize);
     }
     else if (mCmd == "mkdir") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize + srcPathStripped.length();
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_MKDIR_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
@@ -56,7 +56,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(srcPathStripped.c_str(), pathSize);
     }
     else if (mCmd == "cp") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize + 
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 3 + 
                         srcPathStripped.length() + destPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_LOCAL_COPY;
