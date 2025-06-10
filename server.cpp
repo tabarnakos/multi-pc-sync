@@ -24,6 +24,16 @@ void ServerThread::runserver(context &ctx)
                                         .sin_addr = { .s_addr = INADDR_ANY } };
     const sockaddr* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
 
+    int yes = 1;
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes)) == -1) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+
     if (bind(serverSocket, serverSocketAddr, sizeof(serverAddress)) != 0)
     {
         std::cout << "Unable to bind to port " << ntohs(serverAddress.sin_port) << std::endl;
