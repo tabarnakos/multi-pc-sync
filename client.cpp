@@ -70,22 +70,22 @@ void ClientThread::runclient(context &ctx)
             case TcpCommand::CMD_ID_SYNC_COMPLETE:
                 //not possible in the client
                 delete receivedCommand;
-                continue;
+                break;
             case TcpCommand::CMD_ID_INDEX_PAYLOAD:
                 TcpCommand::executeInDetachedThread(receivedCommand, options);
-                continue;
+                break;
             case TcpCommand::CMD_ID_MESSAGE:
             case TcpCommand::CMD_ID_SYNC_DONE:
                 {
                     err = receivedCommand->execute(options);
                     delete receivedCommand;
-                    continue;
+                    break;
                 }
             default:
                 std::cout << "Unknown command received: " << std::endl;
                 receivedCommand->dump(std::cout);
                 delete receivedCommand;
-                continue;
+                break;
         }
         if (err < 0)
         {
@@ -98,7 +98,7 @@ void ClientThread::runclient(context &ctx)
             ctx.con_opened = false;
         }
         else
-            std::cout << "Executed command: " << receivedCommand->commandName() << std::endl;
+            std::cout << "Executed command: " << receivedCommand->command() << std::endl;
     }
 
     ctx.active = false;

@@ -312,6 +312,21 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     if (syncCommands.empty())
     {
         std::cout << "No sync commands generated." << std::endl;
+
+        GrowingBuffer commandbuf;
+        cmd_id_t cmd = CMD_ID_SYNC_COMPLETE;
+        size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
+        commandbuf.write(commandSize);
+        commandbuf.write(cmd);
+        TcpCommand *command = TcpCommand::create(commandbuf);
+        if (!command)
+        {
+            std::cerr << "Failed to create SyncComplete command." << std::endl;
+            return -1;
+        }
+        command->transmit(args, false);
+        delete command;
+        std::cout << "Sync complete, no commands to execute." << std::endl;
         return 0;
     }
 
@@ -350,6 +365,36 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         {
             command.execute(args,false);
         }
+        GrowingBuffer commandbuf;
+        cmd_id_t cmd = CMD_ID_SYNC_COMPLETE;
+        size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
+        commandbuf.write(commandSize);
+        commandbuf.write(cmd);
+        TcpCommand *command = TcpCommand::create(commandbuf);
+        if (!command)
+        {
+            std::cerr << "Failed to create SyncComplete command." << std::endl;
+            return -1;
+        }
+        command->transmit(args, false);
+        delete command;
+        std::cout << "Sync complete." << std::endl;
+    } else
+    {
+        std::cout << "Sync commands execution cancelled." << std::endl;
+        GrowingBuffer commandbuf;
+        cmd_id_t cmd = CMD_ID_SYNC_COMPLETE;
+        size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
+        commandbuf.write(commandSize);
+        commandbuf.write(cmd);
+        TcpCommand *command = TcpCommand::create(commandbuf);
+        if (!command)
+        {
+            std::cerr << "Failed to create SyncDone command." << std::endl;
+            return -1;
+        }
+        command->transmit(args, false);
+        delete command;
     }
 
     if (lastRunIndexer)
