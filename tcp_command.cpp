@@ -794,7 +794,6 @@ size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
 int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
 {
     unblock_receive();
-    this->transmit(args, false);
 
     GrowingBuffer commandbuf;
     size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
