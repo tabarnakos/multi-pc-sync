@@ -25,7 +25,9 @@ public:
         CMD_ID_PUSH_FILE,
         CMD_ID_REMOTE_LOCAL_COPY,
         CMD_ID_MESSAGE,
-        CMD_ID_RMDIR_REQUEST, // Add new command ID
+        CMD_ID_RMDIR_REQUEST,
+        CMD_ID_SYNC_COMPLETE,
+        CMD_ID_SYNC_DONE,
     } cmd_id_t;
 
     constexpr const char * commandName()
@@ -48,6 +50,10 @@ public:
             return "Message";
         else if (command() == CMD_ID_RMDIR_REQUEST)
             return "RmdirCmd";
+        else if (command() == CMD_ID_SYNC_COMPLETE)
+            return "SyncCompleteCmd";
+        else if (command() == CMD_ID_SYNC_DONE)
+            return "SyncDoneCmd";
         else
             return "UnknownCommand";
     }
@@ -192,6 +198,19 @@ public:
     static constexpr size_t kPathIndex = INDEX_AFTER(kPathSizeIndex, kPathSizeSize);
 
     RmdirCmd(GrowingBuffer & data ) : TcpCommand(data) {}
+    virtual int execute(const std::map<std::string,std::string> &args);
+};
+
+class SyncCompleteCmd : public TcpCommand
+{
+public:
+    SyncCompleteCmd( GrowingBuffer & data ) : TcpCommand(data) {}
+    virtual int execute(const std::map<std::string,std::string> &args);
+};
+class SyncDoneCmd : public TcpCommand
+{
+public:
+    SyncDoneCmd( GrowingBuffer & data ) : TcpCommand(data) {}
     virtual int execute(const std::map<std::string,std::string> &args);
 };
 

@@ -118,6 +118,10 @@ TcpCommand * TcpCommand::create( GrowingBuffer & data )
             return new RmdirCmd(data);
         case CMD_ID_MESSAGE:
             return new MessageCmd(data);
+        case CMD_ID_SYNC_COMPLETE:
+            return new SyncCompleteCmd(data);
+        case CMD_ID_SYNC_DONE:
+            return new SyncDoneCmd(data);
     }
 }
 
@@ -438,19 +442,6 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 
 int FilePushCmd::execute(const std::map<std::string,std::string> &args)
 {
-    /*
-    size_t payloadSize = cmdSize() - kPayloadIndex;
-    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
-    if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for FilePushCmd" << std::endl;
-        return -1;
-    }*/
-    // I think it will have the correct path in the TCP command directly.
-/*
-    std::string path = readPathFromBuffer(kPathSizeIndex);
-    auto fileargs = args;
-    fileargs["path"] = path;
-*/  
     std::map <std::string,std::string> fileargs;
     fileargs["txsocket"] = args.at("txsocket");
     int ret = ReceiveFile(fileargs);
@@ -753,4 +744,35 @@ size_t TcpCommand::receivePayload( const int socket, const size_t maxlen )
     }
 
     return bytesReceived;
+}
+
+int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
+{
+    unblock_receive();
+    this->transmit(args, false);
+
+    GrowingBuffer commandbuf;
+    size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
+    commandbuf.write(&commandSize, TcpCommand::kSizeSize);
+    TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_DONE;
+    commandbuf.write(&cmd, TcpCommand::kCmdSize);
+    TcpCommand *command = TcpCommand::create(commandbuf);
+    if (!command)
+    {
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create SyncDoneCmd");
+        return -1;
+    }
+    command->transmit(args, true);
+    delete command;
+
+    std::cout << "Sync complete for " << args.at("path") << std::endl;
+    return 1;
+}
+
+int SyncDoneCmd::execute(const std::map<std::string, std::string> &args)
+{
+    unblock_receive();
+    
+    std::cout << "Sync done for " << args.at("path") << std::endl;
+    return 1;
 }

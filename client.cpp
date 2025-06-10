@@ -56,7 +56,8 @@ void ClientThread::runclient(context &ctx)
             std::cout << "Error receiving command from server" << std::endl;
             break;
         }
-
+        
+        int err = 0;;
         switch (receivedCommand->command())
         {
             case TcpCommand::CMD_ID_INDEX_FOLDER:
@@ -66,6 +67,7 @@ void ClientThread::runclient(context &ctx)
             case TcpCommand::CMD_ID_PUSH_FILE:
             case TcpCommand::CMD_ID_REMOTE_LOCAL_COPY:
             case TcpCommand::CMD_ID_RMDIR_REQUEST:
+            case TcpCommand::CMD_ID_SYNC_COMPLETE:
                 //not possible in the client
                 delete receivedCommand;
                 continue;
@@ -73,15 +75,30 @@ void ClientThread::runclient(context &ctx)
                 TcpCommand::executeInDetachedThread(receivedCommand, options);
                 continue;
             case TcpCommand::CMD_ID_MESSAGE:
-                receivedCommand->execute(options);
-                delete receivedCommand;
-                continue;
+            case TcpCommand::CMD_ID_SYNC_DONE:
+                {
+                    err = receivedCommand->execute(options);
+                    delete receivedCommand;
+                    continue;
+                }
             default:
                 std::cout << "Unknown command received: " << std::endl;
                 receivedCommand->dump(std::cout);
                 delete receivedCommand;
                 continue;
         }
+        if (err < 0)
+        {
+            std::cout << "Error executing command: " << receivedCommand->commandName() << std::endl;
+            ctx.con_opened = false;
+        }
+        else if (err > 0)
+        {
+            std::cout << "Finished " << std::endl;
+            ctx.con_opened = false;
+        }
+        else
+            std::cout << "Executed command: " << receivedCommand->commandName() << std::endl;
     }
 
     ctx.active = false;

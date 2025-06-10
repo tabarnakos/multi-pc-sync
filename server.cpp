@@ -64,9 +64,18 @@ void ServerThread::runserver(context &ctx)
                 break;
             }
 
-            if (receivedCommand->execute(options) < 0)
+            int err = receivedCommand->execute(options);
+            if (err < 0)
             {
-                std::cout << "Error executing command" << std::endl;
+                std::cout << "Error executing command: " << receivedCommand->commandName() << std::endl;
+                ctx.con_opened = false;
+            } else if (err > 0)
+            {
+                std::cout << "Finished" << std::endl;
+                ctx.con_opened = false;
+            } else
+            {
+                std::cout << "Executed command: " << receivedCommand->commandName() << std::endl;
             }
             delete receivedCommand;
         }

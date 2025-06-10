@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include <cstdio>
 #include <bits/getopt_core.h>
 #include "network_thread.h"
