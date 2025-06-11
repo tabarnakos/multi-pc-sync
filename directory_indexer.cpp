@@ -750,3 +750,10 @@ int DirectoryIndexer::compareFileTime(const std::string& a, const std::string& b
     }
     return 0;
 }
+
+void DirectoryIndexer::setPath( const std::string &path ) 
+{
+    const std::filesystem::directory_entry d(path); 
+    mDir = d;
+    mFolderIndex.set_name( mDir.path() );
+}
