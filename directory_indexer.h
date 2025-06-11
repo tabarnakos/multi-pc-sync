@@ -40,7 +40,6 @@ public:
     size_t count(com::fileindexer::Folder *folderIndex = nullptr, int recursionLevel = 0);
     const std::filesystem::path path();
     void setPath(const std::string &path);
-    static int compareFileTime(const std::string &a, const std::string &b);
 
 protected:
     // (none)
@@ -60,6 +59,8 @@ private:
     bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, const PATH_TYPE type);
     void copyTo(com::fileindexer::Folder *folderIndex, ::google::protobuf::Message *element,
                 const std::string &path, const PATH_TYPE type);
+	static int compareFileTime(const std::string& a, const std::string& b);
+
     std::filesystem::directory_entry mDir;
     std::fstream mIndexfile;
     bool mUpdateIndexFile;

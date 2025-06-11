@@ -736,3 +736,17 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
         *subFolder->add_files() = newFile;
     }
 }
+
+int DirectoryIndexer::compareFileTime(const std::string& a, const std::string& b)
+{
+    if ( a.length() != b.length() )
+        return -1000;
+    
+    for ( int i=0; i < a.length(); ++i )
+    {
+        auto compresult = a.at(i) - b.at(i);
+        if ( compresult )
+            return compresult < 0 ? -1 : 1;
+    }
+    return 0;
+}

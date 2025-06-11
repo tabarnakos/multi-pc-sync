@@ -24,6 +24,9 @@
 // System Includes
 #include <sys/socket.h>
 
+// Project Includes
+#include "human_readable.h"
+
 // Section 3: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  // 64MiB
@@ -45,6 +48,17 @@ TcpCommand::TcpCommand(GrowingBuffer &data) : mData() {
     mData.write(buf, size);
     delete[] buf;
 }
+IndexFolderCmd::~IndexFolderCmd() {}
+IndexPayloadCmd::~IndexPayloadCmd() {}
+MkdirCmd::~MkdirCmd() {}
+RmCmd::~RmCmd() {}
+FileFetchCmd::~FileFetchCmd() {}
+FilePushCmd::~FilePushCmd() {}
+RemoteLocalCopyCmd::~RemoteLocalCopyCmd() {}
+RmdirCmd::~RmdirCmd() {}
+SyncCompleteCmd::~SyncCompleteCmd() {}
+SyncDoneCmd::~SyncDoneCmd() {}
+MessageCmd::~MessageCmd() {}
 
 // Section 6: Static Methods
 void TcpCommand::block_transmit() {
