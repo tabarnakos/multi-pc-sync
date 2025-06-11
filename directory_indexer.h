@@ -16,29 +16,98 @@
 // Section 4: Classes
 class SyncCommand;
 
+/**
+ * Class for indexing directory contents and managing synchronization
+ * between local and remote file systems
+ */
 class DirectoryIndexer {
 public:
+    /**
+     * Type of index being managed
+     */
     enum INDEX_TYPE {
-        INDEX_TYPE_LOCAL = 0,
-        INDEX_TYPE_LOCAL_LAST_RUN,
-        INDEX_TYPE_REMOTE,
-        INDEX_TYPE_REMOTE_LAST_RUN,
+        INDEX_TYPE_LOCAL = 0,          ///< Current local directory state
+        INDEX_TYPE_LOCAL_LAST_RUN,     ///< Previous local directory state
+        INDEX_TYPE_REMOTE,             ///< Current remote directory state
+        INDEX_TYPE_REMOTE_LAST_RUN,    ///< Previous remote directory state
     };
+
+    /**
+     * Type of filesystem entry
+     */
     enum PATH_TYPE {
-        FOLDER = 0,
-        FILE,
+        FOLDER = 0,   ///< Directory entry
+        FILE,         ///< File entry
     };
+
+    /**
+     * Constructs a directory indexer for the specified path
+     * @param path Path to index
+     * @param topLevel Whether this is the top-level directory
+     * @param type Type of index to create
+     */
     DirectoryIndexer(const std::filesystem::path &path, bool topLevel = false,
                      INDEX_TYPE type = INDEX_TYPE_LOCAL);
+
+    /**
+     * Constructs a directory indexer from existing index data
+     * @param path Path the index represents
+     * @param folderIndex Existing index data
+     * @param topLevel Whether this is the top-level directory
+     */
     DirectoryIndexer(const std::filesystem::path &path, const com::fileindexer::Folder &folderIndex,
                      bool topLevel = false);
+
+    /**
+     * Destructor
+     */
     ~DirectoryIndexer();
+
+    /**
+     * Prints the directory index structure
+     * @param folderIndex Starting folder to print from, or nullptr for root
+     * @param recursionlevel Current depth for indentation
+     */
     void printIndex(com::fileindexer::Folder *folderIndex = nullptr, int recursionlevel = 0);
+
+    /**
+     * Indexes the directory structure into protobuf format
+     * @param verbose Whether to print verbose output
+     * @return 0 on success, negative on error
+     */
     int indexonprotobuf(bool verbose = false);
+
+    /**
+     * Synchronizes directory contents with a remote directory
+     * @param folderIndex Current folder being synced
+     * @param past Previous local state
+     * @param remote Current remote state
+     * @param remotePast Previous remote state
+     * @param syncCommands List to store required sync operations
+     * @param verbose Whether to print verbose output
+     * @param isRemote Whether syncing remote to local
+     */
     void sync(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote,
               DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote);
+
+    /**
+     * Counts entries in the index
+     * @param folderIndex Starting folder to count from, or nullptr for root
+     * @param recursionLevel Maximum depth to count (-1 for unlimited)
+     * @return Number of entries found
+     */
     size_t count(com::fileindexer::Folder *folderIndex = nullptr, int recursionLevel = 0);
+
+    /**
+     * Gets the path being indexed
+     * @return Path to the indexed directory
+     */
     const std::filesystem::path path();
+
+    /**
+     * Sets the path to index
+     * @param path New path to index
+     */
     void setPath(const std::string &path);
 
 protected:

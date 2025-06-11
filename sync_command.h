@@ -13,24 +13,87 @@
 // (none)
 
 // Section 4: Classes
+/**
+ * Represents a single synchronization command between local and remote systems
+ * Commands include operations like copy, move, delete, etc.
+ */
 class SyncCommand {
 public:
+    /**
+     * Constructs a new sync command
+     * @param cmd Command type (cp, mv, rm, etc.)
+     * @param srcPath Source path for the operation
+     * @param destPath Destination path for the operation
+     * @param remote Whether this is a remote operation
+     */
     SyncCommand(const std::string &cmd, const std::string &srcPath, const std::string &destPath, bool remote);
+
+    /**
+     * Prints the command details to standard output
+     */
     void print();
+
+    /**
+     * Executes the synchronization command
+     * @param args Arguments for command execution
+     * @param verbose Whether to print verbose output
+     * @return 0 on success, negative value on error
+     */
     int execute(const std::map<std::string, std::string> &args, bool verbose = false);
+
+    /**
+     * Gets the command as a string
+     * @return String representation of the command
+     */
     std::string string() const;
+
+    /**
+     * Checks if command operates on remote system
+     * @return true if remote operation
+     */
     bool isRemote() const;
+
+    /**
+     * Checks if command is a removal operation
+     * @return true if removal operation
+     */
     bool isRemoval() const;
+
+    /**
+     * Gets the first path (usually source)
+     * @return First path string
+     */
     std::string path1() const;
+
+    /**
+     * Gets the second path (usually destination)
+     * @return Second path string
+     */
     std::string path2() const;
 
 private:
-    std::string mCmd;
-    std::string mSrcPath;
-    std::string mDestPath;
-    bool mRemote;
+    std::string mCmd;      ///< Command type
+    std::string mSrcPath;  ///< Source path
+    std::string mDestPath; ///< Destination path
+    bool mRemote;          ///< Remote operation flag
+
+    /**
+     * Executes command via TCP
+     * @param args Command arguments
+     * @return 0 on success, negative value on error
+     */
     int executeTcpCommand(const std::map<std::string, std::string> &args);
+
+    /**
+     * Creates appropriate TCP command object
+     * @return Pointer to created TCP command
+     */
     TcpCommand* createTcpCommand();
+
+    /**
+     * Removes quotes from path string
+     * @param path Path string to process
+     */
     void stripQuotes(std::string &path);
 };
 

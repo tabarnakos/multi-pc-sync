@@ -17,11 +17,22 @@
 #include "program_options.h"
 
 // Section 2: Class Definitions
+/**
+ * Base class for network communication threads
+ * Provides common functionality for both server and client threads
+ */
 class NetworkThread
 {
 public:
+    /**
+     * Context structure holding thread state and configuration
+     */
     struct context
     {
+        /**
+         * Constructs a new context with program options
+         * @param opts Program configuration options
+         */
         context(const ProgramOptions &opts) :
             opts(opts),
             latch(1),
@@ -32,21 +43,43 @@ public:
         {}
         ~context() = default;
 
-        const ProgramOptions opts;
-        std::latch latch;
-        std::thread *thread;
-        std::atomic<bool> quit;
-        std::atomic<bool> active;
-        bool con_opened;
+        const ProgramOptions opts;     ///< Program configuration
+        std::latch latch;             ///< Synchronization latch
+        std::thread *thread;          ///< Pointer to thread object
+        std::atomic<bool> quit;       ///< Flag to signal thread termination
+        std::atomic<bool> active;     ///< Flag indicating thread is running
+        bool con_opened;              ///< Flag indicating connection status
     };
 
+    /**
+     * Constructs a network thread
+     * @param f Thread function to execute
+     * @param opts Program configuration options
+     */
     NetworkThread(const std::function<void(context &)> &f, const ProgramOptions &opts) : ctx(opts)
     { ctx.thread = new std::thread(f, std::ref(ctx)); }
+
+    /**
+     * Destructor - ensures thread is properly terminated and cleaned up
+     */
     virtual ~NetworkThread()
     { kill(); ctx.active.wait(true); ctx.thread->join(); delete ctx.thread; }
 
+    /**
+     * Starts the thread by releasing the latch
+     */
     void start() { ctx.latch.count_down(); }
+
+    /**
+     * Checks if the thread is currently active
+     * @return true if thread is running
+     */
     bool isActive() const { return ctx.active.load(); }
+
+    /**
+     * Checks if a network connection is established
+     * @return true if connected
+     */
     bool isConnected() const { return ctx.con_opened; }
 
 protected:
@@ -54,20 +87,50 @@ protected:
     context ctx;
 };
 
+/**
+ * Server implementation of NetworkThread
+ * Handles incoming client connections and file synchronization requests
+ */
 class ServerThread : public NetworkThread
 {
 public:
+    /**
+     * Constructs a server thread with the given options
+     * @param opts Program configuration options
+     */
     ServerThread(const ProgramOptions &opts) : NetworkThread(runserver, opts) {}
 private:
+    /**
+     * Main server loop implementation
+     * @param ctx Server context containing configuration and state
+     */
     static void runserver(context &ctx);
 };
 
+/**
+ * Client implementation of NetworkThread
+ * Handles connecting to server and initiating file synchronization
+ */
 class ClientThread : public NetworkThread
 {
 public:
+    /**
+     * Constructs a client thread with the given options
+     * @param opts Program configuration options
+     */
     ClientThread(const ProgramOptions &opts) : NetworkThread(runclient, opts) {}
 private:
+    /**
+     * Main client loop implementation
+     * @param ctx Client context containing configuration and state
+     */
     static void runclient(context &ctx);
+
+    /**
+     * Requests directory index from the server
+     * @param options Map containing connection options
+     * @return 0 on success, negative value on error
+     */
     static int requestIndexFromServer(const std::map<std::string, std::string>& options);
 };
 
