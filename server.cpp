@@ -1,13 +1,26 @@
-#include "network_thread.h"
-#include <arpa/inet.h>
+// *****************************************************************************
+// Server Implementation
+// *****************************************************************************
+
+// Section 1: Includes
+// C++ Standard Library
 #include <iostream>
-#include <netinet/in.h>
 #include <string>
+#include <map>
+
+// System Includes
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
+
+// Project Includes
+#include "network_thread.h"
 #include "tcp_command.h"
 
-#define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
+// Section 2: Defines and Macros
+#define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
 
+// Section 3: ServerThread Implementation
 void ServerThread::runserver(context &ctx)
 {
     ctx.latch.wait();

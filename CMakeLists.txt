@@ -33,6 +33,7 @@ set ( multi_pc_sync_hdr
 	${hash_hdr}
 	directory_indexer.h
 	growing_buffer.h
+	human_readable.h
 	network_thread.h
 	program_options.h
 	socket_helpers.h

@@ -1,23 +1,36 @@
+// Section 1: Main Header
 #include "sync_command.h"
+
+// Section 2: Includes
 #include <filesystem>
 #include <fstream>
-#include <ios>
 #include <iostream>
+#include <map>
+#include <string>
 
-SyncCommand::SyncCommand( const std::string & cmd, const std::string & srcPath, const std::string & destPath, bool remote ) :
-    mCmd(cmd),
-    mRemote(remote)
-{
+// Section 3: Defines and Macros
+// (none)
+
+// Section 4: Static Variables
+// (none)
+
+// Section 5: Constructors and Destructors
+SyncCommand::SyncCommand(const std::string &cmd, const std::string &srcPath, const std::string &destPath, bool remote)
+    : mCmd(cmd), mRemote(remote) {
     mSrcPath = "\"" + srcPath + "\"";
-    if ( destPath.empty() )
+    if (destPath.empty())
         mDestPath.clear();
     else
         mDestPath = "\"" + destPath + "\"";
 }
 
+// Section 6: Static Methods
+// (none)
+
+// Section 7: Public/Protected/Private Methods
 void SyncCommand::stripQuotes(std::string &path) {
-    if (path.front() == '"') path = path.substr(1);
-    if (path.back() == '"') path = path.substr(0, path.length() - 1);
+    if (!path.empty() && path.front() == '"') path = path.substr(1);
+    if (!path.empty() && path.back() == '"') path = path.substr(0, path.length() - 1);
 }
 
 TcpCommand* SyncCommand::createTcpCommand() {
@@ -27,7 +40,6 @@ TcpCommand* SyncCommand::createTcpCommand() {
     std::string destPathStripped = mDestPath;
     stripQuotes(srcPathStripped);
     stripQuotes(destPathStripped);
-
     if (mCmd == "rm") {
         size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
@@ -36,8 +48,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
-    }
-    else if (mCmd == "rmdir") {
+    } else if (mCmd == "rmdir") {
         size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_RMDIR_REQUEST;
@@ -45,8 +56,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
-    }
-    else if (mCmd == "mkdir") {
+    } else if (mCmd == "mkdir") {
         size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_MKDIR_REQUEST;
@@ -54,42 +64,34 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
-    }
-    else if (mCmd == "cp") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 3 + 
-                        srcPathStripped.length() + destPathStripped.length();
+    } else if (mCmd == "cp") {
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 3 + srcPathStripped.length() + destPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_LOCAL_COPY;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
-        
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
-        
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
-    }
-    else if (mCmd == "fetch") {
-        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + 
-                        srcPathStripped.length();
+    } else if (mCmd == "fetch") {
+        size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize * 2 + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
-        TcpCommand::cmd_id_t cmd = (mCmd == "push") ? TcpCommand::CMD_ID_PUSH_FILE : TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
-        
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
     } else if (mCmd == "push") {
         size_t cmdSize = TcpCommand::kCmdSize + TcpCommand::kSizeSize;
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
-        TcpCommand::cmd_id_t cmd = (mCmd == "push") ? TcpCommand::CMD_ID_PUSH_FILE : TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_PUSH_FILE;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
     } else {
         std::cerr << "Unknown command: " << mCmd << std::endl;
         return nullptr;
     }
-
     return TcpCommand::create(commandbuf);
 }
 
@@ -99,44 +101,13 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         std::cerr << "Failed to create TCP command for: " << string() << std::endl;
         return -1;
     }
-
-    if (mCmd == "fetch")
-        cmd->block_receive();
-
     int result = cmd->transmit(args);
-    if (result < 0) {
-        std::cerr << "Failed to transmit TCP command: " << string() << std::endl;
-        delete cmd;
-        return -1;
-    }
-    if (mCmd == "push") {
-        // If it's a copy command, we need to send the file as well
-        std::map<std::string, std::string> fileArgs = args;
-        std::string srcPathStripped = mSrcPath;
-        stripQuotes(srcPathStripped);
-        fileArgs["path"] = srcPathStripped;
-        cmd->SendFile(fileArgs);
-        cmd->unblock_transmit();
-    } else if (mCmd == "fetch") {
-        cmd->unblock_transmit();
-        // If it's a fetch command, we need to receive the file
-        std::map<std::string, std::string> fileArgs = args;
-        std::string destPathStripped = mDestPath;
-        stripQuotes(destPathStripped);
-        fileArgs["path"] = destPathStripped;
-        if (cmd->ReceiveFile(fileArgs) < 0) {
-            std::cerr << "Error receiving file: " << destPathStripped << std::endl;
-            cmd->unblock_receive();
-            delete cmd;
-            return -1;
-        }
-        cmd->unblock_receive();
-    } else {
-        cmd->unblock_transmit();
-    }
-
     delete cmd;
     return result;
+}
+
+void SyncCommand::print() {
+    std::cout << string() << std::endl;
 }
 
 int SyncCommand::execute(const std::map<std::string, std::string> &args, bool verbose) {
@@ -149,7 +120,6 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
             return 0;
         }
     }
-
     if (mRemote || mCmd == "push" || mCmd == "fetch") {
         return executeTcpCommand(args);
     } else {
@@ -161,43 +131,29 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     }
 }
 
-void SyncCommand::print()
-{
-    std::cout << string() << std::endl;
+std::string SyncCommand::string() const {
+    return mCmd + " " + mSrcPath + (mDestPath.empty() ? "" : " " + mDestPath);
+}
+
+bool SyncCommand::isRemote() const { return mRemote; }
+bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
+std::string SyncCommand::path1() const { return mSrcPath; }
+std::string SyncCommand::path2() const { return mDestPath; }
+
+int SyncCommands::exportToFile(std::filesystem::path &path, bool verbose) {
+    std::ofstream file(path);
+    if (!file.is_open()) return -1;
+    for (const auto &cmd : *this) {
+        file << cmd.string() << std::endl;
+        if (verbose) std::cout << "Exported: " << cmd.string() << std::endl;
+    }
+    file.close();
+    return 0;
 }
 
 int SyncCommands::executeAll(const std::map<std::string, std::string> &args, bool verbose) {
-    int errors = 0;
     for (auto &cmd : *this) {
-        if (cmd.execute(args, verbose) != 0) {
-            errors++;
-        }
+        cmd.execute(args, verbose);
     }
-    return errors;
-}
-
-int SyncCommands::exportToFile(std::filesystem::path &path, bool verbose)
-{
-    if ( std::filesystem::exists(path) )
-    {
-        char cmd[255];
-        sprintf(cmd,"rm \"%s\"", path.c_str());
-        system(cmd);
-    }
-
-    std::ofstream filestream;
-    filestream.open(path, std::ios_base::out);
-    if ( !filestream.is_open() )
-        return -1;
-    
-    filestream << "#! /usr/bin/bash" << std::endl;
-
-    for ( const auto &command : *this )
-    {
-        if ( verbose )
-            filestream << "echo \"" << command.string() << '"' << std::endl;
-        filestream << command.string() << std::endl;
-    }
-    filestream.close();
     return 0;
 }

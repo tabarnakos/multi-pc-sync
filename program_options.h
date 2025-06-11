@@ -1,27 +1,31 @@
+// Section 1: Compilation Guards
 #ifndef _PROGRAM_OPTIONS_H_
 #define _PROGRAM_OPTIONS_H_
 
+// Section 2: Includes
 #include <filesystem>
+#include <string>
 
-class ProgramOptions
-{
+// Section 3: Defines and Macros
+// (none)
+
+// Section 4: Classes
+class ProgramOptions {
 public:
-	enum MODE
-	{
-		MODE_CLIENT = 0,
-		MODE_SERVER,
-	};
-	const std::filesystem::path path;
-	std::string ip;
-	int port;
-	MODE mode;
+    enum MODE {
+        MODE_CLIENT = 0,
+        MODE_SERVER,
+    };
+    const std::filesystem::path path;
+    std::string ip;
+    int port;
+    MODE mode;
+    float rate_limit;  // Rate limit in Hz, 0 means unlimited
 
-	static ProgramOptions parseArgs(int argc, char *argv[]);
-	
+    static ProgramOptions parseArgs(int argc, char *argv[]);
+
 private:
-	ProgramOptions(int argc, char *argv[]) :
-	path( argv[argc-1] )
-	{}
+    ProgramOptions(int argc, char *argv[]);
 };
 
-#endif  //_PROGRAM_OPTIONS_H_
+#endif  // _PROGRAM_OPTIONS_H_

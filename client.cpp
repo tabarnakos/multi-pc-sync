@@ -1,15 +1,30 @@
+// *****************************************************************************
+// Client Implementation
+// *****************************************************************************
+
+// Section 1: Includes
+// C Standard Library
+#include <cstddef>
+
+// C++ Standard Library
+#include <iostream>
+#include <map>
+#include <string>
+
+// System Includes
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+// Project Includes
 #include "growing_buffer.h"
 #include "network_thread.h"
-#include <arpa/inet.h>
-#include <cstddef>
-#include <iostream>
-#include <netinet/in.h>
-#include <string>
-#include <sys/socket.h>
 #include "tcp_command.h"
 
-#define ALLOCATION_SIZE  (1024 * 1024)  //1MiB
+// Section 2: Defines and Macros
+#define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
 
+// Section 3: ClientThread Implementation
 void ClientThread::runclient(context &ctx)
 {
     ctx.latch.wait();

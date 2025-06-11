@@ -1,17 +1,32 @@
+// *****************************************************************************
+// Main Program Entry Point
+// *****************************************************************************
+
+// Section 1: Includes
+// C Standard Library
 #include <cmath>
 #include <cstdio>
-#include <bits/getopt_core.h>
-#include "network_thread.h"
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include "program_options.h"
+
+// C++ Standard Library
 #include <iostream>
 #include <thread>
 
+// System Includes
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <bits/getopt_core.h>
+
+// Project Includes
+#include "network_thread.h"
+#include "program_options.h"
+#include "tcp_command.h"
+
+// Section 2: Main Function
 int main(int argc, char *argv[])
 {
     const auto opts = ProgramOptions::parseArgs(argc, argv);
+    TcpCommand::setRateLimit(opts.rate_limit);  // Set global rate limit
 
     if (opts.ip.empty() && opts.mode == opts.MODE_CLIENT)
     {
@@ -23,14 +38,14 @@ int main(int argc, char *argv[])
     {
         // Server mode
         auto server = new ServerThread(opts);
-        if ( !server )
+        if (!server)
         {
             std::cout << "Error creating server thread" << std::endl;
             return -1;
         }
 
         server->start();
-        while (!server->isActive() )
+        while (!server->isActive())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -67,7 +82,7 @@ int main(int argc, char *argv[])
         }
 
         client->start();
-        while (!client->isActive() )
+        while (!client->isActive())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }

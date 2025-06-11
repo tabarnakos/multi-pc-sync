@@ -1,16 +1,29 @@
-#include "md5_wrapper.h"
+// *****************************************************************************
+// MD5 Wrapper Implementation
+// *****************************************************************************
+
+// Section 1: Includes
+// C++ Standard Library
 #include <cstdint>
 #include <cstdio>
-#include <md5.h>
 #include <cstring>
 #include <filesystem>
 #include <system_error>
+#include <string>
+#include <sstream>
+#include <iomanip>
 #include <iostream>
-#include <fstream>  // IWYU pragma: keep
+#include <fstream>
 
-#define MAX_MD5SUM_BUFFERSIZE       (256 * 1024 * 1024)
+// Project Includes
+#include "md5_wrapper.h"
+#include <md5.h>
 
-MD5Calculator::MD5Calculator( const char * path, bool verbose )
+// Section 2: Defines and Macros
+#define MAX_MD5SUM_BUFFERSIZE (256 * 1024 * 1024)
+
+// Section 3: MD5Calculator Implementation
+MD5Calculator::MD5Calculator(const char *path, bool verbose)
 {
     memset(mDigest.digest_native, 0, MD5_DIGEST_LENGHT_NATIVE);
 
@@ -60,4 +73,19 @@ MD5Calculator::MD5Calculator( const char * path, bool verbose )
 MD5Calculator::MD5Calculator( const std::string &path, bool verbose ) : 
 MD5Calculator(path.c_str(), verbose)
 {
+}
+
+std::string MD5Calculator::MD5Digest::to_string() {
+    std::stringstream ss;
+    ss << std::hex << std::setw(sizeof(uint64_t)) << std::setfill('0');
+    for (uint64_t i = 0; i < MD5_DIGEST_LENGHT_NATIVE; ++i)
+    {
+        ss << __bswap_64(digest_native[i]);
+    }
+    return ss.str();
+}
+
+bool MD5Calculator::MD5Digest::operator==(MD5Calculator::MD5Digest& other)
+{
+    return memcmp(this->digest_native, other.digest_native, MD5_DIGEST_LENGHT_NATIVE) == 0;
 }

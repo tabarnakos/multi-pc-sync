@@ -1,13 +1,25 @@
+// Section 1: Main Header
 #include "directory_indexer.h"
-#include "sync_command.h"
 
-#include "md5_wrapper.h"
+// Section 2: Includes
 #include "file.pb.h"
 #include "folder.pb.h"
+#include "md5_wrapper.h"
+#include "sync_command.h"
 #include <cstdio>
 #include <filesystem>
+#include <iostream>
+#include <list>
+#include <string>
 #include <unistd.h>
 
+// Section 3: Defines and Macros
+// (none)
+
+// Section 4: Static Variables
+// (none)
+
+// Section 5: Constructors and Destructors
 DirectoryIndexer::DirectoryIndexer(const std::filesystem::path &path, bool topLevel, INDEX_TYPE type ) :
     mDir( path ),
     mUpdateIndexFile( true ),
@@ -67,6 +79,10 @@ DirectoryIndexer::~DirectoryIndexer()
 { 
 }
 
+// Section 6: Static Methods
+// ...existing code...
+
+// Section 7: Public/Protected/Private Methods
 void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int recursionlevel )
 {
     if ( folderIndex == nullptr )
@@ -490,6 +506,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
 }
 
 
+// Section 8: Helper Functions
 com::fileindexer::File * DirectoryIndexer::findFileAtPath( com::fileindexer::Folder * folderIndex, const std::string & path, bool verbose )
 {
     if ( !folderIndex )
