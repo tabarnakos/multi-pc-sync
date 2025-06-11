@@ -20,14 +20,14 @@ public:
     virtual ~GrowingBuffer();
 
     size_t read(void *buf, const size_t size);
-    void write(const void *buf, const size_t size);
+    size_t write(const void *buf, const size_t size);
     template <class T>
     void write(const T &val) { this->write(&val, sizeof(T)); }
     void dumpToFile(FILE *fd, uintmax_t size);
     void dump(std::ostream &os);
-    void seek(int off, int whence);
+    int seek(int off, int whence);
     size_t tell();
-    void move(int off);
+    int move(int off);
     size_t size() const { return mSize; }
     template <class T>
     T operator[](size_t idx) {
@@ -44,7 +44,7 @@ protected:
     // (none)
 
 private:
-    void advise_access(size_t size);
+    int advise_access(size_t size);
     size_t mSize = 0;
     std::vector<void *> mBuffers;
     std::vector<size_t> mBufferSizes;

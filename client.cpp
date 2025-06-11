@@ -71,6 +71,7 @@ void ClientThread::runclient(context &ctx)
             std::cout << "Error receiving command from server" << std::endl;
             break;
         }
+        const std::string cmdName = receivedCommand->commandName();
         
         int err = 0;;
         switch (receivedCommand->command())
@@ -104,7 +105,7 @@ void ClientThread::runclient(context &ctx)
         }
         if (err < 0)
         {
-            std::cout << "Error executing command: " << receivedCommand->commandName() << std::endl;
+            std::cout << "Error executing command: " << cmdName << std::endl;
             ctx.con_opened = false;
         }
         else if (err > 0)
@@ -113,7 +114,7 @@ void ClientThread::runclient(context &ctx)
             ctx.con_opened = false;
         }
         else
-            std::cout << "Executed command: " << receivedCommand->command() << std::endl;
+            std::cout << "Executed command: " << cmdName << std::endl;
     }
 
     ctx.active = false;

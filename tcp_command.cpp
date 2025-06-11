@@ -33,6 +33,7 @@
 // Section 3: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  // 64MiB
+#define MAX_STRING_SIZE  (256 * 1024)  // 256KiB
 
 // Section 4: Static Variables
 std::mutex TcpCommand::TCPSendMutex;
@@ -278,7 +279,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
 int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
-    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), payloadSize);
     
     if (bytesReceived < payloadSize) {
         unblock_receive();
@@ -592,6 +593,10 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
     const size_t cmdSize = this->cmdSize();
     uint8_t *buf = new uint8_t[cmdSize];
     size_t bytesLeft = cmdSize - mData.size();
+    if ( mData.seek(kPayloadIndex, SEEK_SET) < 0 ) {
+        delete[] buf;
+        return 0; // Error seeking to payload index
+    }
 
     while (bytesLeft > 0) {
         ssize_t n = recv(socket, buf, bytesLeft, 0);
@@ -614,7 +619,7 @@ int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool ca
         mData.write(&size, kSizeSize);
     }
 
-    int socket = std::stoi(args.at("rxsocket"));
+    int socket = std::stoi(args.at("txsocket"));
     uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
     mData.seek(0, SEEK_SET);
     size_t remaining = mData.size();
@@ -635,10 +640,13 @@ int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool ca
 }
 
 void TcpCommand::dump(std::ostream& os) {
+#if 0
     size_t size = cmdSize();
     cmd_id_t cmd = command();
     os << "Command size: " << size << "\n";
     os << "Command ID: " << static_cast<int>(cmd) << " (" << commandName() << ")\n";
+#endif
+    mData.dump(os);
 }
 
 size_t TcpCommand::cmdSize() {
@@ -677,7 +685,10 @@ std::string TcpCommand::readPathFromBuffer(size_t off, int whence) {
 std::string TcpCommand::extractStringFromPayload() {
     size_t strSize;
     mData.read(&strSize, sizeof(size_t));
-    
+    if (strSize > MAX_STRING_SIZE) {
+        std::cerr << "String size exceeds maximum allowed size: " << strSize << " > " << MAX_STRING_SIZE << std::endl;
+        return "";
+    }
     std::string str(strSize, '\0');
     mData.read(&str[0], strSize);
     return str;
