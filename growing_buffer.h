@@ -79,7 +79,7 @@ public:
      * Gets current position in the buffer
      * @return Current position
      */
-    size_t tell();
+    size_t tell() const;
 
     /**
      * Moves the current position by the specified offset
@@ -96,15 +96,15 @@ public:
 
     /**
      * Array access operator to read a value of type T at the given index
-     * @param idx Index to read from (multiplied by sizeof(T))
+     * @param idx Index to read from
      * @return Value at the specified index
      */
     template <class T>
     T operator[](size_t idx) {
-        idx = idx * sizeof(T);
         T val;
         this->seek(idx, SEEK_SET);
         this->read(&val, sizeof(T));
+        this->move(-(int)sizeof(T)); // Restore original position
         return val;
     }
 

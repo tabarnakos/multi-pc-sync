@@ -74,6 +74,14 @@ public:
     static TcpCommand* create(GrowingBuffer& data);
 
     /**
+     * Creates a TcpCommand instance using the provided arguments
+     * @param cmd The command ID to create
+     * @param args Map of arguments to create the command from
+     * @return A new TcpCommand instance of the appropriate derived type, or nullptr if invalid
+     */
+    static TcpCommand* create(cmd_id_t cmd, std::map<std::string, std::string>& args);
+
+    /**
      * Receives a command header from the socket
      * @param socket The socket file descriptor to receive from
      * @return A new TcpCommand instance created from the received header, or nullptr on error
@@ -137,11 +145,29 @@ public:
     int transmit(const std::map<std::string, std::string>& args, bool calculateSize = true);
 
     /**
+     * Sends a chunk of data over the network
+     * @param socket The socket file descriptor to send to
+     * @param buffer Pointer to the data buffer to send
+     * @param len Number of bytes to send
+     * @return Number of bytes actually sent
+     */
+    size_t sendChunk(const int socket, const void* buffer, size_t len);
+
+    /**
      * Sends a file over the network
      * @param args Map of arguments including "path" for the file path and "txsocket" for the target socket
      * @return 0 on success, negative value on error
      */
     int SendFile(const std::map<std::string, std::string>& args);
+
+    /**
+     * Receives a chunk of data from a socket
+     * @param socket The socket file descriptor to receive from
+     * @param buffer Pointer to the buffer to store received data
+     * @param len Number of bytes to receive
+     * @return Number of bytes actually received
+     */
+    size_t ReceiveChunk(const int socket, void* buffer, size_t len);
 
     /**
      * Receives a file from the network

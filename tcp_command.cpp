@@ -35,6 +35,7 @@
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
 #define MAX_PAYLOAD_SIZE (64 * ALLOCATION_SIZE)  // 64MiB
 #define MAX_STRING_SIZE  (256 * 1024)  // 256KiB
+#define MAX_FILE_SIZE    (64ULL * 1024ULL * 1024ULL * 1024ULL)  // 64GiB
 
 // Section 4: Static Variables
 std::mutex TcpCommand::TCPSendMutex;
@@ -689,10 +690,7 @@ void TcpCommand::dump(std::ostream& os) {
 }
 
 size_t TcpCommand::cmdSize() {
-    mData.seek(kSizeIndex, SEEK_SET);
-    size_t size;
-    mData.read(&size, kSizeSize);
-    return size;
+    return mData.operator[]<size_t>(kSizeIndex);
 }
 
 void TcpCommand::setCmdSize(size_t size) {
@@ -747,80 +745,128 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         std::cerr << "Failed to open file for reading: " << path << " - " << strerror(errno) << std::endl;
         return -1;
     }
-
-    std::streamsize file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // Create command header with file size
-    mData.seek(0, SEEK_SET);
-    // Total command size is: size field + command ID + file size field
-    size_t total_cmd_size = kSizeSize + kCmdSize + sizeof(file_size);
-    std::cout << "\nSENDFILE HEADER:"
-              << "\n  Command size: " << total_cmd_size << " bytes"
-              << "\n  Command ID: " << CMD_ID_PUSH_FILE
-              << "\n  File size: " << file_size << " bytes"
-              << "\n  Header size: " << total_cmd_size << " bytes" << std::endl;
-
-    mData.write(&total_cmd_size, kSizeSize);
-    cmd_id_t cmd = CMD_ID_PUSH_FILE;
-    mData.write(&cmd, kCmdSize);
-    mData.write(&file_size, sizeof(file_size));
-    
+    std::cout << "DEBUG: Sending file: " << path << std::endl;
+    int socket = std::stoi(args.at("txsocket"));
     std::cout << "DEBUG: Sending file header..." << std::endl;
+    size_t path_size = path.size();
     
-    // Send the header first
-    if (transmit(args, false) < 0) {
-        std::cerr << "Failed to send file header" << std::endl;
+    size_t sent_bytes = sendChunk(socket, &path_size, sizeof(size_t));
+    if (sent_bytes < sizeof(size_t)) {
+        std::cerr << "Failed to send path size" << std::endl;
         return -1;
     }
-
-    std::cout << "DEBUG: Header sent successfully, starting file content..." << std::endl;
-
+    std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
+    sent_bytes = sendChunk(socket, path.data(), path_size);
+    if (sent_bytes < path_size) {
+        std::cerr << "Failed to send file path" << std::endl;
+        return -1;
+    }
+    std::cout << "DEBUG: File path sent: " << path << std::endl;
+    // Get the file size
+    std::streamsize file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
+    if (file_size < 0 || file_size > MAX_FILE_SIZE) {
+        std::cerr << "Invalid file size: " << file_size << " bytes" << std::endl;
+        return -1;
+    }
+    // Send the file size
+    size_t file_size_net = static_cast<size_t>(file_size);
+    std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << std::endl;
+    sent_bytes = sendChunk(socket, &file_size_net, sizeof(size_t));
+    if (sent_bytes < sizeof(size_t)) {
+        std::cerr << "Failed to send file size" << std::endl;
+        return -1;
+    }
+    
     // Now send the file contents in chunks
     uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
     size_t total_bytes_sent = 0;
-    HumanReadable total_size(file_size);
-    int socket = std::stoi(args.at("txsocket"));
 
     while (total_bytes_sent < file_size) {
         size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - total_bytes_sent);
         
         // Read chunk from file
         if (!file.read(reinterpret_cast<char*>(buffer), bytes_to_read)) {
-            std::cerr << "Failed to read from file after " << total_bytes_sent << " bytes" << std::endl;
+            std::cerr << "Failed to read from file after " << HumanReadable(total_bytes_sent) << " bytes" << std::endl;
             delete[] buffer;
             return -1;
         }
 
-        size_t chunk_sent = 0;
-        while (chunk_sent < bytes_to_read) {
-            ssize_t sent = send(socket, buffer + chunk_sent, bytes_to_read - chunk_sent, 0);
-            if (sent <= 0) {
-                std::cerr << "Send error at " << total_bytes_sent + chunk_sent << " bytes: " 
-                         << strerror(errno) << std::endl;
-                delete[] buffer;
-                return -1;
-            }
-            
-            chunk_sent += sent;
-            std::cout << "DEBUG: Sent chunk of " << sent << " bytes "
-                      << "(chunk progress: " << chunk_sent << "/" << bytes_to_read 
-                      << ", total: " << total_bytes_sent + chunk_sent << "/" << file_size << ")" << std::endl;
+        size_t chunk_sent = sendChunk(socket, buffer, bytes_to_read);
+        if (chunk_sent < bytes_to_read) {
+            std::cerr << "Failed to send file chunk after " << HumanReadable(total_bytes_sent) << " bytes" << std::endl;
+            delete[] buffer;
+            return -1;
         }
-
         total_bytes_sent += chunk_sent;
-        
+        std::cout << "DEBUG: Sent chunk of " << chunk_sent 
+                  << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
+                  << "/" << HumanReadable(file_size) << ")" << std::endl;
+
         // Force flush output to ensure logs appear in real-time
-        std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << total_size 
+        std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
                   << " (" << (total_bytes_sent * 100 / file_size) << "%)" << std::endl;
     }
 
-    std::cout << "DEBUG: File send complete. Total bytes sent: " << total_bytes_sent 
-              << " of " << file_size << " expected" << std::endl;
+    std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
+              << " of " << HumanReadable(file_size) << " expected" << std::endl;
 
     delete[] buffer;
+    file.close();
+    std::cout << "DEBUG: File " << path << " sent successfully." << std::endl;
     return 0;
 }
+
+size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
+{
+    size_t chunk_sent = 0;
+    const uint8_t* buf = static_cast<const uint8_t*>(buffer);
+    while (chunk_sent < len) {
+        ssize_t n = send(socket, buf + chunk_sent, len - chunk_sent, 0);
+        if (n <= 0) {
+            if (n == 0) {
+                std::cerr << "Connection closed by peer after sending "
+                          << HumanReadable(chunk_sent) << std::endl;
+            } else {
+                std::cerr << "Send error at " << HumanReadable(chunk_sent)
+                          << ": " << strerror(errno) << std::endl;
+            }
+            return -1;
+        }
+        std::cout << "DEBUG: Sent chunk of " << n
+                  << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << std::endl;
+        chunk_sent += n;
+    }
+    return chunk_sent;
+}
+
+size_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
+{
+    size_t chunk_received = 0;
+
+    while (chunk_received < len) {
+        ssize_t n = recv(socket, static_cast<uint8_t*>(buffer) + chunk_received, len - chunk_received, 0);
+        if (n <= 0) {
+            if (n == 0) {
+                std::cerr << "Connection closed by peer after receiving "
+                            << chunk_received << " bytes" << std::endl;
+            } else {
+                std::cerr << "Receive error at " << chunk_received 
+                            << " bytes: " << strerror(errno) << std::endl;
+            }
+            return -1;
+        }
+
+        std::cout << "DEBUG: Received chunk of " << HumanReadable(n) 
+                    << "(chunk progress: " << HumanReadable(chunk_received) 
+                    << "/" << HumanReadable(len) << std::endl;
+        chunk_received += n;
+    }
+
+    return chunk_received;
+}
+
 
 int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
     std::cout << "DEBUG: Starting ReceiveFile..." << std::endl;
@@ -832,86 +878,176 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
 
-    // Read and validate header
-    size_t header_size = kSizeSize;  // Start with size field
-    int rxsocket = std::stoi(args.at("txsocket"));
-    if (receivePayload(rxsocket, header_size) < 0) {
-        std::cerr << "Failed to receive command size" << std::endl;
-        return -1;
-    }
-
-    size_t cmd_size;
-    mData.read(&cmd_size, kSizeSize);
-
-    header_size = cmd_size - kSizeSize;  // Remaining header data
-    if (receivePayload(rxsocket, header_size) < 0) {
-        std::cerr << "Failed to receive command header" << std::endl;
-        return -1;
-    }
-
-    cmd_id_t cmd;
-    mData.read(&cmd, kCmdSize);
-
-    size_t total_size;
-    mData.read(&total_size, sizeof(total_size));
-
-    std::cout << "\nRECEIVEFILE HEADER:"
-              << "\n  Received command size: " << cmd_size << " bytes"
-              << "\n  Command ID: " << cmd
-              << "\n  Expected file size: " << total_size << " bytes"
-              << "\n  Header size: " << cmd_size << " bytes"
-              << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
+    int socket = std::stoi(args.at("txsocket"));
 
     // Now receive the file data in chunks
     size_t total_bytes_received = 0;
-    HumanReadable total_readable(total_size);
-    int socket = std::stoi(args.at("txsocket"));
+            
+    size_t path_size;
+    int received_bytes = ReceiveChunk(socket, &path_size, kSizeSize);
+    if (received_bytes < kSizeSize) {
+        std::cerr << "Failed to receive path size" << std::endl;
+        return -1;
+    }
+    if (path_size > MAX_STRING_SIZE) {
+        std::cerr << "Path size exceeds maximum allowed size: " << path_size << " > " << MAX_STRING_SIZE << std::endl;
+        return -1;
+    }
+    std::string received_path(path_size, '\0');
+    received_bytes = ReceiveChunk(socket, &received_path[0], path_size);
+    if (received_bytes < path_size) {
+        std::cerr << "Failed to receive file path" << std::endl;
+        return -1;
+    }
+    std::cout << "DEBUG: Received file path: " << received_path << std::endl;
+    
+    size_t file_size;
+    received_bytes = ReceiveChunk(socket, &file_size, kSizeSize);
+    if (received_bytes < kSizeSize) {
+        std::cerr << "Failed to receive file size" << std::endl;
+        return -1;
+    }
+    if (file_size > MAX_FILE_SIZE) {
+        std::cerr << "File size exceeds maximum allowed size: " << file_size << " > " << MAX_FILE_SIZE << std::endl;
+        return -1;
+    }
+    std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << std::endl;
+            
     uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
+    received_bytes = 0;
+            
+    while (received_bytes < file_size) {
+        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - received_bytes);
 
-    while (total_bytes_received < total_size) {
-        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, total_size - total_bytes_received);
-        size_t chunk_received = 0;
-
-        while (chunk_received < bytes_to_read) {
-            ssize_t n = recv(socket, buffer + chunk_received, bytes_to_read - chunk_received, 0);
-            if (n <= 0) {
-                if (n == 0) {
-                    std::cerr << "Connection closed by peer after receiving " 
-                             << total_bytes_received + chunk_received << " bytes" << std::endl;
-                } else {
-                    std::cerr << "Receive error at " << total_bytes_received + chunk_received 
-                             << " bytes: " << strerror(errno) << std::endl;
-                }
-                delete[] buffer;
-                return -1;
-            }
-
-            chunk_received += n;
-            std::cout << "DEBUG: Received chunk of " << n << " bytes "
-                      << "(chunk progress: " << chunk_received << "/" << bytes_to_read 
-                      << ", total: " << total_bytes_received + chunk_received << "/" << total_size << ")" << std::endl;
-        }
-
-        // Write the received chunk to file
-        if (!file.write(reinterpret_cast<char*>(buffer), chunk_received)) {
-            std::cerr << "Failed to write to file at " << total_bytes_received << " bytes" << std::endl;
+        size_t chunk_received = ReceiveChunk(socket, buffer, bytes_to_read);
+        if (chunk_received < 0) {
+            std::cerr << "Error receiving file chunk after " << HumanReadable(received_bytes) << std::endl;
             delete[] buffer;
+            file.flush();
             return -1;
         }
-        file.flush();  // Ensure data is written to disk
-
-        total_bytes_received += chunk_received;
+        if (chunk_received == 0) {
+            std::cerr << "No more data received, connection may have been closed prematurely" << std::endl;
+            delete[] buffer;
+            file.flush();
+            return -1;
+        }
+        
+        // Write the received chunk to file
+        if (!file.write(reinterpret_cast<char*>(buffer), chunk_received)) {
+            std::cerr << "Failed to write to file at " << HumanReadable(received_bytes) << " bytes" << std::endl;
+            delete[] buffer;
+            file.flush();
+            return -1;
+        }
+        received_bytes += chunk_received;
         
         // Force flush output to ensure logs appear in real-time
-        std::cout << "Progress: " << HumanReadable(total_bytes_received) << " of " << total_readable 
-                  << " (" << (total_bytes_received * 100 / total_size) << "%)" << std::endl;
+        std::cout << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size) 
+                  << " (" << (received_bytes * 100. / file_size) << "%)" << std::endl;
     }
-
-    std::cout << "DEBUG: File receive complete. Total bytes received: " << total_bytes_received 
-              << " of " << total_size << " expected" << std::endl;
-
+    std::cout << "DEBUG: File receive complete. Wrote: " << HumanReadable(received_bytes)
+              << " of " << HumanReadable(file_size) << " to disk" << std::endl;  
+    file.close();   // Will automatically flush the file buffer
     delete[] buffer;
     return 0;
 }
 
 // Section 8: Helper Functions
+TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>& args) {
+    TcpCommand* command = nullptr;
+    GrowingBuffer buffer;
+    size_t commandSize = kSizeSize + kCmdSize;  // header only
+    buffer.write(&commandSize, kSizeSize);
+    buffer.write(&cmd, kCmdSize);
+
+    switch (cmd) {
+        case CMD_ID_INDEX_FOLDER:
+            // No payload for INDEX_FOLDER
+            command = new IndexFolderCmd(buffer);
+            break;
+
+        case CMD_ID_MKDIR_REQUEST:
+        case CMD_ID_RM_REQUEST:
+        case CMD_ID_RMDIR_REQUEST:
+        case CMD_ID_FETCH_FILE_REQUEST:
+            if (args.find("path1") == args.end()) {
+                std::cerr << "Error: Missing required 'path1' argument for path-based command" << std::endl;
+                return nullptr;
+            }
+            {
+                size_t pathSize = args["path1"].size();
+                buffer.write(&pathSize, sizeof(size_t));
+                buffer.write(args["path1"].data(), pathSize);
+                commandSize += sizeof(size_t) + pathSize;
+                switch (cmd) {
+                    case CMD_ID_MKDIR_REQUEST:
+                        command = new MkdirCmd(buffer);
+                        break;
+                    case CMD_ID_RM_REQUEST:
+                        command = new RmCmd(buffer);
+                        break;
+                    case CMD_ID_RMDIR_REQUEST:
+                        command = new RmdirCmd(buffer);
+                        break;
+                    case CMD_ID_FETCH_FILE_REQUEST:
+                        command = new FileFetchCmd(buffer);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+
+        case CMD_ID_PUSH_FILE:
+            // No payload for PUSH_FILE, path is sent in SendFile
+            command = new FilePushCmd(buffer);
+            break;
+
+        case CMD_ID_REMOTE_LOCAL_COPY:
+            if (args.find("path1") == args.end() || args.find("path2") == args.end()) {
+                std::cerr << "Error: Missing required 'path1' or 'path2' argument for REMOTE_LOCAL_COPY command" << std::endl;
+                return nullptr;
+            }
+            {
+                size_t path1Size = args["path1"].size();
+                size_t path2Size = args["path2"].size();
+                buffer.write(&path1Size, sizeof(size_t));
+                buffer.write(args["path1"].data(), path1Size);
+                buffer.write(&path2Size, sizeof(size_t));
+                buffer.write(args["path2"].data(), path2Size);
+                commandSize += sizeof(size_t) + path1Size + sizeof(size_t) + path2Size;
+                command = new RemoteLocalCopyCmd(buffer);
+            }
+            break;
+
+        case CMD_ID_MESSAGE:
+            if (args.find("path1") == args.end()) {
+                std::cerr << "Error: Missing required 'path1' argument for MESSAGE command" << std::endl;
+                return nullptr;
+            }
+            command = new MessageCmd(args["path1"]);
+            break;
+
+        case CMD_ID_SYNC_COMPLETE:
+            command = new SyncCompleteCmd(buffer);
+            break;
+        case CMD_ID_SYNC_DONE:
+            command = new SyncDoneCmd(buffer);
+            break;
+        default:
+            std::cerr << "Error: Unknown command type: " << cmd << std::endl;
+            return nullptr;
+    }
+
+    if (!command) {
+        std::cerr << "Error: Failed to create command object" << std::endl;
+        return nullptr;
+    }
+
+    // Update the command size in the buffer after payload is written
+    buffer.seek(kSizeIndex, SEEK_SET);
+    buffer.write(&commandSize, kSizeSize);
+
+    return command;
+}

@@ -127,7 +127,7 @@ int GrowingBuffer::seek(int off, int whence) {
     }
 }
 
-size_t GrowingBuffer::tell() {
+size_t GrowingBuffer::tell() const{
     return mPublicIndex;
 }
 

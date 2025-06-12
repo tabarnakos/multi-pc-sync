@@ -7,15 +7,16 @@
 
 // Section 1: Includes
 // C++ Standard Library
+#include <cstdint>
 #include <iostream>
 
 // Section 2: Class Definition
 // Utility class to format byte sizes in human-readable format
 class HumanReadable {
 public:
-    size_t size;
+    uintmax_t size;
 
-    explicit HumanReadable(size_t bytes) : size(bytes) {}
+    explicit HumanReadable(uintmax_t bytes) : size(bytes) {}
 
     friend std::ostream& operator<<(std::ostream& os, const HumanReadable& hr) {
         const char* units[] = {"B", "KB", "MB", "GB", "TB"};
@@ -27,8 +28,8 @@ public:
             unitIndex++;
         }
 
-        char buffer[32];
-        snprintf(buffer, sizeof(buffer), "%.2f %s", size, units[unitIndex]);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), unitIndex == 0 ? "%.0f %s" : "%.2f %s", size, units[unitIndex]);
         return os << buffer;
     }
 };
