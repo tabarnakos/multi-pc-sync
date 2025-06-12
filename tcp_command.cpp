@@ -14,6 +14,7 @@
 #include <cstring>
 
 // C++ Standard Library
+#include <algorithm>  // For std::min
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -251,6 +252,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
     }
+    block_transmit();
     command->transmit(args, true);
     delete command;
 
@@ -278,12 +280,13 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
 
 int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 {
+    // Keep receive mutex locked until we've received everything
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), payloadSize);
     
     if (bytesReceived < payloadSize) {
-        unblock_receive();
         std::cerr << "Error receiving payload for IndexPayloadCmd" << std::endl;
+        unblock_receive();  // Only unlock on error
         return -1;
     }
 
@@ -467,8 +470,19 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
 
 int FilePushCmd::execute(const std::map<std::string,std::string> &args)
 {
-    std::map <std::string,std::string> fileargs;
-    fileargs["txsocket"] = args.at("txsocket");
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    if (bytesReceived < payloadSize) {
+        std::cerr << "Error receiving file path in FilePushCmd" << std::endl;
+        unblock_receive();
+        return -1;
+    }
+
+    std::string path = readPathFromBuffer(kPathSizeIndex);
+    std::map<std::string, std::string> fileargs = args;
+    fileargs["path"] = path;
+    
+    std::cout << "DEBUG: FilePushCmd receiving file to path: " << path << std::endl;
     int ret = ReceiveFile(fileargs);
     unblock_receive();
     return ret;
@@ -591,25 +605,50 @@ void MessageCmd::sendMessage(const int socket, const std::string &message)
 
 size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
     const size_t cmdSize = this->cmdSize();
-    uint8_t *buf = new uint8_t[cmdSize];
-    size_t bytesLeft = cmdSize - mData.size();
-    if ( mData.seek(kPayloadIndex, SEEK_SET) < 0 ) {
-        delete[] buf;
-        return 0; // Error seeking to payload index
+    const size_t bufSize = maxlen > 0 ? std::min<size_t>(maxlen, ALLOCATION_SIZE) : ALLOCATION_SIZE;
+    uint8_t* buffer = new uint8_t[bufSize];
+    size_t totalReceived = 0;
+    const size_t targetSize = maxlen > 0 ? std::min<size_t>(maxlen, cmdSize - mData.size()) : cmdSize - mData.size();
+
+    std::cout << "DEBUG: receivePayload starting with"
+              << "\n  Target size: " << targetSize << " bytes"
+              << "\n  Command size: " << cmdSize << " bytes"
+              << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
+
+    if (mData.seek(mData.size(), SEEK_SET) < 0) {
+        std::cerr << "Error seeking to end of buffer" << std::endl;
+        delete[] buffer;
+        return 0;
     }
 
-    while (bytesLeft > 0) {
-        ssize_t n = recv(socket, buf, bytesLeft, 0);
+    while (totalReceived < targetSize) {
+        size_t remainingBytes = targetSize - totalReceived;
+        size_t bytesToReceive = std::min<size_t>(remainingBytes, bufSize);
+        
+        ssize_t n = recv(socket, buffer, bytesToReceive, 0);
         if (n <= 0) {
-            delete[] buf;
-            return 0;
+            if (n == 0) {
+                std::cerr << "Connection closed by peer after receiving " << totalReceived << " bytes" << std::endl;
+            } else {
+                std::cerr << "Receive error after " << totalReceived << " bytes: " << strerror(errno) << std::endl;
+            }
+            delete[] buffer;
+            return totalReceived;
         }
-        mData.write(buf, n);
-        bytesLeft -= n;
+
+        if (mData.write(buffer, n) != n) {
+            std::cerr << "Error writing " << n << " bytes to buffer" << std::endl;
+            delete[] buffer;
+            return totalReceived;
+        }
+
+        totalReceived += n;
+        std::cout << "DEBUG: receivePayload received " << n << " bytes (total: " << totalReceived 
+                  << "/" << targetSize << ")" << std::endl;
     }
 
-    delete[] buf;
-    return cmdSize;
+    delete[] buffer;
+    return totalReceived;
 }
 
 int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool calculateSize) {
@@ -705,77 +744,174 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     const std::string& path = args.at("path");
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
+        std::cerr << "Failed to open file for reading: " << path << " - " << strerror(errno) << std::endl;
         return -1;
     }
 
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
-    size_t file_bytes = 0;
-    HumanReadable total_size(file_size);
-    const auto update_interval = std::max<size_t>(file_size / 100, ALLOCATION_SIZE); // Update every 1% or at least every buffer
-    size_t next_update = update_interval;
+    // Create command header with file size
+    mData.seek(0, SEEK_SET);
+    // Total command size is: size field + command ID + file size field
+    size_t total_cmd_size = kSizeSize + kCmdSize + sizeof(file_size);
+    std::cout << "\nSENDFILE HEADER:"
+              << "\n  Command size: " << total_cmd_size << " bytes"
+              << "\n  Command ID: " << CMD_ID_PUSH_FILE
+              << "\n  File size: " << file_size << " bytes"
+              << "\n  Header size: " << total_cmd_size << " bytes" << std::endl;
 
-    while (file_bytes < file_size) {
-        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - file_bytes);
-        if (!file.read(reinterpret_cast<char*>(buffer), bytes_to_read)) {
-            delete[] buffer;
-            return -1;
-        }
-        mData.write(buffer, bytes_to_read);
-        file_bytes += bytes_to_read;
-
-        // Only update progress at reasonable intervals to avoid console spam
-        if (file_bytes >= next_update || file_bytes == file_size) {
-            std::cout << "Sent " << HumanReadable(file_bytes) << " of " << total_size 
-                      << " (" << (file_bytes * 100 / file_size) << "%)\r" << std::flush;
-            next_update = file_bytes + update_interval;
-        }
-    }
-    std::cout << std::endl; // Final newline after progress updates
-
-    delete[] buffer;
-    return transmit(args);
-}
-
-int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
-    const std::string& path = args.at("path");
-    std::ofstream file(path, std::ios::binary);
-    if (!file) {
+    mData.write(&total_cmd_size, kSizeSize);
+    cmd_id_t cmd = CMD_ID_PUSH_FILE;
+    mData.write(&cmd, kCmdSize);
+    mData.write(&file_size, sizeof(file_size));
+    
+    std::cout << "DEBUG: Sending file header..." << std::endl;
+    
+    // Send the header first
+    if (transmit(args, false) < 0) {
+        std::cerr << "Failed to send file header" << std::endl;
         return -1;
     }
 
-    mData.seek(0, SEEK_SET);
-    size_t total_size = mData.size();
-    size_t remaining = total_size;
+    std::cout << "DEBUG: Header sent successfully, starting file content..." << std::endl;
+
+    // Now send the file contents in chunks
     uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
-    HumanReadable total_size_hr(total_size);
-    const auto update_interval = std::max<size_t>(total_size / 100, ALLOCATION_SIZE); // Update every 1% or at least every buffer
-    size_t next_update = update_interval;
-    size_t bytes_received = 0;
-    
-    while (remaining > 0) {
-        size_t read_size = std::min(remaining, (size_t)ALLOCATION_SIZE);
-        mData.read(buffer, read_size);
-        if (!file.write(reinterpret_cast<char*>(buffer), read_size)) {
+    size_t total_bytes_sent = 0;
+    HumanReadable total_size(file_size);
+    int socket = std::stoi(args.at("txsocket"));
+
+    while (total_bytes_sent < file_size) {
+        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - total_bytes_sent);
+        
+        // Read chunk from file
+        if (!file.read(reinterpret_cast<char*>(buffer), bytes_to_read)) {
+            std::cerr << "Failed to read from file after " << total_bytes_sent << " bytes" << std::endl;
             delete[] buffer;
             return -1;
         }
-        remaining -= read_size;
-        bytes_received = total_size - remaining;
 
-        // Only update progress at reasonable intervals to avoid console spam
-        if (bytes_received >= next_update || remaining == 0) {
-            std::cout << "Received " << HumanReadable(bytes_received) << " of " << total_size_hr 
-                      << " (" << (bytes_received * 100 / total_size) << "%)\r" << std::flush;
-            next_update = bytes_received + update_interval;
+        size_t chunk_sent = 0;
+        while (chunk_sent < bytes_to_read) {
+            ssize_t sent = send(socket, buffer + chunk_sent, bytes_to_read - chunk_sent, 0);
+            if (sent <= 0) {
+                std::cerr << "Send error at " << total_bytes_sent + chunk_sent << " bytes: " 
+                         << strerror(errno) << std::endl;
+                delete[] buffer;
+                return -1;
+            }
+            
+            chunk_sent += sent;
+            std::cout << "DEBUG: Sent chunk of " << sent << " bytes "
+                      << "(chunk progress: " << chunk_sent << "/" << bytes_to_read 
+                      << ", total: " << total_bytes_sent + chunk_sent << "/" << file_size << ")" << std::endl;
         }
+
+        total_bytes_sent += chunk_sent;
+        
+        // Force flush output to ensure logs appear in real-time
+        std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << total_size 
+                  << " (" << (total_bytes_sent * 100 / file_size) << "%)" << std::endl;
     }
-    std::cout << std::endl; // Final newline after progress updates
-    
+
+    std::cout << "DEBUG: File send complete. Total bytes sent: " << total_bytes_sent 
+              << " of " << file_size << " expected" << std::endl;
+
     delete[] buffer;
-    return file.good() ? 0 : -1;
+    return 0;
+}
+
+int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
+    std::cout << "DEBUG: Starting ReceiveFile..." << std::endl;
+    
+    const std::string& path = args.at("path");
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        std::cerr << "Failed to open file for writing: " << path << " - " << strerror(errno) << std::endl;
+        return -1;
+    }
+
+    // Read and validate header
+    size_t header_size = kSizeSize;  // Start with size field
+    int rxsocket = std::stoi(args.at("txsocket"));
+    if (receivePayload(rxsocket, header_size) < 0) {
+        std::cerr << "Failed to receive command size" << std::endl;
+        return -1;
+    }
+
+    size_t cmd_size;
+    mData.read(&cmd_size, kSizeSize);
+
+    header_size = cmd_size - kSizeSize;  // Remaining header data
+    if (receivePayload(rxsocket, header_size) < 0) {
+        std::cerr << "Failed to receive command header" << std::endl;
+        return -1;
+    }
+
+    cmd_id_t cmd;
+    mData.read(&cmd, kCmdSize);
+
+    size_t total_size;
+    mData.read(&total_size, sizeof(total_size));
+
+    std::cout << "\nRECEIVEFILE HEADER:"
+              << "\n  Received command size: " << cmd_size << " bytes"
+              << "\n  Command ID: " << cmd
+              << "\n  Expected file size: " << total_size << " bytes"
+              << "\n  Header size: " << cmd_size << " bytes"
+              << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
+
+    // Now receive the file data in chunks
+    size_t total_bytes_received = 0;
+    HumanReadable total_readable(total_size);
+    int socket = std::stoi(args.at("txsocket"));
+    uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
+
+    while (total_bytes_received < total_size) {
+        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, total_size - total_bytes_received);
+        size_t chunk_received = 0;
+
+        while (chunk_received < bytes_to_read) {
+            ssize_t n = recv(socket, buffer + chunk_received, bytes_to_read - chunk_received, 0);
+            if (n <= 0) {
+                if (n == 0) {
+                    std::cerr << "Connection closed by peer after receiving " 
+                             << total_bytes_received + chunk_received << " bytes" << std::endl;
+                } else {
+                    std::cerr << "Receive error at " << total_bytes_received + chunk_received 
+                             << " bytes: " << strerror(errno) << std::endl;
+                }
+                delete[] buffer;
+                return -1;
+            }
+
+            chunk_received += n;
+            std::cout << "DEBUG: Received chunk of " << n << " bytes "
+                      << "(chunk progress: " << chunk_received << "/" << bytes_to_read 
+                      << ", total: " << total_bytes_received + chunk_received << "/" << total_size << ")" << std::endl;
+        }
+
+        // Write the received chunk to file
+        if (!file.write(reinterpret_cast<char*>(buffer), chunk_received)) {
+            std::cerr << "Failed to write to file at " << total_bytes_received << " bytes" << std::endl;
+            delete[] buffer;
+            return -1;
+        }
+        file.flush();  // Ensure data is written to disk
+
+        total_bytes_received += chunk_received;
+        
+        // Force flush output to ensure logs appear in real-time
+        std::cout << "Progress: " << HumanReadable(total_bytes_received) << " of " << total_readable 
+                  << " (" << (total_bytes_received * 100 / total_size) << "%)" << std::endl;
+    }
+
+    std::cout << "DEBUG: File receive complete. Total bytes received: " << total_bytes_received 
+              << " of " << total_size << " expected" << std::endl;
+
+    delete[] buffer;
+    return 0;
 }
 
 // Section 8: Helper Functions
