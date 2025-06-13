@@ -10,12 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # protobuf
 find_package(Protobuf REQUIRED CONFIG)
 include_directories(${PROTOBUF_INCLUDE_DIR})
-
+include_directories(${CMAKE_SOURCE_DIR})
+include_directories(tcp_command)
 include_directories(hash)
 include(hash/hash.mk)
+include(tcp_command/tcp_command.mk)
 
 set ( multi_pc_sync_src
 	${hash_src}
+	${tcp_command_src}
 	client.cpp
 	directory_indexer.cpp
 	file.proto
@@ -26,11 +29,11 @@ set ( multi_pc_sync_src
 	server.cpp
 	socket_helpers.cpp
 	sync_command.cpp
-	tcp_command.cpp
 	)
 
 set ( multi_pc_sync_hdr
 	${hash_hdr}
+	${tcp_command_hdr}
 	directory_indexer.h
 	growing_buffer.h
 	human_readable.h
@@ -38,7 +41,6 @@ set ( multi_pc_sync_hdr
 	program_options.h
 	socket_helpers.h
 	sync_command.h
-	tcp_command.h
 	)
 
 add_executable( multi_pc_sync ${multi_pc_sync_src} ${multi_pc_sync_hdr} )

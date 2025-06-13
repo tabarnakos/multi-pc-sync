@@ -273,14 +273,15 @@ def main():
         t.join()
 
     # Optionally, run assertions after all tests
-    #global_results = []
-    #for i in range(num_tests):
-    #    test_scenario(i, global_results)
+    global_results = []
+    for i in range(num_tests):
+        test_scenario(i, global_results)
 
     # Global assertion report
-    #total_passed = sum(p for p, t in global_results)
-    #total_asserts = sum(t for p, t in global_results)
-    #console.print(colored(f"\nGlobal assertion report: Passed {total_passed}/{total_asserts} assertions.", CYAN if total_passed == total_asserts else RED))
+    total_passed = sum(p for p, t in global_results)
+    total_asserts = sum(t for p, t in global_results)
+    console.print(colored(f"\nGlobal assertion report: Passed {total_passed}/{total_asserts} assertions.", CYAN if total_passed == total_asserts else RED))
+    input("Press Enter to exit...")
 
 if __name__ == "__main__":
     main()

@@ -87,11 +87,10 @@ void ClientThread::runclient(context &ctx)
                 //not possible in the client
                 delete receivedCommand;
                 break;
-                /*  Fix it later
             case TcpCommand::CMD_ID_INDEX_PAYLOAD:
                 TcpCommand::executeInDetachedThread(receivedCommand, options);
-                break; */
-            case TcpCommand::CMD_ID_INDEX_PAYLOAD:
+                // receive mutex is still locked
+                break;
             case TcpCommand::CMD_ID_MESSAGE:
             case TcpCommand::CMD_ID_SYNC_DONE:
                 {

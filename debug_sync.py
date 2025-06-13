@@ -17,6 +17,8 @@ from rich.panel import Panel
 from rich.layout import Layout
 from rich.live import Live
 from rich.text import Text
+from rich.align import Align
+from rich import box
 
 console = Console()
 
@@ -153,6 +155,9 @@ def main():
     client_lines = [[] for _ in range(num_tests)]
     threads = []
 
+    scroll_offsets = [0 for _ in range(num_tests * 2)]  # [server0, client0, ...]
+    max_lines = 30
+
     def make_test_env(test_id):
         base = Path(f"test_sync_env_{test_id}").absolute()
         server_dir = base / "server"
@@ -187,17 +192,64 @@ def main():
         Layout(name="client0")
     )
 
-    max_lines = 30  # or set to your preferred value
+    import termios, tty
+    import select
+
+    def get_key():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            rlist, _, _ = select.select([fd], [], [], 0.05)
+            if rlist:
+                return sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return None
+
     with Live(layout, refresh_per_second=10, screen=True, console=console):
         while any(t.is_alive() for t in threads):
-            # Dynamically determine max_lines based on terminal height
             term_height, _ = shutil.get_terminal_size((80, 24))
-            # Reserve some lines for UI, set at least 5 lines per panel
             max_lines = max((term_height // 2) - 5, 5)
-            server0_lines = server_lines[0][-max_lines:]
-            client0_lines = client_lines[0][-max_lines:]
-            layout["server0"].update(Panel("\n".join(server0_lines), title="Server 0 (gdbserver)", border_style="cyan"))
-            layout["client0"].update(Panel("\n".join(client0_lines), title="Client 0 (gdbserver)", border_style="green"))
+            # Clamp scroll offsets to always show the newest logs by default
+            server_log_len = len(server_lines[0])
+            client_log_len = len(client_lines[0])
+            if scroll_offsets[0] > max(0, server_log_len - max_lines):
+                scroll_offsets[0] = max(0, server_log_len - max_lines)
+            if scroll_offsets[1] > max(0, client_log_len - max_lines):
+                scroll_offsets[1] = max(0, client_log_len - max_lines)
+            # If not scrolling, always show newest logs
+            key = get_key()
+            if key is None:
+                scroll_offsets[0] = max(0, server_log_len - max_lines)
+                scroll_offsets[1] = max(0, client_log_len - max_lines)
+            
+            # Handle scroll offsets
+            if key == "\x1b":  # Escape sequence
+                next1 = get_key()
+                next2 = get_key()
+                if next1 == "[":
+                    if next2 == "A":  # Up arrow
+                        scroll_offsets[0] = max(scroll_offsets[0] - 1, 0)
+                    elif next2 == "B":  # Down arrow
+                        scroll_offsets[0] = min(scroll_offsets[0] + 1, max(0, server_log_len - max_lines))
+                    elif next2 == "C":  # Right arrow
+                        scroll_offsets[1] = min(scroll_offsets[1] + 1, max(0, client_log_len - max_lines))
+                    elif next2 == "D":  # Left arrow
+                        scroll_offsets[1] = max(scroll_offsets[1] - 1, 0)
+            elif key == "w":
+                scroll_offsets[0] = max(scroll_offsets[0] - 1, 0)
+            elif key == "s":
+                scroll_offsets[0] = min(scroll_offsets[0] + 1, max(0, server_log_len - max_lines))
+            elif key == "i":
+                scroll_offsets[1] = max(scroll_offsets[1] - 1, 0)
+            elif key == "k":
+                scroll_offsets[1] = min(scroll_offsets[1] + 1, max(0, client_log_len - max_lines))
+
+            server0_lines = server_lines[0][scroll_offsets[0]:scroll_offsets[0]+max_lines]
+            client0_lines = client_lines[0][scroll_offsets[1]:scroll_offsets[1]+max_lines]
+            layout["server0"].update(Panel("\n".join(server0_lines), title="Server 0 (gdbserver)", border_style="cyan", box=box.ROUNDED))
+            layout["client0"].update(Panel("\n".join(client0_lines), title="Client 0 (gdbserver)", border_style="green", box=box.ROUNDED))
 
             # --- Debug/monitoring info for lower window ---
             server_status = get_gdbserver_status(proc_info['server_proc'], proc_info['server_gdb_port'])
@@ -212,7 +264,7 @@ def main():
                 return f"Conns: {len(net)}"
             lower_info = f"[b]Server:[/b] {server_status} | CPU: {server_cpu:.1f}% | Mem: {server_mem}K | Disk: {io_summary(server_io)} | Net: {net_summary(server_net)}\n"
             lower_info += f"[b]Client:[/b] {client_status} | CPU: {client_cpu:.1f}% | Mem: {client_mem}K | Disk: {io_summary(client_io)} | Net: {net_summary(client_net)}\n"
-            layout["lower"].update(Panel(lower_info, title="Debug/Resource Monitor", border_style="magenta"))
+            layout["lower"].update(Panel(lower_info, title="Debug/Resource Monitor", border_style="magenta", box=box.ROUNDED))
             time.sleep(0.1)
 
     for t in threads:

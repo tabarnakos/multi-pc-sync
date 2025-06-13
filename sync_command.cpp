@@ -1,5 +1,6 @@
 // Section 1: Main Header
 #include "sync_command.h"
+#include "tcp_command.h"
 
 // Section 2: Includes
 #include <filesystem>
@@ -101,7 +102,9 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         std::cerr << "Failed to create TCP command for: " << string() << std::endl;
         return -1;
     }
+    TcpCommand::block_transmit();
     int result = cmd->transmit(args);
+    TcpCommand::unblock_transmit();
     delete cmd;
     return result;
 }

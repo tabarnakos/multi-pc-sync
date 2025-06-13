@@ -13,8 +13,8 @@
 // C++ Standard Library
 #include <chrono>
 #include <map>
-#include <mutex>
 #include <string>
+#include <semaphore>
 
 // Project Includes
 #include "growing_buffer.h"
@@ -46,6 +46,11 @@ public:
     static constexpr size_t kCmdIndex = INDEX_AFTER(kSizeIndex, kSizeSize);
     static constexpr size_t kCmdSize = sizeof(cmd_id_t);
     static constexpr size_t kPayloadIndex = INDEX_AFTER(kCmdIndex, kCmdSize);
+
+    static constexpr size_t ALLOCATION_SIZE = (1024 * 1024);  // 1MiB
+    static constexpr size_t MAX_PAYLOAD_SIZE = (64 * ALLOCATION_SIZE);  // 64MiB
+    static constexpr size_t MAX_STRING_SIZE = (256 * 1024);  // 256KiB
+    static constexpr size_t MAX_FILE_SIZE = (64ULL * 1024ULL * 1024ULL * 1024ULL);  // 64GiB
 
     /* Constructors/Destructors */
     /**
@@ -214,30 +219,19 @@ public:
     virtual int execute(const std::map<std::string, std::string>& args) = 0;
 
 protected:
-    /* Protected Static Members */
-    static std::mutex TCPSendMutex;
-    static std::mutex TCPReceiveMutex;
+    static std::binary_semaphore TCPSendSemaphore;
+    static std::binary_semaphore TCPReceiveSemaphore;
     static std::chrono::steady_clock::time_point lastTransmitTime;
     static float transmitRateLimit;
-
-    /* Protected Members */
     GrowingBuffer mData;
 
-    /* Protected Methods */
     /**
-     * Reads a path string from the buffer at the specified offset
+     * Reads a string from the buffer at the specified offset
      * @param off Offset in the buffer to start reading from
      * @param whence Starting position for the offset (SEEK_SET, SEEK_CUR, or SEEK_END)
-     * @return The path string read from the buffer
+     * @return The string read from the buffer
      */
-    std::string readPathFromBuffer(size_t off, int whence = SEEK_SET);
-
-    /**
-     * Extracts a string from the current payload position
-     * First reads the string size, then the string data
-     * @return The extracted string
-     */
-    std::string extractStringFromPayload();
+    std::string extractStringFromPayload(size_t off, int whence = SEEK_SET);
 };
 
 /* Derived Command Classes */
