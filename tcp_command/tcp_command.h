@@ -172,7 +172,7 @@ public:
      * @param len Number of bytes to receive
      * @return Number of bytes actually received
      */
-    size_t ReceiveChunk(const int socket, void* buffer, size_t len);
+    ssize_t ReceiveChunk(const int socket, void* buffer, size_t len);
 
     /**
      * Receives a file from the network

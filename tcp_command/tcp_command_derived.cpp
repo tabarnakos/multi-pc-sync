@@ -148,9 +148,9 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         }
     } else 
     {
-        std::cout << "DEBUG: Sending file: " << lastrunIndexFilename << std::endl;
+        //std::cout << "DEBUG: Sending file: " << lastrunIndexFilename << std::endl;
         int socket = std::stoi(args.at("txsocket"));
-        std::cout << "DEBUG: Sending file header..." << std::endl;
+        //std::cout << "DEBUG: Sending file header..." << std::endl;
         size_t path_size = lastrunIndexFilename.size();
         
         size_t sent_bytes = sendChunk(socket, &path_size, sizeof(size_t));
@@ -159,19 +159,19 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
             unblock_transmit();
             return -1;
         }
-        std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
+        //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
         sent_bytes = sendChunk(socket, lastrunIndexFilename.data(), path_size);
         if (sent_bytes < path_size) {
             std::cerr << "Failed to send file path" << std::endl;
             unblock_transmit();
             return -1;
         }
-        std::cout << "DEBUG: File path sent: " << lastrunIndexFilename << std::endl;
+        //std::cout << "DEBUG: File path sent: " << lastrunIndexFilename << std::endl;
         size_t file_size = 0;   //file does not exist
-        std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
+        //std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
         
         // Send the file size
-        std::cout << "DEBUG: Sending file size: " << file_size << " bytes" << std::endl;
+        //std::cout << "DEBUG: Sending file size: " << file_size << " bytes" << std::endl;
         sent_bytes = sendChunk(socket, &file_size, sizeof(size_t));
         if (sent_bytes < sizeof(size_t)) {
             std::cerr << "Failed to send file size" << std::endl;
@@ -390,7 +390,7 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
     std::map<std::string, std::string> fileargs = args;
     fileargs["path"] = path;
     
-    std::cout << "DEBUG: FilePushCmd receiving file to path: " << path << std::endl;
+    //std::cout << "DEBUG: FilePushCmd receiving file to path: " << path << std::endl;
     int ret = ReceiveFile(fileargs);
     unblock_receive();
     return ret;

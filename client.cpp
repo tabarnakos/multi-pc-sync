@@ -41,7 +41,8 @@ void ClientThread::runclient(context &ctx)
 
     const sockaddr_in serverAddress = { .sin_family = AF_INET,
                                         .sin_port = htons(ctx.opts.port),
-                                        .sin_addr = { .s_addr = inet_addr(ctx.opts.ip.c_str()) } };
+                                        .sin_addr = { .s_addr = inet_addr(ctx.opts.ip.c_str()) },
+                                        .sin_zero = {0} };
     const sockaddr* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
 
     if (connect(serverSocket, serverSocketAddr, sizeof(serverAddress)) < 0)

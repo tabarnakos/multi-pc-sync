@@ -34,7 +34,8 @@ void ServerThread::runserver(context &ctx)
 
     const sockaddr_in serverAddress = { .sin_family = AF_INET, 
                                         .sin_port = htons(ctx.opts.port),
-                                        .sin_addr = { .s_addr = INADDR_ANY } };
+                                        .sin_addr = { .s_addr = INADDR_ANY },
+                                        .sin_zero = {0} };
     const sockaddr* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
 
     int yes = 1;

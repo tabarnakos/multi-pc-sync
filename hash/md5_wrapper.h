@@ -14,7 +14,7 @@
 #include <md5.h>
 
 // Section 2: Defines and Macros
-#define MD5_DIGEST_LENGHT_NATIVE (MD5_DIGEST_LENGTH/sizeof(uint64_t))
+#define MD5_DIGEST_LENGHT_NATIVE (MD5_DIGEST_LENGTH)
 
 // Section 3: Class Definition
 class MD5Calculator 

@@ -199,9 +199,6 @@ void DirectoryIndexer::indexpath( const std::filesystem::path &path, bool verbos
         filetime = file.last_write_time();
     } while ( filetime > indextime );
 
-
-    auto timepoint = std::chrono::time_point_cast<std::chrono::nanoseconds>(filetime);
-
     com::fileindexer::File protobufFile;
     protobufFile.set_name( file.path()/*.filename()*/ );
     protobufFile.set_permissions( (int)permissions );
@@ -742,7 +739,7 @@ int DirectoryIndexer::compareFileTime(const std::string& a, const std::string& b
     if ( a.length() != b.length() )
         return -1000;
     
-    for ( int i=0; i < a.length(); ++i )
+    for ( size_t i=0; i < a.length(); ++i )
     {
         auto compresult = a.at(i) - b.at(i);
         if ( compresult )

@@ -141,7 +141,7 @@ int GrowingBuffer::move(int off) {
     mPublicIndex += off;
     if (off < 0) {
         while (off != 0) {
-            if (mIndex >= -off) {
+            if ((ssize_t)mIndex >= -off) {
                 mIndex += off;
                 off = 0;
             } else {
@@ -172,7 +172,7 @@ int GrowingBuffer::move(int off) {
         }
     } else if (off > 0) {
         while (off != 0) {
-            size_t remain = mBufferSizes[mBufferIndex] - mIndex;
+            ssize_t remain = mBufferSizes[mBufferIndex] - mIndex;
             if (remain > off) {
                 mIndex += off;
                 off = 0;

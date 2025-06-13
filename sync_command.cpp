@@ -102,9 +102,31 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         std::cerr << "Failed to create TCP command for: " << string() << std::endl;
         return -1;
     }
+    if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
+        TcpCommand::block_receive();
+
     TcpCommand::block_transmit();
+
     int result = cmd->transmit(args);
+
+    if ( cmd->command() == TcpCommand::CMD_ID_PUSH_FILE )
+    {
+        auto opts = args;
+        stripQuotes(mSrcPath);
+        opts["path"] = mSrcPath;
+        cmd->SendFile(opts);
+    }
     TcpCommand::unblock_transmit();
+
+    if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
+    {
+        auto opts = args;
+        stripQuotes(mDestPath);
+        opts["path"] = mDestPath;
+        cmd->ReceiveFile(opts);
+
+        TcpCommand::unblock_receive();
+    }
     delete cmd;
     return result;
 }

@@ -26,7 +26,7 @@ uint8_t * SocketHelpers::recv_bytes(NetworkThread::context &ctx, int socket, siz
             buf = nullptr;
             break;
         }
-    } while ( wptr-buf != size );
+    } while ( wptr-buf != (ssize_t)size );
     
     return buf;
 }

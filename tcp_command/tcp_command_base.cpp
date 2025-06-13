@@ -115,6 +115,7 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
         if (received == 0) {
             // No data received, unlock mutex
             unblock_receive();
+            std::this_thread::sleep_for(std::chrono::nanoseconds(100));
         }
     }
     buffer.write(commandSize);
@@ -147,10 +148,10 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
     size_t totalReceived = 0;
     const size_t targetSize = maxlen > 0 ? std::min<size_t>(maxlen, cmdSize - mData.size()) : cmdSize - mData.size();
 
-    std::cout << "DEBUG: receivePayload starting with"
-              << "\n  Target size: " << targetSize << " bytes"
-              << "\n  Command size: " << cmdSize << " bytes"
-              << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
+    //std::cout << "DEBUG: receivePayload starting with"
+    //          << "\n  Target size: " << targetSize << " bytes"
+    //          << "\n  Command size: " << cmdSize << " bytes"
+    //          << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
 
     if (mData.seek(mData.size(), SEEK_SET) < 0) {
         std::cerr << "Error seeking to end of buffer" << std::endl;
@@ -180,8 +181,8 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
         }
 
         totalReceived += n;
-        std::cout << "DEBUG: receivePayload received " << n << " bytes (total: " << totalReceived 
-                  << "/" << targetSize << ")" << std::endl;
+        //std::cout << "DEBUG: receivePayload received " << n << " bytes (total: " << totalReceived 
+        //          << "/" << targetSize << ")" << std::endl;
     }
 
     delete[] buffer;
@@ -222,9 +223,9 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         std::cerr << "Failed to open file for reading: " << path << " - " << strerror(errno) << std::endl;
         return -1;
     }
-    std::cout << "DEBUG: Sending file: " << path << std::endl;
+    //std::cout << "DEBUG: Sending file: " << path << std::endl;
     int socket = std::stoi(args.at("txsocket"));
-    std::cout << "DEBUG: Sending file header..." << std::endl;
+    //std::cout << "DEBUG: Sending file header..." << std::endl;
     size_t path_size = path.size();
     
     size_t sent_bytes = sendChunk(socket, &path_size, sizeof(size_t));
@@ -232,24 +233,24 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         std::cerr << "Failed to send path size" << std::endl;
         return -1;
     }
-    std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
+    //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
     sent_bytes = sendChunk(socket, path.data(), path_size);
     if (sent_bytes < path_size) {
         std::cerr << "Failed to send file path" << std::endl;
         return -1;
     }
-    std::cout << "DEBUG: File path sent: " << path << std::endl;
+    //std::cout << "DEBUG: File path sent: " << path << std::endl;
     // Get the file size
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
-    std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
+    //std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
     if (file_size < 0 || file_size > MAX_FILE_SIZE) {
         std::cerr << "Invalid file size: " << file_size << " bytes" << std::endl;
         return -1;
     }
     // Send the file size
     size_t file_size_net = static_cast<size_t>(file_size);
-    std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << std::endl;
+    //std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << std::endl;
     sent_bytes = sendChunk(socket, &file_size_net, sizeof(size_t));
     if (sent_bytes < sizeof(size_t)) {
         std::cerr << "Failed to send file size" << std::endl;
@@ -277,32 +278,30 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
             return -1;
         }
         total_bytes_sent += chunk_sent;
-        std::cout << "DEBUG: Sent chunk of " << chunk_sent 
-                  << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
-                  << "/" << HumanReadable(file_size) << ")" << std::endl;
+        //std::cout << "DEBUG: Sent chunk of " << chunk_sent 
+        //          << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
+        //          << "/" << HumanReadable(file_size) << ")" << std::endl;
 
         // Force flush output to ensure logs appear in real-time
         std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
                   << " (" << (total_bytes_sent * 100 / file_size) << "%)" << std::endl;
     }
 
-    std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
-              << " of " << HumanReadable(file_size) << " expected" << std::endl;
+    //std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
+    //          << " of " << HumanReadable(file_size) << " expected" << std::endl;
 
     delete[] buffer;
     file.close();
-    std::cout << "DEBUG: File " << path << " sent successfully." << std::endl;
+    //std::cout << "DEBUG: File " << path << " sent successfully." << std::endl;
     return 0;
 }
 
 int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
-    std::cout << "DEBUG: Starting ReceiveFile..." << std::endl;
+    //std::cout << "DEBUG: Starting ReceiveFile..." << std::endl;
     
     int socket = std::stoi(args.at("txsocket"));
 
     // Now receive the file data in chunks
-    size_t total_bytes_received = 0;
-            
     size_t path_size;
     int received_bytes = ReceiveChunk(socket, &path_size, kSizeSize);
     if (received_bytes < kSizeSize) {
@@ -319,7 +318,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         std::cerr << "Failed to receive file path" << std::endl;
         return -1;
     }
-    std::cout << "DEBUG: Received file path: " << received_path << std::endl;
+    //std::cout << "DEBUG: Received file path: " << received_path << std::endl;
     
     size_t file_size;
     received_bytes = ReceiveChunk(socket, &file_size, kSizeSize);
@@ -331,7 +330,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         std::cerr << "File size exceeds maximum allowed size: " << file_size << " > " << MAX_FILE_SIZE << std::endl;
         return -1;
     }
-    std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << std::endl;
+    //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << std::endl;
 
     if (file_size)
     {
@@ -349,7 +348,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         while (received_bytes < file_size) {
             size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - received_bytes);
 
-            size_t chunk_received = ReceiveChunk(socket, buffer, bytes_to_read);
+            ssize_t chunk_received = ReceiveChunk(socket, buffer, bytes_to_read);
             if (chunk_received < 0) {
                 std::cerr << "Error receiving file chunk after " << HumanReadable(received_bytes) << std::endl;
                 delete[] buffer;
@@ -376,8 +375,8 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             std::cout << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size) 
                     << " (" << (received_bytes * 100. / file_size) << "%)" << std::endl;
         }
-        std::cout << "DEBUG: File receive complete. Wrote: " << HumanReadable(received_bytes)
-                << " of " << HumanReadable(file_size) << " to disk" << std::endl;  
+        //std::cout << "DEBUG: File receive complete. Wrote: " << HumanReadable(received_bytes)
+        //        << " of " << HumanReadable(file_size) << " to disk" << std::endl;  
         file.close();   // Will automatically flush the file buffer
         delete[] buffer;
     }
