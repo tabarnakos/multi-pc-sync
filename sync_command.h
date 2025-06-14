@@ -29,6 +29,22 @@ public:
     SyncCommand(const std::string &cmd, const std::string &srcPath, const std::string &destPath, bool remote);
 
     /**
+     * Default destructor
+     */
+    virtual ~SyncCommand() = default;   
+
+    SyncCommand(const SyncCommand&) = default;
+    SyncCommand& operator=(const SyncCommand&) = default;
+    SyncCommand(SyncCommand&&) = default;
+    SyncCommand& operator=(SyncCommand&&) = default;
+    bool operator==(const SyncCommand &other) const {
+        return mCmd == other.mCmd && mSrcPath == other.mSrcPath && mDestPath == other.mDestPath && mRemote == other.mRemote;
+    }
+    bool operator!=(const SyncCommand &other) const {
+        return !(*this == other);
+    }
+
+    /**
      * Prints the command details to standard output
      */
     void print();

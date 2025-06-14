@@ -118,12 +118,15 @@ def assertion_report(assertions, test_name):
     return passed, len(assertions)
 
 def wait_for_files(files, timeout=5.0):
-    """Wait until all files exist, or timeout."""
+    """Wait until all files exist, or timeout. Logs missing files for debugging."""
     start = time.time()
     while time.time() - start < timeout:
-        if all(f.exists() for f in files):
+        missing = [str(f) for f in files if not f.exists()]
+        if not missing:
             return True
         time.sleep(0.1)
+    if missing:
+        console.print(colored(f"Timeout waiting for files: {missing}", RED))
     return False
 
 def make_test_env(test_id):

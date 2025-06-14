@@ -232,6 +232,14 @@ protected:
      * @return The string read from the buffer
      */
     std::string extractStringFromPayload(size_t off, int whence = SEEK_SET);
+
+    std::vector<std::string> parseDeletionLogFromBuffer(GrowingBuffer& buffer, size_t& offset, int whence = SEEK_SET);
+    /**
+     * Appends a deletion log to the buffer
+     * @param buffer The buffer to append the deletion log to
+     * @param deletions Vector of paths to delete
+     */
+    void appendDeletionLogToBuffer(GrowingBuffer& buffer, const std::vector<std::string>& deletions);
 };
 
 /* Derived Command Classes */

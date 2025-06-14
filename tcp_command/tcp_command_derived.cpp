@@ -116,6 +116,11 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     commandbuf.write(cmd);
     commandbuf.write(path_lenght);
     commandbuf.write(args.at("path").data(), path_lenght);
+    // --- Insert deletion log into commandbuf ---
+    // You must implement getDeletions() in DirectoryIndexer to return a std::vector<std::string>
+    std::vector<std::string> deletions = indexer.getDeletions();
+    appendDeletionLogToBuffer(commandbuf, deletions);
+    // --- End insertion ---
 
     TcpCommand * command = TcpCommand::create(commandbuf);
     if ( !command )
@@ -198,6 +203,8 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     }
 
     std::string remotePath = extractStringFromPayload(kPayloadIndex, SEEK_SET);
+    size_t indexFileNameSize = 0;
+    const auto deletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
 
     std::cout << "Received index for remote path: " << remotePath << std::endl;
 
@@ -263,6 +270,17 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     {
         std::cout << "No sync commands generated." << std::endl;
         return 0;
+    }
+
+    for (const auto& path : deletions) {
+        for (auto &command : syncCommands)
+        {
+            if (command.path1() == "\""+path+"\"")
+            {
+                syncCommands.remove(command);
+                std::cout << "Removing command because of deleted file: " << command.string() << std::endl;
+            }
+        }
     }
 
     std::cout << std::endl << "Display Generated Sync Commands: ?" << std::endl;

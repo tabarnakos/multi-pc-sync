@@ -14,13 +14,8 @@
 #include <cstring>
 
 // C++ Standard Library
-#include <algorithm>
-#include <atomic>
 #include <chrono>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <mutex>
 #include <semaphore>
 #include <string>
 #include <thread>
@@ -29,9 +24,7 @@
 #include <sys/socket.h>
 
 // Project Includes
-#include "directory_indexer.h"
 #include "human_readable.h"
-#include "sync_command.h"
 
 // Section 3: Defines and Macros
 
@@ -187,4 +180,32 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
     }
 
     return chunk_received;
+}
+
+void TcpCommand::appendDeletionLogToBuffer(GrowingBuffer& buffer, const std::vector<std::string>& deletions) {
+    size_t num_deletions = deletions.size();
+    buffer.write(&num_deletions, sizeof(size_t));
+    for (const auto& path : deletions) {
+        size_t len = path.size();
+        buffer.write(&len, sizeof(size_t));
+        buffer.write(path.data(), len);
+    }
+}
+
+std::vector<std::string> TcpCommand::parseDeletionLogFromBuffer(GrowingBuffer& buffer, size_t& offset, int whence) {
+    std::vector<std::string> deletions;
+    size_t num_deletions = 0;
+    buffer.seek(offset, whence);
+    buffer.read(&num_deletions, sizeof(size_t));
+    offset += sizeof(size_t);
+    for (size_t i = 0; i < num_deletions; ++i) {
+        size_t len = 0;
+        buffer.read(&len, sizeof(size_t));
+        offset += sizeof(size_t);
+        std::string path(len, '\0');
+        buffer.read(&path[0], len);
+        offset += len;
+        deletions.push_back(path);
+    }
+    return deletions;
 }

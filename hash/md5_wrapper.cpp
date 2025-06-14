@@ -25,7 +25,7 @@
 // Section 3: MD5Calculator Implementation
 MD5Calculator::MD5Calculator(const char *path, bool verbose)
 {
-    memset(mDigest.digest_native, 0, MD5_DIGEST_LENGHT_NATIVE);
+    memset(mDigest.digest_native, 0, MD5_DIGEST_LENGHT_NATIVE*sizeof(uint64_t));
 
     std::filesystem::path filepath( path );
     if ( ! std::filesystem::exists(filepath) )
