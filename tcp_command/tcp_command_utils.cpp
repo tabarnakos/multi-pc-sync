@@ -63,6 +63,7 @@ void TcpCommand::block_transmit() {
 
 void TcpCommand::unblock_transmit() {
     TCPSendSemaphore.release();
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 }
 
 void TcpCommand::block_receive() {
@@ -71,6 +72,7 @@ void TcpCommand::block_receive() {
 
 void TcpCommand::unblock_receive() {
     TCPReceiveSemaphore.release();
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 }
 
 void TcpCommand::setRateLimit(float rateHz) {

@@ -115,7 +115,6 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
         if (received == 0) {
             // No data received, unlock mutex
             unblock_receive();
-            std::this_thread::sleep_for(std::chrono::nanoseconds(100));
         }
     }
     buffer.write(commandSize);

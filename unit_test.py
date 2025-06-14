@@ -48,11 +48,11 @@ def enqueue_output(pipe, queue, proc=None):
 
 def run_sync_pair(test_id, server_dir, client_dir, port, server_lines, client_lines, max_lines=30):
     server_proc = subprocess.Popen(
-        [MULTI_PC_SYNC_BIN, "-d", str(port), "-r", "1", str(server_dir.resolve())],
+        [MULTI_PC_SYNC_BIN, "-d", str(port), str(server_dir.resolve())],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     client_proc = subprocess.Popen(
-        [MULTI_PC_SYNC_BIN, "-s", f"127.0.0.1:{port}", "-r", "1", str(client_dir.resolve())],
+        [MULTI_PC_SYNC_BIN, "-s", f"127.0.0.1:{port}", str(client_dir.resolve())],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         stdin=subprocess.PIPE  # Needed for auto-answer
     )
@@ -67,7 +67,7 @@ def run_sync_pair(test_id, server_dir, client_dir, port, server_lines, client_li
     client_thread.start()
 
     last_activity = time.time()
-    timeout = 15.0  # seconds  # Increased timeout for rate-limited commands
+    timeout = 3.0  # seconds
 
     while True:
         activity = False
@@ -183,7 +183,7 @@ def test_scenario(test_id, global_results):
         os.utime(server_dir / "file2.txt", None)
     # 3. Delete nested.txt on client
     if (client_dir / "subdir" / "nested.txt").exists():
-        os.remove(client_dir / "subdir" / "nested.txt")
+        os.remove((client_dir / "subdir" / "nested.txt").as_posix())
     # 4. Move file2.txt to file3.txt on server
     if (server_dir / "file2.txt").exists():
         shutil.move(server_dir / "file2.txt", server_dir / "file3.txt")

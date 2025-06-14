@@ -5,4 +5,4 @@ folder.pb.cc
 folder.pb.h
 .vscode/
 .cache
-test_sync_env_0
+test_sync_env*
