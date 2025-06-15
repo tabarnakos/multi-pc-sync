@@ -29,6 +29,7 @@ void ServerThread::runserver(context &ctx)
     ctx.active.notify_all();
     std::map<std::string, std::string> options;
     options["path"] = ctx.opts.path.string();
+    options["exit_after_sync"] = ctx.opts.exit_after_sync ? "true" : "false";
 
     const int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 

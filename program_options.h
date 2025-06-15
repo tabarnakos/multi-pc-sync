@@ -23,6 +23,7 @@ public:
     float rate_limit;  // Rate limit in Hz, 0 means unlimited
     bool auto_sync;     // Skip Y/N prompt and automatically sync
     bool dry_run;       // Print commands but don't execute
+    bool exit_after_sync; // Exit server after sending SyncDoneCmd (for unit testing)
 
     static ProgramOptions parseArgs(int argc, char *argv[]);
 

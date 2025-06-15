@@ -17,7 +17,7 @@
 
 // Section 5: Constructors and Destructors
 ProgramOptions::ProgramOptions(int argc, char *argv[])
-    : path(argv[argc - 1]), rate_limit(0.0F), auto_sync(false), dry_run(false) {}
+    : path(argv[argc - 1]), rate_limit(0.0F), auto_sync(false), dry_run(false), exit_after_sync(false) {}
 
 // Section 6: Static Methods
 // (none)
@@ -26,12 +26,13 @@ ProgramOptions::ProgramOptions(int argc, char *argv[])
 void printusage()
 {
 	std::cout << "Usage:" << '\n';
-	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--dry-run] <path>" << '\n';
+	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--dry-run] [--exit-after-sync] <path>" << '\n';
 	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << '\n';
 	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << '\n';
 	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << '\n';
 	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << '\n';
 	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << '\n';
+	std::cout << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << '\n';
 	exit(0);
 }
 
@@ -61,7 +62,8 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     
     static struct option long_options[] = {
         {"dry-run", no_argument, nullptr, 1},
-        {nullptr, 0, nullptr, 0}
+        {"exit-after-sync", no_argument, nullptr, 2},
+        {.name=nullptr, .has_arg=0, .flag=nullptr, .val=0}
     };
     
     int option_index = 0;
@@ -96,6 +98,9 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
             break;
         case 1: // --dry-run
             opts.dry_run = true;
+            break;
+        case 2: // --exit-after-sync
+            opts.exit_after_sync = true;
             break;
         default:
         case '?':
