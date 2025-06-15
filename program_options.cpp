@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <getopt.h>
 
 // Section 3: Defines and Macros
 // (none)
@@ -16,7 +17,7 @@
 
 // Section 5: Constructors and Destructors
 ProgramOptions::ProgramOptions(int argc, char *argv[])
-    : path(argv[argc - 1]), rate_limit(0.0f) {}
+    : path(argv[argc - 1]), rate_limit(0.0F), auto_sync(false), dry_run(false) {}
 
 // Section 6: Static Methods
 // (none)
@@ -24,11 +25,13 @@ ProgramOptions::ProgramOptions(int argc, char *argv[])
 // Section 7: Public/Protected/Private Methods
 void printusage()
 {
-	std::cout << "Usage:" << std::endl;
-	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] <path>" << std::endl;
-	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << std::endl;
-	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << std::endl;
-	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << std::endl;
+	std::cout << "Usage:" << '\n';
+	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--dry-run] <path>" << '\n';
+	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << '\n';
+	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << '\n';
+	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << '\n';
+	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << '\n';
+	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << '\n';
 	exit(0);
 }
 
@@ -44,27 +47,34 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     
     if ( !std::filesystem::is_directory( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid directory" << std::endl;
+        std::cout << opts.path << " is not a valid directory" << '\n';
         exit(0);
     } else if ( opts.path != std::filesystem::canonical( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid path" << std::endl;
+        std::cout << opts.path << " is not a valid path" << '\n';
         exit(0);
     }
 
-    int c;
+    int chr;
     opts.port = -1;
     opts.mode = opts.MODE_SERVER;
-    while ((c = getopt (argc, argv, "s:d:r:")) != -1)
+    
+    static struct option long_options[] = {
+        {"dry-run", no_argument, nullptr, 1},
+        {nullptr, 0, nullptr, 0}
+    };
+    
+    int option_index = 0;
+    while ((chr = getopt_long(argc, argv, "s:d:r:y", long_options, &option_index)) != -1)
     {
-        switch (c)
+        switch (chr)
         {
         case 's':
         {
             opts.mode = opts.MODE_CLIENT;
             opts.ip = strtok( optarg,":" );
-            char * portstr = strtok( NULL, ":" );
-            if ( !portstr )
+            char * portstr = strtok( nullptr, ":" );
+            if ( nullptr == portstr )
                 printusage();
             opts.port = atoi( portstr );
         }
@@ -77,9 +87,15 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         case 'r':
             opts.rate_limit = std::stof(optarg);
             if (opts.rate_limit < 0) {
-                std::cout << "Rate limit must be non-negative" << std::endl;
+                std::cout << "Rate limit must be non-negative" << '\n';
                 exit(0);
             }
+            break;
+        case 'y':
+            opts.auto_sync = true;
+            break;
+        case 1: // --dry-run
+            opts.dry_run = true;
             break;
         default:
         case '?':

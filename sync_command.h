@@ -115,7 +115,7 @@ private:
 
 class SyncCommands : public std::list<SyncCommand> {
 public:
-    int exportToFile(std::filesystem::path &path, bool verbose = false);
+    int exportToFile(const std::filesystem::path &path, bool verbose = false);
     int executeAll(const std::map<std::string, std::string> &args, bool verbose = false);
 };
 

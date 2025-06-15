@@ -64,6 +64,13 @@ public:
     ~DirectoryIndexer();
 
     /**
+     * Gets the list of deleted files
+     * @return Vector of paths to deleted files
+     */
+    std::vector<std::string> getDeletions(DirectoryIndexer* lastRunIndexer);
+
+
+    /**
      * Prints the directory index structure
      * @param folderIndex Starting folder to print from, or nullptr for root
      * @param recursionlevel Current depth for indentation
@@ -129,6 +136,10 @@ private:
     void copyTo(com::fileindexer::Folder *folderIndex, ::google::protobuf::Message *element,
                 const std::string &path, const PATH_TYPE type);
 	static int compareFileTime(const std::string& a, const std::string& b);
+
+    void findDeletedRecursive(const com::fileindexer::Folder& currentFolder, const com::fileindexer::Folder& lastRunFolder, const std::filesystem::path& basePath, std::vector<std::string>& deletions);
+    bool isPathInFolder(const std::filesystem::path& pathToCheck, const com::fileindexer::Folder& folder);
+
 
     std::filesystem::directory_entry mDir;
     std::fstream mIndexfile;

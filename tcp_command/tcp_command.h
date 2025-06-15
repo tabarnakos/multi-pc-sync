@@ -26,7 +26,7 @@
 class TcpCommand {
 public:
     /* Public Types */
-    typedef enum {
+    using cmd_id_t = enum {
         CMD_ID_INDEX_FOLDER = 0,
         CMD_ID_INDEX_PAYLOAD,
         CMD_ID_MKDIR_REQUEST,
@@ -38,7 +38,7 @@ public:
         CMD_ID_RMDIR_REQUEST,
         CMD_ID_SYNC_COMPLETE,
         CMD_ID_SYNC_DONE,
-    } cmd_id_t;
+    };
 
     /* Public Static Constants */
     static constexpr size_t kSizeIndex = 0;

@@ -1,0 +1,36 @@
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -I/home/harvey/multi-pc-sync
+    - -I/home/harvey/multi-pc-sync/hash
+    - -I/home/harvey/multi-pc-sync/tcp_command
+    
+
+
+  Remove:
+    - -std=c++*
+
+Diagnostics:
+  Suppress:
+    - unused-parameter
+    - missing-prototypes
+  ClangTidy:
+    Add:
+      - readability-*
+      - performance-*
+      - modernize-*
+    Remove:
+      - modernize-use-trailing-return-type
+      - readability-braces-around-statements
+      - readability-named-parameter
+
+Index:
+  Background: Build
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+
+Hover:
+  ShowAKA: true

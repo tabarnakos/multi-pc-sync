@@ -32,7 +32,7 @@ MD5Calculator::MD5Calculator(const char *path, bool verbose)
         return;
 
     if ( verbose )
-        std::cout <<  filepath << std::endl;
+        std::cout <<  filepath << '\n';
 
     std::error_code ec;
     uintmax_t filesize = std::filesystem::file_size(filepath, ec);

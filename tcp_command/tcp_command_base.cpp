@@ -130,10 +130,10 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
     TcpCommand *command = TcpCommand::create(buffer);
     if (!command)
     {
-        std::cout << "Received unknown command ID: " << cmd << std::endl;
+        std::cout << "Received unknown command ID: " << cmd << '\n';
         return nullptr;
     }
-    std::cout << "Received command " << command->commandName() << " of size " << commandSize << std::endl;
+    std::cout << "Received command " << command->commandName() << " of size " << commandSize << '\n';
     
     return command;
 }
@@ -150,10 +150,10 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
     //std::cout << "DEBUG: receivePayload starting with"
     //          << "\n  Target size: " << targetSize << " bytes"
     //          << "\n  Command size: " << cmdSize << " bytes"
-    //          << "\n  Current buffer size: " << mData.size() << " bytes" << std::endl;
+    //          << "\n  Current buffer size: " << mData.size() << " bytes" << '\n';
 
     if (mData.seek(mData.size(), SEEK_SET) < 0) {
-        std::cerr << "Error seeking to end of buffer" << std::endl;
+        std::cerr << "Error seeking to end of buffer" << '\n';
         delete[] buffer;
         return 0;
     }
@@ -165,23 +165,23 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
         ssize_t n = recv(socket, buffer, bytesToReceive, 0);
         if (n <= 0) {
             if (n == 0) {
-                std::cerr << "Connection closed by peer after receiving " << totalReceived << " bytes" << std::endl;
+                std::cerr << "Connection closed by peer after receiving " << totalReceived << " bytes" << '\n';
             } else {
-                std::cerr << "Receive error after " << totalReceived << " bytes: " << strerror(errno) << std::endl;
+                std::cerr << "Receive error after " << totalReceived << " bytes: " << strerror(errno) << '\n';
             }
             delete[] buffer;
             return totalReceived;
         }
 
         if (mData.write(buffer, n) != n) {
-            std::cerr << "Error writing " << n << " bytes to buffer" << std::endl;
+            std::cerr << "Error writing " << n << " bytes to buffer" << '\n';
             delete[] buffer;
             return totalReceived;
         }
 
         totalReceived += n;
         //std::cout << "DEBUG: receivePayload received " << n << " bytes (total: " << totalReceived 
-        //          << "/" << targetSize << ")" << std::endl;
+        //          << "/" << targetSize << ")" << '\n';
     }
 
     delete[] buffer;
@@ -219,40 +219,40 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     const std::string& path = args.at("path");
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        std::cerr << "Failed to open file for reading: " << path << " - " << strerror(errno) << std::endl;
+        std::cerr << "Failed to open file for reading: " << path << " - " << strerror(errno) << '\n';
         return -1;
     }
-    //std::cout << "DEBUG: Sending file: " << path << std::endl;
+    //std::cout << "DEBUG: Sending file: " << path << '\n';
     int socket = std::stoi(args.at("txsocket"));
-    //std::cout << "DEBUG: Sending file header..." << std::endl;
+    //std::cout << "DEBUG: Sending file header..." << '\n';
     size_t path_size = path.size();
     
     size_t sent_bytes = sendChunk(socket, &path_size, sizeof(size_t));
     if (sent_bytes < sizeof(size_t)) {
-        std::cerr << "Failed to send path size" << std::endl;
+        std::cerr << "Failed to send path size" << '\n';
         return -1;
     }
-    //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << std::endl;
+    //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << '\n';
     sent_bytes = sendChunk(socket, path.data(), path_size);
     if (sent_bytes < path_size) {
-        std::cerr << "Failed to send file path" << std::endl;
+        std::cerr << "Failed to send file path" << '\n';
         return -1;
     }
-    //std::cout << "DEBUG: File path sent: " << path << std::endl;
+    //std::cout << "DEBUG: File path sent: " << path << '\n';
     // Get the file size
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
-    //std::cout << "DEBUG: File size is " << file_size << " bytes" << std::endl;
+    //std::cout << "DEBUG: File size is " << file_size << " bytes" << '\n';
     if (file_size < 0 || file_size > MAX_FILE_SIZE) {
-        std::cerr << "Invalid file size: " << file_size << " bytes" << std::endl;
+        std::cerr << "Invalid file size: " << file_size << " bytes" << '\n';
         return -1;
     }
     // Send the file size
     size_t file_size_net = static_cast<size_t>(file_size);
-    //std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << std::endl;
+    //std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << '\n';
     sent_bytes = sendChunk(socket, &file_size_net, sizeof(size_t));
     if (sent_bytes < sizeof(size_t)) {
-        std::cerr << "Failed to send file size" << std::endl;
+        std::cerr << "Failed to send file size" << '\n';
         return -1;
     }
     
@@ -265,38 +265,38 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         
         // Read chunk from file
         if (!file.read(reinterpret_cast<char*>(buffer), bytes_to_read)) {
-            std::cerr << "Failed to read from file after " << HumanReadable(total_bytes_sent) << " bytes" << std::endl;
+            std::cerr << "Failed to read from file after " << HumanReadable(total_bytes_sent) << " bytes" << '\n';
             delete[] buffer;
             return -1;
         }
 
         size_t chunk_sent = sendChunk(socket, buffer, bytes_to_read);
         if (chunk_sent < bytes_to_read) {
-            std::cerr << "Failed to send file chunk after " << HumanReadable(total_bytes_sent) << " bytes" << std::endl;
+            std::cerr << "Failed to send file chunk after " << HumanReadable(total_bytes_sent) << " bytes" << '\n';
             delete[] buffer;
             return -1;
         }
         total_bytes_sent += chunk_sent;
         //std::cout << "DEBUG: Sent chunk of " << chunk_sent 
         //          << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
-        //          << "/" << HumanReadable(file_size) << ")" << std::endl;
+        //          << "/" << HumanReadable(file_size) << ")" << '\n';
 
         // Force flush output to ensure logs appear in real-time
         std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
-                  << " (" << (total_bytes_sent * 100 / file_size) << "%)" << std::endl;
+                  << " (" << (total_bytes_sent * 100 / file_size) << "%)" << '\n';
     }
 
     //std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
-    //          << " of " << HumanReadable(file_size) << " expected" << std::endl;
+    //          << " of " << HumanReadable(file_size) << " expected" << '\n';
 
     delete[] buffer;
     file.close();
-    //std::cout << "DEBUG: File " << path << " sent successfully." << std::endl;
+    //std::cout << "DEBUG: File " << path << " sent successfully." << '\n';
     return 0;
 }
 
 int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
-    //std::cout << "DEBUG: Starting ReceiveFile..." << std::endl;
+    //std::cout << "DEBUG: Starting ReceiveFile..." << '\n';
     
     int socket = std::stoi(args.at("txsocket"));
 
@@ -304,32 +304,32 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
     size_t path_size;
     int received_bytes = ReceiveChunk(socket, &path_size, kSizeSize);
     if (received_bytes < kSizeSize) {
-        std::cerr << "Failed to receive path size" << std::endl;
+        std::cerr << "Failed to receive path size" << '\n';
         return -1;
     }
     if (path_size > MAX_STRING_SIZE) {
-        std::cerr << "Path size exceeds maximum allowed size: " << path_size << " > " << MAX_STRING_SIZE << std::endl;
+        std::cerr << "Path size exceeds maximum allowed size: " << path_size << " > " << MAX_STRING_SIZE << '\n';
         return -1;
     }
     std::string received_path(path_size, '\0');
     received_bytes = ReceiveChunk(socket, &received_path[0], path_size);
     if (received_bytes < path_size) {
-        std::cerr << "Failed to receive file path" << std::endl;
+        std::cerr << "Failed to receive file path" << '\n';
         return -1;
     }
-    //std::cout << "DEBUG: Received file path: " << received_path << std::endl;
+    //std::cout << "DEBUG: Received file path: " << received_path << '\n';
     
     size_t file_size;
     received_bytes = ReceiveChunk(socket, &file_size, kSizeSize);
     if (received_bytes < kSizeSize) {
-        std::cerr << "Failed to receive file size" << std::endl;
+        std::cerr << "Failed to receive file size" << '\n';
         return -1;
     }
     if (file_size > MAX_FILE_SIZE) {
-        std::cerr << "File size exceeds maximum allowed size: " << file_size << " > " << MAX_FILE_SIZE << std::endl;
+        std::cerr << "File size exceeds maximum allowed size: " << file_size << " > " << MAX_FILE_SIZE << '\n';
         return -1;
     }
-    //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << std::endl;
+    //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << '\n';
 
     if (file_size)
     {
@@ -337,7 +337,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         std::ofstream file(path, std::ios::binary);
 
         if (!file) {
-            std::cerr << "Failed to open file for writing: " << path << " - " << strerror(errno) << std::endl;
+            std::cerr << "Failed to open file for writing: " << path << " - " << strerror(errno) << '\n';
             return -1;
         }
 
@@ -349,13 +349,13 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
 
             ssize_t chunk_received = ReceiveChunk(socket, buffer, bytes_to_read);
             if (chunk_received < 0) {
-                std::cerr << "Error receiving file chunk after " << HumanReadable(received_bytes) << std::endl;
+                std::cerr << "Error receiving file chunk after " << HumanReadable(received_bytes) << '\n';
                 delete[] buffer;
                 file.flush();
                 return -1;
             }
             if (chunk_received == 0) {
-                std::cerr << "No more data received, connection may have been closed prematurely" << std::endl;
+                std::cerr << "No more data received, connection may have been closed prematurely" << '\n';
                 delete[] buffer;
                 file.flush();
                 return -1;
@@ -363,7 +363,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             
             // Write the received chunk to file
             if (!file.write(reinterpret_cast<char*>(buffer), chunk_received)) {
-                std::cerr << "Failed to write to file at " << HumanReadable(received_bytes) << " bytes" << std::endl;
+                std::cerr << "Failed to write to file at " << HumanReadable(received_bytes) << " bytes" << '\n';
                 delete[] buffer;
                 file.flush();
                 return -1;
@@ -372,10 +372,10 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             
             // Force flush output to ensure logs appear in real-time
             std::cout << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size) 
-                    << " (" << (received_bytes * 100. / file_size) << "%)" << std::endl;
+                    << " (" << (received_bytes * 100. / file_size) << "%)" << '\n';
         }
         //std::cout << "DEBUG: File receive complete. Wrote: " << HumanReadable(received_bytes)
-        //        << " of " << HumanReadable(file_size) << " to disk" << std::endl;  
+        //        << " of " << HumanReadable(file_size) << " to disk" << '\n';  
         file.close();   // Will automatically flush the file buffer
         delete[] buffer;
     }
@@ -403,7 +403,7 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
         case CMD_ID_RMDIR_REQUEST:
         case CMD_ID_FETCH_FILE_REQUEST:
             if (args.find("path1") == args.end()) {
-                std::cerr << "Error: Missing required 'path1' argument for path-based command" << std::endl;
+                std::cerr << "Error: Missing required 'path1' argument for path-based command" << '\n';
                 return nullptr;
             }
             {
@@ -437,7 +437,7 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
 
         case CMD_ID_REMOTE_LOCAL_COPY:
             if (args.find("path1") == args.end() || args.find("path2") == args.end()) {
-                std::cerr << "Error: Missing required 'path1' or 'path2' argument for REMOTE_LOCAL_COPY command" << std::endl;
+                std::cerr << "Error: Missing required 'path1' or 'path2' argument for REMOTE_LOCAL_COPY command" << '\n';
                 return nullptr;
             }
             {
@@ -454,7 +454,7 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
 
         case CMD_ID_MESSAGE:
             if (args.find("path1") == args.end()) {
-                std::cerr << "Error: Missing required 'path1' argument for MESSAGE command" << std::endl;
+                std::cerr << "Error: Missing required 'path1' argument for MESSAGE command" << '\n';
                 return nullptr;
             }
             command = new MessageCmd(args["path1"]);
@@ -467,12 +467,12 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
             command = new SyncDoneCmd(buffer);
             break;
         default:
-            std::cerr << "Error: Unknown command type: " << cmd << std::endl;
+            std::cerr << "Error: Unknown command type: " << cmd << '\n';
             return nullptr;
     }
 
     if (!command) {
-        std::cerr << "Error: Failed to create command object" << std::endl;
+        std::cerr << "Error: Failed to create command object" << '\n';
         return nullptr;
     }
 

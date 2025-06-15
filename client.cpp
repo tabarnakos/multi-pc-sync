@@ -35,6 +35,8 @@ void ClientThread::runclient(context &ctx)
     options["path"] = ctx.opts.path.string();
     options["ip"] = ctx.opts.ip;
     options["port"] = std::to_string(ctx.opts.port);
+    options["auto_sync"] = ctx.opts.auto_sync ? "true" : "false";
+    options["dry_run"] = ctx.opts.dry_run ? "true" : "false";
     
     const int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     options["txsocket"] = std::to_string(serverSocket);
@@ -47,18 +49,18 @@ void ClientThread::runclient(context &ctx)
 
     if (connect(serverSocket, serverSocketAddr, sizeof(serverAddress)) < 0)
     {
-        std::cout << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << std::endl;
+        std::cout << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << '\n';
         exit(0);
     }
 
-    std::cout << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << std::endl;
+    std::cout << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << '\n';
 
     ctx.con_opened = true;
 
     // Request index from the server
     if (requestIndexFromServer(options) < 0)
     {
-        std::cout << "Error requesting index from server" << std::endl;
+        std::cout << "Error requesting index from server" << '\n';
         close(serverSocket);
         return;
     }
@@ -67,9 +69,9 @@ void ClientThread::runclient(context &ctx)
     while (ctx.con_opened)
     {
         TcpCommand *receivedCommand = TcpCommand::receiveHeader(serverSocket);
-        if (!receivedCommand)
+        if (receivedCommand == nullptr)
         {
-            std::cout << "Error receiving command from server" << std::endl;
+            std::cout << "Error receiving command from server" << '\n';
             break;
         }
         const std::string cmdName = receivedCommand->commandName();
@@ -100,23 +102,23 @@ void ClientThread::runclient(context &ctx)
                     break;
                 }
             default:
-                std::cout << "Unknown command received: " << std::endl;
+                std::cout << "Unknown command received: " << '\n';
                 receivedCommand->dump(std::cout);
                 delete receivedCommand;
                 break;
         }
         if (err < 0)
         {
-            std::cout << "Error executing command: " << cmdName << std::endl;
+            std::cout << "Error executing command: " << cmdName << '\n';
             ctx.con_opened = false;
         }
         else if (err > 0)
         {
-            std::cout << "Finished " << std::endl;
+            std::cout << "Finished " << '\n';
             ctx.con_opened = false;
         }
         else
-            std::cout << "Executed command: " << cmdName << std::endl;
+            std::cout << "Executed command: " << cmdName << '\n';
     }
 
     ctx.active = false;

@@ -50,19 +50,19 @@ void ServerThread::runserver(context &ctx)
 
     if (bind(serverSocket, serverSocketAddr, sizeof(serverAddress)) != 0)
     {
-        std::cout << "Unable to bind to port " << ntohs(serverAddress.sin_port) << std::endl;
+        std::cout << "Unable to bind to port " << ntohs(serverAddress.sin_port) << '\n';
         exit(0);
     }
 
     if (listen(serverSocket, 5) != 0)
     {
-        std::cout << "Unable to listen on socket" << std::endl;
+        std::cout << "Unable to listen on socket" << '\n';
         exit(0);
     }
 
     while (!ctx.quit.load())
     {
-        std::cout << "Waiting for incoming connections on port " << ctx.opts.port << std::endl;
+        std::cout << "Waiting for incoming connections on port " << ctx.opts.port << '\n';
 
         sockaddr_in clientAddress;
         sockaddr* clientSocketAddr = reinterpret_cast<sockaddr*>(&clientAddress);
@@ -70,12 +70,12 @@ void ServerThread::runserver(context &ctx)
         int clientSocket = accept(serverSocket, clientSocketAddr, &clientAddressLen);
         if (clientSocket < 0)
         {
-            std::cout << "Error accepting connection" << std::endl;
+            std::cout << "Error accepting connection" << '\n';
             break;
         }
         options["txsocket"] = std::to_string(clientSocket);
         options["ip"] = inet_ntoa(clientAddress.sin_addr);
-        std::cout << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << std::endl;
+        std::cout << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << '\n';
         ctx.con_opened = true;
 
         while (!ctx.quit.load() && ctx.con_opened)
@@ -83,7 +83,7 @@ void ServerThread::runserver(context &ctx)
             TcpCommand *receivedCommand = TcpCommand::receiveHeader(clientSocket);
             if (!receivedCommand)
             {
-                std::cout << "Error receiving command from client" << std::endl;
+                std::cout << "Error receiving command from client" << '\n';
                 ctx.con_opened = false;
                 break;
             }
@@ -91,15 +91,15 @@ void ServerThread::runserver(context &ctx)
             int err = receivedCommand->execute(options);
             if (err < 0)
             {
-                std::cout << "Error executing command: " << receivedCommand->commandName() << std::endl;
+                std::cout << "Error executing command: " << receivedCommand->commandName() << '\n';
                 ctx.con_opened = false;
             } else if (err > 0)
             {
-                std::cout << "Finished" << std::endl;
+                std::cout << "Finished" << '\n';
                 ctx.con_opened = false;
             } else
             {
-                std::cout << "Executed command: " << receivedCommand->commandName() << std::endl;
+                std::cout << "Executed command: " << receivedCommand->commandName() << '\n';
             }
             delete receivedCommand;
         }

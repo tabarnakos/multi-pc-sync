@@ -141,16 +141,16 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
         if (n <= 0) {
             if (n == 0) {
                 std::cerr << "Connection closed by peer after sending "
-                          << HumanReadable(chunk_sent) << std::endl;
+                          << HumanReadable(chunk_sent) << '\n';
             } else {
                 std::cerr << "Send error at " << HumanReadable(chunk_sent)
-                          << ": " << strerror(errno) << std::endl;
+                          << ": " << strerror(errno) << '\n';
             }
             return -1;
         }
         chunk_sent += n;
         //std::cout << "DEBUG: Sent chunk of " << n
-        //          << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << std::endl;
+        //          << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << '\n';
     }
     return chunk_sent;
 }
@@ -164,11 +164,11 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
         if (n <= 0) {
             if (n == 0) {
                 std::cerr << "Connection closed by peer after receiving "
-                            << chunk_received << " bytes" << std::endl;
+                            << chunk_received << " bytes" << '\n';
                 return -1;
             } else {
                 std::cerr << "Receive error at " << chunk_received 
-                            << " bytes: " << strerror(errno) << std::endl;
+                            << " bytes: " << strerror(errno) << '\n';
             }
             return -1;
         }
@@ -176,7 +176,7 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
         chunk_received += n;
         //std::cout << "DEBUG: Received chunk of " << HumanReadable(n) 
         //            << "(chunk progress: " << HumanReadable(chunk_received) 
-        //            << "/" << HumanReadable(len) << std::endl;
+        //            << "/" << HumanReadable(len) << '\n';
     }
 
     return chunk_received;

@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
     if (opts.ip.empty() && opts.mode == opts.MODE_CLIENT)
     {
-        std::cout << "Invalid client configuration. Please specify the server IP and set mode to client." << std::endl;
+        std::cout << "Invalid client configuration. Please specify the server IP and set mode to client." << '\n';
         return -1;
     }
 
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
         auto server = new ServerThread(opts);
         if (!server)
         {
-            std::cout << "Error creating server thread" << std::endl;
+            std::cout << "Error creating server thread" << '\n';
             return -1;
         }
 
@@ -50,26 +50,26 @@ int main(int argc, char *argv[])
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        std::cout << "Server is active and waiting for connections..." << std::endl;
+        std::cout << "Server is active and waiting for connections..." << '\n';
 
         while (server->isActive())
         {
             static bool connected = false;
             if (server->isConnected() && !connected)
             {
-                std::cout << "Client connected." << std::endl;
+                std::cout << "Client connected." << '\n';
                 connected = true;
             }
             else if (!server->isConnected() && connected)
             {
-                std::cout << "Client disconnected." << std::endl;
+                std::cout << "Client disconnected." << '\n';
                 connected = false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
         delete server;
-        std::cout << "Server thread finished" << std::endl;
+        std::cout << "Server thread finished" << '\n';
     }
     else if (opts.mode == opts.MODE_CLIENT)
     {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
         auto client = new ClientThread(opts);
         if (!client)
         {
-            std::cout << "Error creating client thread" << std::endl;
+            std::cout << "Error creating client thread" << '\n';
             return -1;
         }
 
@@ -93,6 +93,6 @@ int main(int argc, char *argv[])
         }
 
         delete client;
-        std::cout << "Client thread finished" << std::endl;
+        std::cout << "Client thread finished" << '\n';
     }
 }

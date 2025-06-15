@@ -59,7 +59,7 @@ DirectoryIndexer::DirectoryIndexer(const std::filesystem::path &path, bool topLe
             std:: cout << mFolderIndex.ParseFromIstream( &mIndexfile );
             mIndexfile.close();
 
-            std::cout << " done" << std::endl;
+            std::cout << " done" << '\n';
         }
         
         if ( mFolderIndex.name().empty() )
@@ -99,7 +99,7 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
         std::cout << "\t" << folder.permissions();
         std::cout << "\t" << folder.type();
         std::cout << "\t" << *folder.mutable_modifiedtime();
-        std::cout << std::endl;
+        std::cout << '\n';
         printIndex( &folder, recursionlevel + 1 );
     }
     for ( auto file : *folderIndex->mutable_files() )
@@ -109,9 +109,23 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
         std::cout << "\t" << file.type();
         std::cout << "\t" << *file.mutable_modifiedtime();
         std::cout << "\t" << *file.mutable_hash();
-        std::cout << std::endl;
+        std::cout << '\n';
     }
 
+}
+
+std::vector<std::string> DirectoryIndexer::getDeletions(DirectoryIndexer* lastRunIndexer) {
+    std::vector<std::string> deletions;
+    if (!lastRunIndexer) {
+        // Or handle error appropriately
+        return deletions;
+    }
+
+    // Start comparison from the root folders of both indexes
+    // Pass an empty path initially for basePath, it will be built up during recursion
+    findDeletedRecursive(this->mFolderIndex, lastRunIndexer->mFolderIndex, "", deletions);
+
+    return deletions;
 }
 
 int DirectoryIndexer::indexonprotobuf( bool verbose )
@@ -120,7 +134,7 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
         return -1;
     
     if ( verbose )
-        std::cout << mDir.path() << std::endl;
+        std::cout << mDir.path() << '\n';
     
     for ( auto file : std::filesystem::directory_iterator( mDir.path() ) )
     {
@@ -327,19 +341,19 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
         auto remoteFolderPath = remoteFolder.name();
         auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length()+1);
         if ( verbose )
-            std::cout << "Entering " << remoteFolderPath << std::endl;
+            std::cout << "Entering " << remoteFolderPath << '\n';
         
         if ( extract(nullptr, localFolderPath, FOLDER) )
         {
             if ( verbose )
-                std::cout << "folder exists! " << localFolderPath << std::endl;
+                std::cout << "folder exists! " << localFolderPath << '\n';
             /* matching local folder with identical name exists, simplest case. recurse */
             sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
         }
         else
         {
             if ( verbose )
-                std::cout << "folder missing! " << localFolderPath << std::endl;
+                std::cout << "folder missing! " << localFolderPath << '\n';
             /* remote folder is missing locally */
 
             if ( forcePull || !past->extract(nullptr, localFolderPath, FOLDER) )
@@ -364,13 +378,13 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
         auto remoteFilePath = remoteFile.name();
         auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length()+1);
         if ( verbose )
-            std::cout << "checking " << remoteFilePath << std::endl;
+            std::cout << "checking " << remoteFilePath << '\n';
 
         auto localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
         if ( localFile )
         {
             if ( verbose )
-                std::cout << "file exists! " << localFilePath << std::endl;
+                std::cout << "file exists! " << localFilePath << '\n';
 
             /* matching local file with identical name exists, perform detailed checks */
             /* no matter what the modified time is, if the content is the same, we don't do anything */
@@ -380,10 +394,10 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 int compResult = compareFileTime( remoteFile.modifiedtime(), localFile->modifiedtime() );
                 if ( compResult == -1000 )
                 {
-                    std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << std::endl;
+                    std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << '\n';
                 } else if ( compResult == 0 )
                 {
-                    std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << std::endl;
+                    std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << '\n';
                 } else if ( compResult > 0 )
                 {
                     /* remote file is younger */
@@ -401,7 +415,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
         } else
         {
             if ( verbose )
-                std::cout << "file missing! " << localFilePath << std::endl;
+                std::cout << "file missing! " << localFilePath << '\n';
             /* no matching local file, check file history to determine correct action */
             if ( forcePull )
             {
@@ -466,7 +480,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
                 {
                     if ( !remote->removePath( nullptr, it->path1(), type ) )
                     {
-                        std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << std::endl;
+                        std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << '\n';
                     }
                 }
 /* may not be necessary */
@@ -496,7 +510,7 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
 
         /* lastly, call the sync function in reverse, to sync from local to remote */
         if ( verbose )
-            std::cout << std::endl << "Exporting sync commands from local to remote" << std::endl;
+            std::cout << '\n' << "Exporting sync commands from local to remote" << '\n';
         
         remote->sync( &mFolderIndex, remotePast, this, past, syncCommands, verbose, true );
     }
@@ -504,6 +518,69 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
 
 
 // Section 8: Helper Functions
+bool DirectoryIndexer::isPathInFolder(const std::filesystem::path& pathToCheck, const com::fileindexer::Folder& folder) {
+    // This helper might need adjustment if used elsewhere, or can be simplified if only for getDeletions context
+    for (const auto& file : folder.files()) {
+        if (file.name() == pathToCheck.filename().string()) {
+            return true;
+        }
+    }
+    for (const auto& subFolder : folder.folders()) {
+        if (subFolder.name() == pathToCheck.filename().string()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& currentFolder, const com::fileindexer::Folder& lastRunFolder, const std::filesystem::path& basePath, std::vector<std::string>& deletions) {
+    // Check for deleted files in the lastRunFolder
+    for (const auto& lastRunFile : lastRunFolder.files()) {
+        std::filesystem::path filePath = basePath / lastRunFile.name();
+        bool foundInCurrent = false;
+        for (const auto& currentFile : currentFolder.files()) {
+            if (currentFile.name() == lastRunFile.name()) {
+                foundInCurrent = true;
+                break;
+            }
+        }
+        if (!foundInCurrent) {
+            // Construct the full path relative to the DirectoryIndexer's root and convert to string
+            deletions.push_back((this->mDir.path() / filePath).string());
+        }
+    }
+
+    // Check for deleted subfolders in the lastRunFolder
+    for (const auto& lastRunSubFolder : lastRunFolder.folders()) {
+        std::filesystem::path folderPath = basePath / lastRunSubFolder.name();
+        bool foundInCurrent = false;
+        const com::fileindexer::Folder* currentMatchingSubFolder = nullptr;
+        for (const auto& currentSubFolder : currentFolder.folders()) {
+            if (currentSubFolder.name() == lastRunSubFolder.name()) {
+                foundInCurrent = true;
+                currentMatchingSubFolder = &currentSubFolder;
+                break;
+            }
+        }
+        if (!foundInCurrent) {
+            // If the whole folder is deleted, add its path (as string)
+            deletions.push_back((this->mDir.path() / folderPath).string());
+            // To list all contents of the deleted folder, you would iterate through lastRunSubFolder files/folders
+            // and add their paths as strings to the deletions vector, relative to folderPath.
+            // For example:
+            // for (const auto& deletedSubFile : lastRunSubFolder.files()) {
+            //     deletions.push_back((this->mDir.path() / folderPath / deletedSubFile.name()).string());
+            // }
+            // ... and recursively for sub-folders within the deleted folder.
+            // The current implementation just marks the top-level deleted folder.
+        } else if (currentMatchingSubFolder) {
+            // If folder exists, recurse into it
+            findDeletedRecursive(*currentMatchingSubFolder, lastRunSubFolder, folderPath, deletions);
+        }
+    }
+}
+
+
 com::fileindexer::File * DirectoryIndexer::findFileAtPath( com::fileindexer::Folder * folderIndex, const std::string & path, bool verbose )
 {
     if ( !folderIndex )
@@ -611,7 +688,7 @@ const std::list<std::string> DirectoryIndexer::__extractPathComponents( const st
     {
         pathComponents.push_front( pathcopy.filename() );
         if ( verbose )
-            std::cout << pathcopy.filename() << std::endl;
+            std::cout << pathcopy.filename() << '\n';
         pathcopy = pathcopy.parent_path();
     } while ( pathcopy != "/" );
     return pathComponents;
@@ -705,10 +782,10 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
         if ( folderIndex == nullptr )
             folderIndex = &mFolderIndex;
         /* error out */
-        std::cout << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << std::endl;
-        std::cout << "Maybe this info can help:" << std::endl;
-        std::cout << "    path = " << path << std::endl;
-        std::cout << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << std::endl;
+        std::cout << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << '\n';
+        std::cout << "Maybe this info can help:" << '\n';
+        std::cout << "    path = " << path << '\n';
+        std::cout << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << '\n';
         exit(1);
     }
 

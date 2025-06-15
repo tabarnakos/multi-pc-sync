@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_GENERATOR Ninja)
 project(multi_pc_sync VERSION 0.9)
 
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED True)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # protobuf
 find_package(Protobuf REQUIRED CONFIG)

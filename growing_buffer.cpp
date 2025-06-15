@@ -70,15 +70,15 @@ size_t GrowingBuffer::write(const void *buf, const size_t size) {
 void GrowingBuffer::dumpToFile(FILE *fd, uintmax_t size) {
     size_t total_left = mSize - (mBufferIndex * mBufferSizes[0] + mIndex);
     if (size > total_left) size = total_left; // Clamp to available data
-    std::cout << "dump " << size << " bytes to file" << std::endl;
-    std::cout << "mBufferIndex = " << mBufferIndex << std::endl;
-    std::cout << "mBufferSizes[mBufferIndex] = " << mBufferSizes[mBufferIndex] << std::endl;
-    std::cout << "mIndex = " << mIndex << std::endl;
+    std::cout << "dump " << size << " bytes to file" << '\n';
+    std::cout << "mBufferIndex = " << mBufferIndex << '\n';
+    std::cout << "mBufferSizes[mBufferIndex] = " << mBufferSizes[mBufferIndex] << '\n';
+    std::cout << "mIndex = " << mIndex << '\n';
     std::cout << "data = ";
     for (int i = 0; i < 8 && (mIndex + i) < mBufferSizes[mBufferIndex]; ++i) {
         printf("%02x ", *(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex + i));
     }
-    std::cout << std::endl;
+    std::cout << '\n';
     while (size > 0) {
         size_t chunk = std::min(mBufferSizes[mBufferIndex] - mIndex, (size_t)size);
         auto w_size = fwrite(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex, 1, chunk, fd);
@@ -102,15 +102,15 @@ void GrowingBuffer::dump(std::ostream &os) {
     size_t dataSize = this->size();
     std::vector<uint8_t> buffer(dataSize);
     this->read(buffer.data(), dataSize);
-    os << "Raw mData (" << dataSize << " bytes):" << std::endl;
+    os << "Raw mData (" << dataSize << " bytes):" << '\n';
     for (size_t i = 0; i < dataSize; ++i) {
         if ( i % 8 == 0 && i != 0 )
             os << "  ";
         if (i % 16 == 0)
-            os << std::endl << std::hex << std::setw(8) << std::setfill('0') << i << ": ";
+            os << '\n' << std::hex << std::setw(8) << std::setfill('0') << i << ": ";
         os << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
     }
-    os << std::dec << std::endl;
+    os << std::dec << '\n';
     this->seek(prevIndex, mPublicIndex);
 }
 

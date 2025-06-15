@@ -90,7 +90,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_PUSH_FILE;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
     } else {
-        std::cerr << "Unknown command: " << mCmd << std::endl;
+        std::cerr << "Unknown command: " << mCmd << '\n';
         return nullptr;
     }
     return TcpCommand::create(commandbuf);
@@ -99,7 +99,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
 int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &args) {
     TcpCommand *cmd = createTcpCommand();
     if (!cmd) {
-        std::cerr << "Failed to create TCP command for: " << string() << std::endl;
+        std::cerr << "Failed to create TCP command for: " << string() << '\n';
         return -1;
     }
     if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
@@ -132,7 +132,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
 }
 
 void SyncCommand::print() {
-    std::cout << string() << std::endl;
+    std::cout << string() << '\n';
 }
 
 int SyncCommand::execute(const std::map<std::string, std::string> &args, bool verbose) {
@@ -150,7 +150,7 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     } else {
         int err = system(string().c_str());
         if (verbose) {
-            std::cout << "Command returned " << err << std::endl;
+            std::cout << "Command returned " << err << '\n';
         }
         return err;
     }
@@ -165,12 +165,12 @@ bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
 std::string SyncCommand::path1() const { return mSrcPath; }
 std::string SyncCommand::path2() const { return mDestPath; }
 
-int SyncCommands::exportToFile(std::filesystem::path &path, bool verbose) {
+int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) {
     std::ofstream file(path);
     if (!file.is_open()) return -1;
     for (const auto &cmd : *this) {
-        file << cmd.string() << std::endl;
-        if (verbose) std::cout << "Exported: " << cmd.string() << std::endl;
+        file << cmd.string() << '\n';
+        if (verbose) std::cout << "Exported: " << cmd.string() << '\n';
     }
     file.close();
     return 0;

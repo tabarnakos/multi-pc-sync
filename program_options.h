@@ -21,6 +21,8 @@ public:
     int port;
     MODE mode;
     float rate_limit;  // Rate limit in Hz, 0 means unlimited
+    bool auto_sync;     // Skip Y/N prompt and automatically sync
+    bool dry_run;       // Print commands but don't execute
 
     static ProgramOptions parseArgs(int argc, char *argv[]);
 
