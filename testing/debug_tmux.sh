@@ -14,45 +14,8 @@ SERVER_IP=127.0.0.1
 CLIENT_OPTS="-s $SERVER_IP:$MULTI_PC_SYNC_PORT -y $CLIENT_ROOT"
 SERVER_OPTS="-d $MULTI_PC_SYNC_PORT --exit-after-sync $SERVER_ROOT"
 
-compare_files() {
-    # List files in folder
-    client_files=$(find "$1" | sed "s|$1/|./|")
-
-    # Combine server and client files into a single list
-    all_files=$(echo -e "$client_files" | sort | uniq)
-    expected_files=$(echo "$1 $EXPECTED_FILES" | tr ' ' '\n' | sort | uniq)
-
-
-    # Check for missing or extra files
-    missing_files=""
-    extra_files=""
-
-    for file in $expected_files; do
-        if ! echo "$all_files" | grep -q "^$file$"; then
-            missing_files+="$file\n"
-        fi
-    done
-
-    for file in $all_files; do
-        if ! echo "$expected_files" | grep -Fxq "$file"; then
-            extra_files+="$file\n"
-        fi
-    done
-
-    # Display results
-    if [ -n "$missing_files" ]; then
-        echo "Missing files:" && echo -e "$missing_files"
-    else
-        echo "No missing files."
-    fi
-
-    if [ -n "$extra_files" ]; then
-        echo "Extra files:" && echo -e "$extra_files"
-    else
-        echo "No extra files."
-    fi
-}
-
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/debug_tmux_utils.sh"
 CLIENT_CMD_LINE="$PROGRAM_PATH $CLIENT_OPTS"
 SERVER_CMD_LINE="$PROGRAM_PATH $SERVER_OPTS"
 # Check if the program exists
@@ -83,7 +46,7 @@ echo "Recreated test folder: $TEST_FOLDER"
 mkdir -p "$CLIENT_ROOT"
 mkdir -p "$SERVER_ROOT"
 
-$EXPECTED_FILES=""
+EXPECTED_FILES=""
 
 # Ask the user to select the scenario
 echo "Please select the scenario to run:"
@@ -154,17 +117,17 @@ case $scenario in
         echo "file 5 content" > "$SERVER_ROOT/folder1/subfolder1/file5.txt"
         EXPECTED_FILES="$EXPECTED_FILES ./folder1/subfolder1/file5.txt"
         mkdir -p "$SERVER_ROOT/folder4/subfolder3/subsubfolder3"
-        EXPECTED_FILES="$EXPECTED_FILES ./folder4/subfolder3/subsubfolder3"
+        EXPECTED_FILES="$EXPECTED_FILES ./folder4 ./folder4/subfolder3 ./folder4/subfolder3/subsubfolder3"
         mkdir -p "$SERVER_ROOT/folder4/subfolder3/subsubfolder4"
         EXPECTED_FILES="$EXPECTED_FILES ./folder4/subfolder3/subsubfolder4"
         echo "file 7 content" > "$SERVER_ROOT/folder4/subfolder3/subsubfolder4/file7.txt"
         EXPECTED_FILES="$EXPECTED_FILES ./folder4/subfolder3/subsubfolder4/file7.txt"
         mkdir -p "$CLIENT_ROOT/folder2/subfolder2"
-        EXPECTED_FILES="$EXPECTED_FILES ./folder2/subfolder2"
+        EXPECTED_FILES="$EXPECTED_FILES ./folder2 ./folder2/subfolder2"
         echo "file 6 content" > "$CLIENT_ROOT/folder2/subfolder2/file6.txt"
         EXPECTED_FILES="$EXPECTED_FILES ./folder2/subfolder2/file6.txt"
         mkdir -p "$CLIENT_ROOT/folder3/subfolder3/subsubfolder3"
-        EXPECTED_FILES="$EXPECTED_FILES ./folder3/subfolder3/subsubfolder3"
+        EXPECTED_FILES="$EXPECTED_FILES ./folder3 ./folder3/subfolder3 ./folder3/subfolder3/subsubfolder3"
         mkdir -p "$CLIENT_ROOT/folder3/subfolder3/subsubfolder4"
         EXPECTED_FILES="$EXPECTED_FILES ./folder3/subfolder3/subsubfolder4"
         echo "file 7 content" > "$CLIENT_ROOT/folder3/subfolder3/subsubfolder4/file7.txt"
@@ -209,8 +172,8 @@ case $scenario in
         EXPECTED_FILES="$EXPECTED_FILES ./folder2"
         # need to run a sync here to ensure the client has the initial files
         echo "Running initial sync to ensure client has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         mv "$SERVER_ROOT/folder1" "$SERVER_ROOT/folder3"
         EXPECTED_FILES="$EXPECTED_FILES ./folder3"
         EXPECTED_FILES="$EXPECTED_FILES ./folder3/file4.txt"
@@ -232,8 +195,8 @@ case $scenario in
         EXPECTED_FILES="$EXPECTED_FILES ./folder2"
         # need to run a sync here to ensure the server has the initial files
         echo "Running initial sync to ensure server has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         mv "$CLIENT_ROOT/folder1" "$CLIENT_ROOT/folder3"
         EXPECTED_FILES="$EXPECTED_FILES ./folder3"
         EXPECTED_FILES="$EXPECTED_FILES ./folder3/file4.txt"
@@ -257,8 +220,8 @@ case $scenario in
         EXPECTED_FILES="$EXPECTED_FILES ./folder2"
         # need to run a sync here to ensure the client has the initial files
         echo "Running initial sync to ensure client has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         echo "Editing file1 on server."
         echo "edited file 1 content" > "$SERVER_ROOT/file1.txt"
         ;;
@@ -280,8 +243,8 @@ case $scenario in
         EXPECTED_FILES="$EXPECTED_FILES ./folder2"
         # need to run a sync here to ensure the server has the initial files
         echo "Running initial sync to ensure server has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         echo "Editing file1 on client."
         echo "edited file 1 content" > "$CLIENT_ROOT/file1.txt"
         ;;
@@ -303,8 +266,8 @@ case $scenario in
         EXPECTED_FILES="$EXPECTED_FILES ./folder2"
         # need to run a sync here to ensure the client has the initial files
         echo "Running initial sync to ensure client has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         echo "Deleting file1 on server."
         rm "$SERVER_ROOT/file1.txt"
         ;;
@@ -325,8 +288,8 @@ case $scenario in
         mkdir -p "$CLIENT_ROOT/folder2"
         # need to run a sync here to ensure the server has the initial files
         echo "Running initial sync to ensure server has the initial files."
-        gnome-terminal -- "$PROGRAM_PATH" $SERVER_OPTS
-        "$PROGRAM_PATH" $CLIENT_OPTS
+        $SERVER_CMD_LINE &
+        $CLIENT_CMD_LINE
         echo "Deleting file1 on client."
         rm "$CLIENT_ROOT/file1.txt"
         ;;
@@ -336,47 +299,36 @@ case $scenario in
         ;;
 esac
 
-
-
 # Start a new tmux session named 'sync_debug'
 tmux kill-session -t sync_debug 2>/dev/null
-gnome-terminal -- tmux new-session -d -s sync_debug 'bash' \; \
-  set-option -g mouse on \;                      \
-  attach-session -t sync_debug
+tmux new-session -d -s sync_debug 'bash'
+tmux set-option -t sync_debug -g mouse on
 
+#tmux attach-session -t sync_debug
+
+# Rename the first window to 'server'
+tmux rename-window -t sync_debug:0 'server'
 # Send commands to the first pane
-echo "Do you want to run the server in gdb? (y/n)"
-read -r run_in_gdb
-if [ "$run_in_gdb" = "y" ]; then
-  tmux send-keys -t sync_debug:0.0 "gdbserver  :$SERVER_GDBSERVER_PORT $SERVER_CMD_LINE" C-m
-else
-  echo "Running without gdb"
-  tmux send-keys -t sync_debug:0.0 "$SERVER_CMD_LINE" C-m
-fi
-echo "Server started. Press Ctrl+C to stop."
+tmux send-keys -t sync_debug:0 "source $SCRIPT_DIR/debug_tmux_utils.sh" C-m
+tmux send-keys -t sync_debug:0 "run_server $SERVER_GDBSERVER_PORT $SERVER_CMD_LINE" C-m
 
-tmux split-window -h -l 50 -t sync_debug:0.0
+# Split the tmux window into two panes
+tmux split-window -v -l 50 -t sync_debug:0.0
 
-# Send commands to the first pane
-echo "Do you want to run the client in gdb? (y/n)"
-read -r run_in_gdb
-if [ "$run_in_gdb" = "y" ]; then
-  tmux send-keys -t sync_debug:0.1 "gdbserver  :$CLIENT_GDBSERVER_PORT $CLIENT_CMD_LINE" C-m
-else
-  echo "Running without gdb"
-  tmux send-keys -t sync_debug:0.1 "$CLIENT_CMD_LINE" C-m
-fi
-echo "Client started. Press Ctrl+C to stop."
+# Rename the second pane to 'client'
+tmux rename-window -t sync_debug:0.1 'client'
+# Send commands to the second pane
+tmux send-keys -t sync_debug:0.1 "source $SCRIPT_DIR/debug_tmux_utils.sh" C-m
+tmux send-keys -t sync_debug:0.1 "run_client $CLIENT_GDBSERVER_PORT $CLIENT_CMD_LINE" C-m
+# Wait for the server to start
 
-# Wait for the user to press Enter to exit
-echo "Press Enter to exit the tmux session."
-read -r
-tmux send-keys -t sync_debug:0.0 C-c
-tmux send-keys -t sync_debug:0.1 C-c
-# Kill the tmux session
-tmux kill-session -t sync_debug
-echo "Tmux session 'sync_debug' has been killed."
-# Check if the expected files exist
+tmux attach-session -t sync_debug
+# Wait for the server and client processes to exit
+while tmux list-panes -t sync_debug -F '#{pane_active} #{pane_pid}' | grep -q '1'; do
+  sleep 0.1
+done
+
+# Perform file comparison after processes have exited
 echo "Checking if the expected files exist in the client root directory..."
 
 echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..."

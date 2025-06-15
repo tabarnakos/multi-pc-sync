@@ -27,19 +27,20 @@
 #include "human_readable.h"
 
 // Section 3: Defines and Macros
+constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms
 
 // Section 4: Static Variables
 std::binary_semaphore TcpCommand::TCPSendSemaphore{1};
 std::binary_semaphore TcpCommand::TCPReceiveSemaphore{1};
 std::chrono::steady_clock::time_point TcpCommand::lastTransmitTime = std::chrono::steady_clock::now();
-float TcpCommand::transmitRateLimit = 0.0f;
+float TcpCommand::transmitRateLimit = 0.0F;
 
 // Section 5: Constructors/Destructors
-TcpCommand::TcpCommand() : mData() {}
+TcpCommand::TcpCommand() = default;
 
-TcpCommand::TcpCommand(GrowingBuffer &data) : mData() {
+TcpCommand::TcpCommand(GrowingBuffer &data) {
     const size_t size = data.size();
-    uint8_t *buf = new uint8_t[size];
+    auto *buf = new uint8_t[size];
     data.seek(0, SEEK_SET);
     data.read(buf, size);
     mData.write(buf, size);
@@ -95,22 +96,23 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
     while (bytesLeft > 0) {
         FD_ZERO(&readfds);
         FD_SET(socket, &readfds);
+
         timeout.tv_sec = 0;
-        timeout.tv_usec = 10000; // 10ms
+        timeout.tv_usec = TCP_COMMAND_HEADER_TIMEOUT_USEC; // 10ms
         
         if (received == 0) {
             block_receive();
         }
         ret = select(socket + 1, &readfds, nullptr, nullptr, &timeout);
         if (ret > 0 && FD_ISSET(socket, &readfds)) {
-            ssize_t n = recv(socket, sizePtr + received, bytesLeft-received, 0);
-            if (n <= 0) {
+            ssize_t num = recv(socket, sizePtr + received, bytesLeft-received, 0);
+            if (num <= 0) {
                 // client disconnected or error
                 unblock_receive();
                 return nullptr;
             }
-            received += n;
-            bytesLeft -= n;
+            received += num;
+            bytesLeft -= num;
         }
         if (received == 0) {
             // No data received, unlock mutex
@@ -128,7 +130,7 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
     buffer.write(cmd);
 
     TcpCommand *command = TcpCommand::create(buffer);
-    if (!command)
+    if (command == nullptr)
     {
         std::cout << "Received unknown command ID: " << cmd << '\n';
         return nullptr;
@@ -143,7 +145,7 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
 size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
     const size_t cmdSize = this->cmdSize();
     const size_t bufSize = maxlen > 0 ? std::min<size_t>(maxlen, ALLOCATION_SIZE) : ALLOCATION_SIZE;
-    uint8_t* buffer = new uint8_t[bufSize];
+    auto* buffer = new uint8_t[bufSize];
     size_t totalReceived = 0;
     const size_t targetSize = maxlen > 0 ? std::min<size_t>(maxlen, cmdSize - mData.size()) : cmdSize - mData.size();
 
@@ -189,6 +191,7 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
 }
 
 int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool calculateSize) {
+    std::cout << "DEBUG: Transmitting command " << commandName() << " with size " << mData.size() << '\n';
     if (calculateSize) {
         size_t size = mData.size();
         mData.seek(kSizeIndex, SEEK_SET);
@@ -210,7 +213,9 @@ int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool ca
         }
         remaining -= sent;
     }
-    
+
+    std::cout << "Transmitted " << mData.size() << " bytes" << '\n';
+
     delete[] buffer;
     return 0;
 }
@@ -312,7 +317,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
     std::string received_path(path_size, '\0');
-    received_bytes = ReceiveChunk(socket, &received_path[0], path_size);
+    received_bytes = ReceiveChunk(socket, received_path.data(), path_size);
     if (received_bytes < path_size) {
         std::cerr << "Failed to receive file path" << '\n';
         return -1;
@@ -331,7 +336,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
     }
     //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << '\n';
 
-    if (file_size)
+    if (file_size != 0)
     {
         const std::string& path = args.at("path");
         std::ofstream file(path, std::ios::binary);
@@ -341,7 +346,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             return -1;
         }
 
-        uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
+        auto* buffer = new uint8_t[ALLOCATION_SIZE];
         received_bytes = 0;
 
         while (received_bytes < file_size) {

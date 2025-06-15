@@ -28,17 +28,17 @@ int main(int argc, char *argv[])
     const auto opts = ProgramOptions::parseArgs(argc, argv);
     TcpCommand::setRateLimit(opts.rate_limit);  // Set global rate limit
 
-    if (opts.ip.empty() && opts.mode == opts.MODE_CLIENT)
+    if (opts.ip.empty() && opts.mode == ProgramOptions::MODE_CLIENT)
     {
         std::cout << "Invalid client configuration. Please specify the server IP and set mode to client." << '\n';
         return -1;
     }
 
-    if (opts.mode == opts.MODE_SERVER)
+    if (opts.mode == ProgramOptions::MODE_SERVER)
     {
         // Server mode
-        auto server = new ServerThread(opts);
-        if (!server)
+        auto *server = new ServerThread(opts);
+        if (server == nullptr)
         {
             std::cout << "Error creating server thread" << '\n';
             return -1;
@@ -71,11 +71,11 @@ int main(int argc, char *argv[])
         delete server;
         std::cout << "Server thread finished" << '\n';
     }
-    else if (opts.mode == opts.MODE_CLIENT)
+    else if (opts.mode == ProgramOptions::MODE_CLIENT)
     {
         // Client mode
-        auto client = new ClientThread(opts);
-        if (!client)
+        auto *client = new ClientThread(opts);
+        if (client == nullptr)
         {
             std::cout << "Error creating client thread" << '\n';
             return -1;

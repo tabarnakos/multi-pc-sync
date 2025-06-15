@@ -82,7 +82,7 @@ void ServerThread::runserver(context &ctx)
         while (!ctx.quit.load() && ctx.con_opened)
         {
             TcpCommand *receivedCommand = TcpCommand::receiveHeader(clientSocket);
-            if (!receivedCommand)
+            if (receivedCommand == nullptr)
             {
                 std::cout << "Error receiving command from client" << '\n';
                 ctx.con_opened = false;
