@@ -26,7 +26,7 @@
 class TcpCommand {
 public:
     /* Public Types */
-    using cmd_id_t = enum {
+    using cmd_id_t = enum : std::uint8_t {
         CMD_ID_INDEX_FOLDER = 0,
         CMD_ID_INDEX_PAYLOAD,
         CMD_ID_MKDIR_REQUEST,
@@ -91,7 +91,7 @@ public:
      * @param socket The socket file descriptor to receive from
      * @return A new TcpCommand instance created from the received header, or nullptr on error
      */
-    static TcpCommand* receiveHeader(const int socket);
+    static TcpCommand* receiveHeader(int socket);
 
     /**
      * Executes a command in a detached thread
@@ -139,7 +139,7 @@ public:
      * @param maxlen The maximum length of data to receive (0 for unlimited)
      * @return Number of bytes received
      */
-    size_t receivePayload(const int socket, const size_t maxlen);
+    size_t receivePayload(int socket, size_t maxlen);
 
     /**
      * Transmits the command over a socket
@@ -156,7 +156,7 @@ public:
      * @param len Number of bytes to send
      * @return Number of bytes actually sent
      */
-    size_t sendChunk(const int socket, const void* buffer, size_t len);
+    static size_t sendChunk(int socket, const void* buffer, size_t len);
 
     /**
      * Sends a file over the network
@@ -172,7 +172,7 @@ public:
      * @param len Number of bytes to receive
      * @return Number of bytes actually received
      */
-    ssize_t ReceiveChunk(const int socket, void* buffer, size_t len);
+    static ssize_t ReceiveChunk(int socket, void* buffer, size_t len);
 
     /**
      * Receives a file from the network
@@ -185,7 +185,7 @@ public:
      * Dumps debug information about the command to an output stream
      * @param os The output stream to write to
      */
-    void dump(std::ostream& os);
+    void dump(std::ostream& outStream);
 
     /**
      * Gets the total size of the command data
@@ -233,13 +233,13 @@ protected:
      */
     std::string extractStringFromPayload(size_t off, int whence = SEEK_SET);
 
-    std::vector<std::string> parseDeletionLogFromBuffer(GrowingBuffer& buffer, size_t& offset, int whence = SEEK_SET);
+    static std::vector<std::string> parseDeletionLogFromBuffer(GrowingBuffer& buffer, size_t& offset, int whence = SEEK_SET);
     /**
      * Appends a deletion log to the buffer
      * @param buffer The buffer to append the deletion log to
      * @param deletions Vector of paths to delete
      */
-    void appendDeletionLogToBuffer(GrowingBuffer& buffer, const std::vector<std::string>& deletions);
+    static void appendDeletionLogToBuffer(GrowingBuffer& buffer, const std::vector<std::string>& deletions);
 };
 
 /* Derived Command Classes */
@@ -344,7 +344,7 @@ public:
      * @param socket The socket file descriptor to send to
      * @param message The message text to send
      */
-    static void sendMessage(const int socket, const std::string& message);
+    static void sendMessage(int socket, const std::string& message);
 };
 
 class RmdirCmd : public TcpCommand {

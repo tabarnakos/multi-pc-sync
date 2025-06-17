@@ -27,6 +27,7 @@
 #include "human_readable.h"
 
 // Section 3: Defines and Macros
+constexpr float MICROSECONDS_PER_SECOND = 1000000.0F;
 
 // Section 4: Static Variables
 
@@ -45,7 +46,7 @@ void TcpCommand::block_transmit() {
     TCPSendSemaphore.acquire();
     if (transmitRateLimit > 0) {
         auto now = std::chrono::steady_clock::now();
-        auto minInterval = std::chrono::microseconds(static_cast<int64_t>(1000000.0f / transmitRateLimit));
+        auto minInterval = std::chrono::microseconds(static_cast<int64_t>(MICROSECONDS_PER_SECOND / transmitRateLimit));
         auto elapsed = now - lastTransmitTime;
         if (elapsed < minInterval) {
             std::this_thread::sleep_for(minInterval - elapsed);
@@ -93,14 +94,8 @@ const char* TcpCommand::commandName() {
     }
 }
 
-void TcpCommand::dump(std::ostream& os) {
-#if 0
-    size_t size = cmdSize();
-    cmd_id_t cmd = command();
-    os << "Command size: " << size << "\n";
-    os << "Command ID: " << static_cast<int>(cmd) << " (" << commandName() << ")\n";
-#endif
-    mData.dump(os);
+void TcpCommand::dump(std::ostream& outStream) {
+    mData.dump(outStream);
 }
 
 size_t TcpCommand::cmdSize() {
@@ -128,7 +123,7 @@ std::string TcpCommand::extractStringFromPayload(size_t off, int whence) {
     mData.read(&pathSize, sizeof(size_t));
     
     std::string path(pathSize, '\0');
-    mData.read(&path[0], pathSize);
+    mData.read(path.data(), pathSize);
     return path;
 }
 
@@ -137,9 +132,9 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
     size_t chunk_sent = 0;
     const uint8_t* buf = static_cast<const uint8_t*>(buffer);
     while (chunk_sent < len) {
-        ssize_t n = send(socket, buf + chunk_sent, len - chunk_sent, 0);
-        if (n <= 0) {
-            if (n == 0) {
+        ssize_t num = send(socket, buf + chunk_sent, len - chunk_sent, 0);
+        if (num <= 0) {
+            if (num == 0) {
                 std::cerr << "Connection closed by peer after sending "
                           << HumanReadable(chunk_sent) << '\n';
             } else {
@@ -148,7 +143,7 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
             }
             return -1;
         }
-        chunk_sent += n;
+        chunk_sent += num;
         //std::cout << "DEBUG: Sent chunk of " << n
         //          << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << '\n';
     }
@@ -160,20 +155,19 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
     size_t chunk_received = 0;
 
     while (chunk_received < len) {
-        ssize_t n = recv(socket, static_cast<uint8_t*>(buffer) + chunk_received, len - chunk_received, 0);
-        if (n <= 0) {
-            if (n == 0) {
+        ssize_t num = recv(socket, static_cast<uint8_t*>(buffer) + chunk_received, len - chunk_received, 0);
+        if (num <= 0) {
+            if (num == 0) {
                 std::cerr << "Connection closed by peer after receiving "
                             << chunk_received << " bytes" << '\n';
                 return -1;
-            } else {
-                std::cerr << "Receive error at " << chunk_received 
-                            << " bytes: " << strerror(errno) << '\n';
             }
+            std::cerr << "Receive error at " << chunk_received 
+                            << " bytes: " << strerror(errno) << '\n';
             return -1;
         }
 
-        chunk_received += n;
+        chunk_received += num;
         //std::cout << "DEBUG: Received chunk of " << HumanReadable(n) 
         //            << "(chunk progress: " << HumanReadable(chunk_received) 
         //            << "/" << HumanReadable(len) << '\n';
@@ -203,7 +197,7 @@ std::vector<std::string> TcpCommand::parseDeletionLogFromBuffer(GrowingBuffer& b
         buffer.read(&len, sizeof(size_t));
         offset += sizeof(size_t);
         std::string path(len, '\0');
-        buffer.read(&path[0], len);
+        buffer.read(path.data(), len);
         offset += len;
         deletions.push_back(path);
     }

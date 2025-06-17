@@ -25,7 +25,7 @@ public:
     /**
      * Type of index being managed
      */
-    enum INDEX_TYPE {
+    enum INDEX_TYPE : std::uint8_t {
         INDEX_TYPE_LOCAL = 0,          ///< Current local directory state
         INDEX_TYPE_LOCAL_LAST_RUN,     ///< Previous local directory state
         INDEX_TYPE_REMOTE,             ///< Current remote directory state
@@ -35,9 +35,16 @@ public:
     /**
      * Type of filesystem entry
      */
-    enum PATH_TYPE {
+    enum PATH_TYPE : std::uint8_t {
         FOLDER = 0,   ///< Directory entry
         FILE,         ///< File entry
+    };
+
+    enum class FILE_TIME_COMP_RESULT : std::int16_t {
+        FILE_TIME_EQUAL = 0,          ///< File times are equal
+        FILE_TIME_FILE_A_OLDER = -1,  ///< File A is older than File B
+        FILE_TIME_FILE_B_OLDER = 1,   ///< File A is newer than File B
+        FILE_TIME_LENGTH_MISMATCH = -1000, ///< File lengths do not match
     };
 
     /**
@@ -129,16 +136,29 @@ private:
     std::list<com::fileindexer::File *> findFileFromHash(com::fileindexer::Folder *folderIndex,
                                                          const std::string &hash, bool stopAtFirst,
                                                          bool verbose = false);
-    const std::list<std::string> __extractPathComponents(const std::filesystem::path &filepath,
-                                                        const bool verbose = false);
-    void *extract(com::fileindexer::Folder *folderIndex, const std::string &path, const PATH_TYPE type);
-    bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, const PATH_TYPE type);
+    static std::list<std::string> __extractPathComponents(const std::filesystem::path &filepath,
+                                                         bool verbose = false);
+    void *extract(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
+    bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
     void copyTo(com::fileindexer::Folder *folderIndex, ::google::protobuf::Message *element,
-                const std::string &path, const PATH_TYPE type);
-	static int compareFileTime(const std::string& a, const std::string& b);
+                const std::string &path, PATH_TYPE type);
+	static FILE_TIME_COMP_RESULT compareFileTime(const std::string& timeA, const std::string& timeB);
 
     void findDeletedRecursive(const com::fileindexer::Folder& currentFolder, const com::fileindexer::Folder& lastRunFolder, const std::filesystem::path& basePath, std::vector<std::string>& deletions);
-    bool isPathInFolder(const std::filesystem::path& pathToCheck, const com::fileindexer::Folder& folder);
+    
+    static bool isPathInFolder(const std::filesystem::path& pathToCheck, const com::fileindexer::Folder& folder);
+    static void* extractFile(com::fileindexer::Folder* folderIndex, const std::string& path);
+    static void* extractFolder(com::fileindexer::Folder* folderIndex, const std::string& path);
+    void* extractRecursive(com::fileindexer::Folder* folderIndex, const std::string& path, PATH_TYPE type);
+    
+    void addNewEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, std::filesystem::file_type type);
+    void updateFileEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found);
+    void updateFolderEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found);
+    void syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull);
+    void syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull);
+    void postProcessSyncCommands(std::list<SyncCommand> &syncCommands, DirectoryIndexer *remote);
+    void handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, std::list<SyncCommand>& syncCommands, bool isRemote, bool forcePull, bool verbose);
+    static void handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, std::list<SyncCommand>& syncCommands, bool isRemote);
 
 
     std::filesystem::directory_entry mDir;

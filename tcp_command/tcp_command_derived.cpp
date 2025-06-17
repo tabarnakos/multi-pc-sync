@@ -30,7 +30,7 @@
 
 // Section 5: Constructors/Destructors
 
-MessageCmd::MessageCmd(const std::string &message) : TcpCommand()
+MessageCmd::MessageCmd(const std::string &message)
 {
     // Calculate the total size of the command
     size_t messageSize = message.size();
@@ -100,7 +100,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     DirectoryIndexer *lastindexer = nullptr;
     if ( lastrunIndexPresent )
     {
-        lastindexer = new DirectoryIndexer(args.at("path"), DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
+        lastindexer = new DirectoryIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
     }
     indexer.indexonprotobuf(false);
 
@@ -133,7 +133,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     // --- End insertion ---
 
     TcpCommand * command = TcpCommand::create(commandbuf);
-    if ( !command )
+    if ( command == nullptr )
     {
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create command for sending index.");
         return -1;
@@ -268,8 +268,8 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     localIndexer.indexonprotobuf(false);
 
-    std::cout << "local index size: " << localIndexer.count(nullptr, 10) << '\n';
-    std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << '\n';
+    //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << '\n';
+    //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << '\n';
 
     std::cout << "Exporting Sync commands." << '\n';
 
@@ -368,13 +368,13 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         }
     }
 
-    if (lastRunIndexer)
+    if (lastRunIndexer != nullptr)
     {
         delete lastRunIndexer;
         lastRunIndexer = nullptr;
     }
 
-    if (lastRunRemoteIndexer)
+    if (lastRunRemoteIndexer != nullptr)
     {
         delete lastRunRemoteIndexer;
         lastRunRemoteIndexer = nullptr;
@@ -387,7 +387,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_COMPLETE;
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
     TcpCommand *command = TcpCommand::create(commandbuf);
-    if (!command)
+    if (command == nullptr)
     {
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create SyncCompleteCmd");
         return -1;
@@ -550,7 +550,7 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_DONE;
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
     TcpCommand *command = TcpCommand::create(commandbuf);
-    if (!command)
+    if (command == nullptr)
     {
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create SyncDoneCmd");
         return -1;

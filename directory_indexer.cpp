@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 // Section 3: Defines and Macros
-// (none)
+
 
 // Section 4: Static Variables
 // (none)
@@ -116,7 +116,7 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
 
 std::vector<std::string> DirectoryIndexer::getDeletions(DirectoryIndexer* lastRunIndexer) {
     std::vector<std::string> deletions;
-    if (!lastRunIndexer) {
+    if (lastRunIndexer == nullptr) {
         // Or handle error appropriately
         return deletions;
     }
@@ -136,7 +136,7 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
     if ( verbose )
         std::cout << mDir.path() << '\n';
     
-    for ( auto file : std::filesystem::directory_iterator( mDir.path() ) )
+    for ( const auto& file : std::filesystem::directory_iterator( mDir.path() ) )
     {
         if ( file.path().filename() == ".folderindex" || file.path().filename() == ".remote.folderindex" ||
              file.path().filename() == ".folderindex.last_run" || file.path().filename() == ".remote.folderindex.last_run" ||
@@ -196,7 +196,68 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
     return 0;
 }
 
-void DirectoryIndexer::indexpath( const std::filesystem::path &path, bool verbose )
+void DirectoryIndexer::updateFileEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found) {
+    for (int i = 0; i < mFolderIndex.files_size(); i++) {
+        auto *fileInIndex = mFolderIndex.mutable_files()->Mutable(i);
+        if (fileInIndex->name() == protobufFile.name()) {
+            found = true;
+            if (fileInIndex->permissions() != protobufFile.permissions() ||
+                fileInIndex->type() != protobufFile.type() ||
+                fileInIndex->modifiedtime() != protobufFile.modifiedtime()) {
+                mUpdateIndexFile = true;
+                if (file.status().type() == std::filesystem::file_type::regular) {
+                    MD5Calculator hash(std::filesystem::canonical(file.path()), verbose);
+                    std::string hashstring = hash.getDigest().to_string();
+                    *fileInIndex->mutable_hash() = hashstring;
+                }
+                fileInIndex->set_permissions(protobufFile.permissions());
+                fileInIndex->set_type(protobufFile.type());
+                *fileInIndex->mutable_modifiedtime() = protobufFile.modifiedtime();
+            }
+            break;
+        }
+    }
+}
+
+void DirectoryIndexer::updateFolderEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found) {
+    for (int i = 0; i < mFolderIndex.folders_size(); i++) {
+        auto *folderInIndex = mFolderIndex.mutable_folders()->Mutable(i);
+        if (folderInIndex->name() == protobufFile.name()) {
+            found = true;
+            mUpdateIndexFile = true;
+            DirectoryIndexer indexer(file.path(), *folderInIndex, false);
+            indexer.indexonprotobuf(verbose);
+            *folderInIndex = indexer.mFolderIndex;
+            folderInIndex->set_name(protobufFile.name());
+            folderInIndex->set_permissions(protobufFile.permissions());
+            folderInIndex->set_type(static_cast<com::fileindexer::Folder::FileType>(protobufFile.type()));
+            folderInIndex->set_modifiedtime(protobufFile.modifiedtime());
+            break;
+        }
+    }
+}
+
+void DirectoryIndexer::addNewEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, std::filesystem::file_type type) {
+    mUpdateIndexFile = true;
+    if (type == std::filesystem::file_type::directory) {
+        DirectoryIndexer indexer(file.path());
+        indexer.indexonprotobuf(verbose);
+        indexer.mFolderIndex.set_name(protobufFile.name());
+        indexer.mFolderIndex.set_permissions(protobufFile.permissions());
+        indexer.mFolderIndex.set_type(static_cast<com::fileindexer::Folder::FileType>(protobufFile.type()));
+        indexer.mFolderIndex.set_modifiedtime(protobufFile.modifiedtime());
+        *mFolderIndex.add_folders() = indexer.mFolderIndex;
+    } else {
+        if (type == std::filesystem::file_type::regular) {
+            MD5Calculator hash(std::filesystem::canonical(file.path()), verbose);
+            std::string hashstring = hash.getDigest().to_string();
+            protobufFile.set_hash(hashstring);
+        }
+        *mFolderIndex.add_files() = protobufFile;
+    }
+}
+
+void DirectoryIndexer::indexpath(const std::filesystem::path &path, bool verbose)
 {
     std::filesystem::directory_entry file(path);
 
@@ -211,111 +272,29 @@ void DirectoryIndexer::indexpath( const std::filesystem::path &path, bool verbos
         permissions = status.permissions();
         type = status.type();
         filetime = file.last_write_time();
-    } while ( filetime > indextime );
+    } while (filetime > indextime);
 
     com::fileindexer::File protobufFile;
-    protobufFile.set_name( file.path()/*.filename()*/ );
-    protobufFile.set_permissions( (int)permissions );
+    protobufFile.set_name(file.path());
+    protobufFile.set_permissions((int)permissions);
     protobufFile.set_type((::com::fileindexer::File_FileType)type);
-    protobufFile.set_modifiedtime( std::format( "{0:%F}_{0:%R}.{0:%S}", filetime) );
-    
+    protobufFile.set_modifiedtime(std::format("{0:%F}_{0:%R}.{0:%S}", filetime));
+
     bool found = false;
-    if ( type != std::filesystem::file_type::directory )
-    {
-        /* search for it in the file index */
-        for (int i = 0; i < mFolderIndex.files_size(); i++)
-        {
-            auto fileInIndex = mFolderIndex.mutable_files()->Mutable(i);
-            if ( fileInIndex->name() == protobufFile.name() )
-            {
-                found = true;
-                if ( fileInIndex->permissions() != protobufFile.permissions() ||
-                    fileInIndex->type() != protobufFile.type() ||
-                    fileInIndex->modifiedtime() != protobufFile.modifiedtime() )
-                {
-                    mUpdateIndexFile = true;
-                    /* recalculate the hash */
-                    if ( type == std::filesystem::file_type::regular )
-                    {
-                        MD5Calculator hash( std::filesystem::canonical(file.path()), verbose );
-                        std::string hashstring = hash.getDigest().to_string();
-                        *fileInIndex->mutable_hash() = hashstring;
-                    }
-                    
-                    /* update the file entry in the index */
-                    fileInIndex->set_permissions( protobufFile.permissions() );
-                    fileInIndex->set_type(protobufFile.type() );
-                    *fileInIndex->mutable_modifiedtime() = protobufFile.modifiedtime();
-                }
-                break;
-            }
-        }
-    } else 
-    {
-        /* search for it in the folder index */
-        for (int i = 0; i < mFolderIndex.folders_size(); i++)
-        {
-            auto folderInIndex = mFolderIndex.mutable_folders()->Mutable(i);
-            if ( folderInIndex->name() == protobufFile.name() )
-            {
-                found = true;
-                /*
-                if ( folderInIndex->permissions() != protobufFile.permissions() ||
-                    folderInIndex->type() != static_cast<com::fileindexer::Folder::FileType>(protobufFile.type()) ||
-                    folderInIndex->modifiedtime() != protobufFile.modifiedtime() )
-                {*/
-                    mUpdateIndexFile = true;
-                    
-                    /* update the folder entry in the index */
-                    DirectoryIndexer indexer( file.path(), *folderInIndex, false );
-                    indexer.indexonprotobuf( verbose );
-
-                    *folderInIndex = indexer.mFolderIndex;
-                    folderInIndex->set_name( protobufFile.name() );
-                    folderInIndex->set_permissions( protobufFile.permissions() );
-                    folderInIndex->set_type( static_cast<com::fileindexer::Folder::FileType>(protobufFile.type()) );
-                    folderInIndex->set_modifiedtime( protobufFile.modifiedtime() );
-                //}
-                break;
-            }
-        }
-
+    if (type != std::filesystem::file_type::directory) {
+        updateFileEntry(file, protobufFile, verbose, found);
+    } else {
+        updateFolderEntry(file, protobufFile, verbose, found);
     }
 
-    if ( !found )
-    {
-        mUpdateIndexFile = true;
-        /* calculate the hash and add it */
-        if ( type == std::filesystem::file_type::directory )
-        {
-            DirectoryIndexer indexer( file.path() );
-            indexer.indexonprotobuf( verbose );
-
-            com::fileindexer::Folder folder;
-            indexer.mFolderIndex.set_name( protobufFile.name() );
-            indexer.mFolderIndex.set_permissions( protobufFile.permissions() );
-            indexer.mFolderIndex.set_type( static_cast<com::fileindexer::Folder::FileType>(protobufFile.type()) );
-            indexer.mFolderIndex.set_modifiedtime( protobufFile.modifiedtime() );
-            
-            *mFolderIndex.add_folders() = indexer.mFolderIndex;
-        }
-        else
-        {
-            if ( type == std::filesystem::file_type::regular )
-            {
-                /* regular files carry their hash */
-                MD5Calculator hash( std::filesystem::canonical(file.path()), verbose );
-                std::string hashstring = hash.getDigest().to_string();
-                protobufFile.set_hash( hashstring );
-            }
-            *mFolderIndex.add_files() = protobufFile;
-        }
+    if (!found) {
+        addNewEntry(file, protobufFile, verbose, type);
     }
 }
 
 size_t DirectoryIndexer::count( com::fileindexer::Folder *folderIndex, int recursionLevel)
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
 
     static size_t result=folderIndex->files_size();
@@ -326,193 +305,176 @@ size_t DirectoryIndexer::count( com::fileindexer::Folder *folderIndex, int recur
 
 void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote )
 {
-    if ( remote == nullptr )
+    if (remote == nullptr)
         return;
-    
-    const bool topLevel = !folderIndex;
-    const bool forcePull = (past == nullptr);
-    const DirectoryIndexer * local = this;
 
-    if ( topLevel )
+    const bool topLevel = folderIndex == nullptr;
+    const bool forcePull = (past == nullptr);
+    const DirectoryIndexer *local = this;
+
+    if (topLevel)
         folderIndex = &remote->mFolderIndex;
-    
-    for ( auto &remoteFolder: *folderIndex->mutable_folders() )
+
+    syncFolders(folderIndex, past, remote, remotePast, syncCommands, verbose, isRemote, local, forcePull);
+    syncFiles(folderIndex, past, remote, remotePast, syncCommands, verbose, isRemote, local, forcePull);
+
+    if (topLevel)
+    {
+        postProcessSyncCommands(syncCommands, remote);
+        if (verbose)
+            std::cout << '\n' << "Exporting sync commands from local to remote" << '\n';
+        remote->sync(&mFolderIndex, remotePast, this, past, syncCommands, verbose, true);
+    }
+}
+
+void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+{
+    for (auto &remoteFolder : *folderIndex->mutable_folders())
     {
         auto remoteFolderPath = remoteFolder.name();
-        auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length()+1);
-        if ( verbose )
+        auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length() + 1);
+        if (verbose)
             std::cout << "Entering " << remoteFolderPath << '\n';
-        
-        if ( extract(nullptr, localFolderPath, FOLDER) )
+
+        if (nullptr != extract(nullptr, localFolderPath, FOLDER))
         {
-            if ( verbose )
+            if (verbose)
                 std::cout << "folder exists! " << localFolderPath << '\n';
-            /* matching local folder with identical name exists, simplest case. recurse */
-            sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
+            sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
         }
         else
         {
-            if ( verbose )
+            if (verbose)
                 std::cout << "folder missing! " << localFolderPath << '\n';
-            /* remote folder is missing locally */
 
-            if ( forcePull || !past->extract(nullptr, localFolderPath, FOLDER) )
+            if (forcePull || (past->extract(nullptr, localFolderPath, FOLDER) == nullptr))
             {
-                /* no local history or folder never existed, create folder locally and recurse */
-                syncCommands.push_back( SyncCommand( "mkdir", localFolderPath, "", isRemote ) );
-                /* update the local index to reflect the new folder */
-                copyTo( nullptr, &remoteFolder, localFolderPath, FOLDER );
-                /* recurse */
-                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
-            } else
+                syncCommands.emplace_back("mkdir", localFolderPath, "", isRemote);
+                copyTo(nullptr, &remoteFolder, localFolderPath, FOLDER);
+                sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
+            }
+            else
             {
-                /* folder was deleted, recurse first then delete it on the remote*/
-                sync( &remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote );
-                syncCommands.push_back( SyncCommand( "rmdir", remoteFolderPath, "", !isRemote ) );
+                sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
+                syncCommands.emplace_back("rmdir", remoteFolderPath, "", !isRemote);
             }
         }
     }
+}
 
-    for ( auto &remoteFile: *folderIndex->mutable_files() )
+void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, std::list<SyncCommand>& syncCommands, bool isRemote)
+{
+    if (remoteFile.hash() != localFile->hash())
+    {
+        FILE_TIME_COMP_RESULT compResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
+        if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
+        {
+            std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << '\n';
+        }
+        else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
+        {
+            std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << '\n';
+        }
+        else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
+        {
+            /* remote file is younger */
+            syncCommands.emplace_back("rm", localFilePath, "", isRemote );
+            syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote );
+            localFile->set_hash(remoteFile.hash());
+        }
+        else
+        {
+            /* local file is younger */
+            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote );
+            syncCommands.emplace_back(isRemote ? "fetch" : "push", localFilePath, remoteFilePath, !isRemote );
+            remoteFile.set_hash(localFile->hash());
+        }
+    }
+}
+
+void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, std::list<SyncCommand>& syncCommands, bool isRemote, bool forcePull, bool verbose)
+{
+    if (forcePull)
+    {
+        auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
+        if (fileList.empty())
+        {
+            syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
+        }
+        else
+        {
+            syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
+        }
+        copyTo(nullptr, &remoteFile, localFilePath, FILE);
+    }
+    else
+    {
+        auto *localPastFile = static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
+        if (localPastFile != nullptr)
+        {
+            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);
+        }
+        else
+        {
+            auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
+            if (fileList.empty())
+            {
+                syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
+            }
+            else
+            {
+                syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
+            }
+            copyTo(nullptr, &remoteFile, localFilePath, FILE);
+        }
+    }
+}
+
+void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+{
+    for (auto &remoteFile : *folderIndex->mutable_files())
     {
         auto remoteFilePath = remoteFile.name();
-        auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length()+1);
-        if ( verbose )
+        auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length() + 1);
+        if (verbose)
             std::cout << "checking " << remoteFilePath << '\n';
 
-        auto localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
-        if ( localFile )
+        auto *localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
+        if (localFile != nullptr)
         {
-            if ( verbose )
+            if (verbose)
                 std::cout << "file exists! " << localFilePath << '\n';
-
-            /* matching local file with identical name exists, perform detailed checks */
-            /* no matter what the modified time is, if the content is the same, we don't do anything */
-            if ( remoteFile.hash() != localFile->hash() )
-            {
-                /* files are different, keep the younger one */
-                int compResult = compareFileTime( remoteFile.modifiedtime(), localFile->modifiedtime() );
-                if ( compResult == -1000 )
-                {
-                    std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << '\n';
-                } else if ( compResult == 0 )
-                {
-                    std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << '\n';
-                } else if ( compResult > 0 )
-                {
-                    /* remote file is younger */
-                    syncCommands.push_back( SyncCommand("rm", localFilePath, "", isRemote ) );
-                    syncCommands.push_back( SyncCommand(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
-                    localFile->set_hash( remoteFile.hash() );
-                } else
-                {
-                    /* local file is younger */
-                    syncCommands.push_back( SyncCommand("rm", remoteFilePath, "", !isRemote ) );
-                    syncCommands.push_back( SyncCommand(isRemote ? "fetch" : "push", localFilePath, remoteFilePath, !isRemote ) );
-                    remoteFile.set_hash( localFile->hash() );
-                }
-            }
-        } else
+            handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+        }
+        else
         {
-            if ( verbose )
+            if (verbose)
                 std::cout << "file missing! " << localFilePath << '\n';
-            /* no matching local file, check file history to determine correct action */
-            if ( forcePull )
-            {
-                /* no local history, try to find a local copy */
-                auto fileList = findFileFromHash( nullptr, remoteFile.hash(), true, verbose );
-                if ( fileList.empty() )
-                {
-                    /* no local copy found, copy from remote instead */
-                    syncCommands.push_back( SyncCommand( isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
-                } else
-                {
-                    /* we have a local copy, save some bandwidth and copy locally */
-                    syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, isRemote ) );
-                }
-                /* update the local index to reflect the new file */
-                copyTo( nullptr, &remoteFile, localFilePath, FILE );
-            } else
-            {
-                /* we have a local history */
-                auto localPastFile = static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
-
-                if ( localPastFile )
-                {
-                    /* file was deleted locally, remove it from the remote */
-                    syncCommands.push_back( SyncCommand( "rm", remoteFilePath, "", !isRemote ) );
-                } else
-                {
-                    /* file was never there, try to find a local copy */
-                    auto fileList = findFileFromHash( nullptr, remoteFile.hash(), true, verbose );
-                    if ( fileList.empty() )
-                    {
-                        /* no local copy found, copy from remote instead */
-                        syncCommands.push_back( SyncCommand( isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote ) );
-                    } else
-                    {
-                        /* we have a local copy, save some bandwidth and copy locally */
-                        syncCommands.push_back( SyncCommand( "cp", (*fileList.cbegin())->name(), localFilePath, isRemote ) );
-                    }
-                    /* update the local index to reflect the new file */
-                    copyTo( nullptr, &remoteFile, localFilePath, FILE );
-                }
-            }
+            handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, syncCommands, isRemote, forcePull, verbose);
         }
     }
+}
 
-    /* finished outputting sync commands from remote to local */
-    /* remove paths to be deleted from the index */
-    if ( topLevel )
+void DirectoryIndexer::postProcessSyncCommands(std::list<SyncCommand> &syncCommands, DirectoryIndexer *remote)
+{
+    for (auto it = syncCommands.begin(); it != syncCommands.end(); ++it)
     {
-
-        for ( auto it = syncCommands.begin(); it != syncCommands.end(); ++it )
+        if (it->isRemoval())
         {
-            if ( it->isRemoval() )
+            PATH_TYPE type;
+            if (it->path1().ends_with("/\""))
+                type = FOLDER;
+            else
+                type = FILE;
+
+            if (!removePath(nullptr, it->path1(), type))
             {
-                PATH_TYPE type;
-                if ( it->path1().ends_with("/\"") ) 
-                    type = FOLDER;
-                else
-                    type = FILE;
-                    
-                if ( !removePath( nullptr, it->path1(), type ) )
+                if (!remote->removePath(nullptr, it->path1(), type))
                 {
-                    if ( !remote->removePath( nullptr, it->path1(), type ) )
-                    {
-                        std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << '\n';
-                    }
+                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << '\n';
                 }
-/* may not be necessary */
-#if 0
-                if ( type == FILE )
-                {
-                    /* this is a file removal. In the case of a rename, the file might be used as a 
-                       source for a local copy. Need to re-order the list to ensure the copy happens
-                       before the removal */
-                    auto prevIt = --it;
-                    auto rmIt = ++it;
-                    auto nextIt = ++it;
-                    for ( auto it2 = nextIt; it2 != syncCommands.end(); ++it2 )
-                    {
-                        if ( it2->source() == *rmPath )
-                        {
-                            while ( it2->source() == *rmPath )
-                                ++it2;
-                            syncCommands.splice( it2, syncCommands, rmIt );
-                        }
-                    }
-                    it = --nextIt;
-                }
-#endif
             }
         }
-
-        /* lastly, call the sync function in reverse, to sync from local to remote */
-        if ( verbose )
-            std::cout << '\n' << "Exporting sync commands from local to remote" << '\n';
-        
-        remote->sync( &mFolderIndex, remotePast, this, past, syncCommands, verbose, true );
     }
 }
 
@@ -525,12 +487,9 @@ bool DirectoryIndexer::isPathInFolder(const std::filesystem::path& pathToCheck, 
             return true;
         }
     }
-    for (const auto& subFolder : folder.folders()) {
-        if (subFolder.name() == pathToCheck.filename().string()) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(folder.folders(), [&](const auto& subFolder) {
+        return subFolder.name() == pathToCheck.filename().string();
+    });
 }
 
 void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& currentFolder, const com::fileindexer::Folder& lastRunFolder, const std::filesystem::path& basePath, std::vector<std::string>& deletions) {
@@ -573,7 +532,7 @@ void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& curr
             // }
             // ... and recursively for sub-folders within the deleted folder.
             // The current implementation just marks the top-level deleted folder.
-        } else if (currentMatchingSubFolder) {
+        } else if (currentMatchingSubFolder != nullptr) {
             // If folder exists, recurse into it
             findDeletedRecursive(*currentMatchingSubFolder, lastRunSubFolder, folderPath, deletions);
         }
@@ -583,7 +542,7 @@ void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& curr
 
 com::fileindexer::File * DirectoryIndexer::findFileAtPath( com::fileindexer::Folder * folderIndex, const std::string & path, bool verbose )
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
 
     auto pathComponents = __extractPathComponents( path, verbose );
@@ -606,7 +565,7 @@ com::fileindexer::File * DirectoryIndexer::findFileAtPath( com::fileindexer::Fol
                     auto pos = path.find_first_of( *it, 0 );
                     std::string temp_path = path.substr( pos + it->length()+1 );
 
-                    auto file = findFileAtPath( &folder, temp_path, verbose );
+                    auto *file = findFileAtPath( &folder, temp_path, verbose );
                     if ( file != nullptr )
                         return file;
                 }
@@ -618,7 +577,7 @@ com::fileindexer::File * DirectoryIndexer::findFileAtPath( com::fileindexer::Fol
 
 std::list<com::fileindexer::File *> DirectoryIndexer::findFileFromName( com::fileindexer::Folder * folderIndex, const std::string & filename,  bool verbose )
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
     
     std::list<com::fileindexer::File *> files_list;
@@ -657,7 +616,7 @@ com::fileindexer::Folder * DirectoryIndexer::findFolderFromName( const std::file
 
 std::list<com::fileindexer::File *> DirectoryIndexer::findFileFromHash( com::fileindexer::Folder * folderIndex, const std::string & hash, bool stopAtFirst, bool verbose)
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
 
     std::list<com::fileindexer::File *> files_list;
@@ -680,7 +639,7 @@ std::list<com::fileindexer::File *> DirectoryIndexer::findFileFromHash( com::fil
     return files_list;
 }
 
-const std::list<std::string> DirectoryIndexer::__extractPathComponents( const std::filesystem::path & filepath, const bool verbose )
+std::list<std::string> DirectoryIndexer::__extractPathComponents( const std::filesystem::path & filepath, const bool verbose )
 {
     std::filesystem::path pathcopy = filepath;
     std::list<std::string> pathComponents;
@@ -694,42 +653,53 @@ const std::list<std::string> DirectoryIndexer::__extractPathComponents( const st
     return pathComponents;
 }
 
+void* DirectoryIndexer::extractFile(com::fileindexer::Folder* folderIndex, const std::string& path) {
+    for (auto& file : *folderIndex->mutable_files()) {
+        if (file.name() == path)
+            return &file;
+    }
+    return nullptr;
+}
+
+void* DirectoryIndexer::extractFolder(com::fileindexer::Folder* folderIndex, const std::string& path) {
+    for (auto& folder : *folderIndex->mutable_folders()) {
+        if (folder.name() == path)
+            return &folder;
+    }
+    return nullptr;
+}
+
+void* DirectoryIndexer::extractRecursive(com::fileindexer::Folder* folderIndex, const std::string& path, const PATH_TYPE type) {
+    for (auto& folder : *folderIndex->mutable_folders()) {
+        if (path.starts_with(folder.name() + "/"))
+            return extract(&folder, path, type);
+    }
+    return nullptr;
+}
+
 void * DirectoryIndexer::extract( com::fileindexer::Folder * folderIndex, const std::string & path, const PATH_TYPE type )
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
 
     if ( !path.starts_with( folderIndex->name() ) )
         return nullptr;
-    else if ( path == folderIndex->name() )
+    if ( path == folderIndex->name() )
         return folderIndex;
 
     if ( path.find_last_of('/') == folderIndex->name().length() )
     {
-        /* we found the supposedly correct path */
         switch (type)
         {
             case FILE:
-                for ( auto &file : *folderIndex->mutable_files() )
-                {
-                    if ( file.name() == path )
-                        return &file;
-                }
-                break;
+                return extractFile(folderIndex, path);
             case FOLDER:
-                for ( auto &folder : *folderIndex->mutable_folders() )
-                {
-                    if ( folder.name() == path )
-                        return &folder;
-                }
+                return extractFolder(folderIndex, path);
         }
-    } else
+    }
+    else
     {
-        for ( auto &folder : *folderIndex->mutable_folders() )
-        {
-            if ( path.starts_with( folder.name() + "/" ) )
-                return extract( &folder, path, type );
-        }
+        return extractRecursive(folderIndex, path, type);
     }
 
     return nullptr;
@@ -737,7 +707,7 @@ void * DirectoryIndexer::extract( com::fileindexer::Folder * folderIndex, const 
 
 bool DirectoryIndexer::removePath( com::fileindexer::Folder * folderIndex, const std::string & path, const PATH_TYPE type )
 {
-    if ( !folderIndex )
+    if ( folderIndex == nullptr )
         folderIndex = &mFolderIndex;
 
     if ( !path.starts_with( folderIndex->name() ) )
@@ -764,7 +734,7 @@ bool DirectoryIndexer::removePath( com::fileindexer::Folder * folderIndex, const
             folderIndex->mutable_folders()->erase( folder );
             return true;
         }
-        else if ( path.starts_with( folder->name() ) )
+        if ( path.starts_with( folder->name() ) )
             return removePath( &*folder, path, type );
     }
 
@@ -775,7 +745,7 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
 {
     std::string insertPath = path.substr( 0, path.find_last_of( '/' ) );
 
-    auto subFolder = static_cast<com::fileindexer::Folder *>(extract( folderIndex, insertPath, FOLDER ));
+    auto *subFolder = static_cast<com::fileindexer::Folder *>(extract( folderIndex, insertPath, FOLDER ));
 
     if ( nullptr == subFolder )
     {
@@ -791,7 +761,7 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
 
     if ( type == FOLDER )
     {
-        const auto folderToCopy = dynamic_cast<com::fileindexer::Folder*>(element);
+        auto *const folderToCopy = dynamic_cast<com::fileindexer::Folder*>(element);
         com::fileindexer::Folder newFolder;
         newFolder.set_name( path );
         newFolder.set_permissions( folderToCopy->permissions() );
@@ -800,7 +770,7 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
         *subFolder->add_folders() = newFolder;
     } else // ( type == FILE )
     {
-        const auto fileToCopy = dynamic_cast<com::fileindexer::File*>(element);
+        auto *const fileToCopy = dynamic_cast<com::fileindexer::File*>(element);
         com::fileindexer::File newFile;
         newFile.set_name( path );
         newFile.set_permissions( fileToCopy->permissions() );
@@ -811,23 +781,24 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
     }
 }
 
-int DirectoryIndexer::compareFileTime(const std::string& a, const std::string& b)
+DirectoryIndexer::FILE_TIME_COMP_RESULT DirectoryIndexer::compareFileTime(const std::string& timeA, const std::string& timeB)
 {
-    if ( a.length() != b.length() )
-        return -1000;
-    
-    for ( size_t i=0; i < a.length(); ++i )
-    {
-        auto compresult = a.at(i) - b.at(i);
-        if ( compresult )
-            return compresult < 0 ? -1 : 1;
+    if (timeA.length() != timeB.length())
+        return FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH;
+
+    for (size_t i = 0; i < timeA.length(); ++i) {
+        int diff = static_cast<unsigned char>(timeA[i]) - static_cast<unsigned char>(timeB[i]);
+        if (diff < 0)
+            return FILE_TIME_COMP_RESULT::FILE_TIME_FILE_A_OLDER;
+        if (diff > 0)
+            return FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER;
     }
-    return 0;
+    return FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL;
 }
 
 void DirectoryIndexer::setPath( const std::string &path ) 
 {
-    const std::filesystem::directory_entry d(path); 
-    mDir = d;
+    const std::filesystem::directory_entry dirEntry(path); 
+    mDir = dirEntry;
     mFolderIndex.set_name( mDir.path() );
 }
