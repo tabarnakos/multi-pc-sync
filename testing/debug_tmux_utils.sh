@@ -93,10 +93,17 @@ compare_files() {
     done
 
     # Display results with color coding
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    NC='\033[0m' # No Color
+    if [ -t 1 ]; then
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[0;33m'
+        NC='\033[0m' # No Color
+    else
+        RED=''
+        GREEN=''
+        YELLOW=''
+        NC=''
+    fi
 
     if [ -n "$missing_files" ]; then
         echo -e "${RED}Missing files:${NC}" && echo -e "$missing_files"
@@ -181,4 +188,29 @@ create_folder() {
     if [ -n "$exp" ]; then
         EXPECTED_FILES="$EXPECTED_FILES $exp"
     fi
+}
+
+parse_range() {
+    local input="$1"
+    local start end
+
+    if [[ -z "$input" ]]; then
+        echo "No input provided. Defaulting to interactive mode"
+        start="0" # No start
+        end="0"   # No end
+    elif [[ "$input" =~ ^[0-9]+$ ]]; then
+        echo "Single number provided: $input"
+        start="$input"
+        end="$input"
+    elif [[ "$input" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+        start="${BASH_REMATCH[1]}"
+        end="${BASH_REMATCH[2]}"
+        echo "Range provided: Start=$start, End=$end"
+    else
+        echo "Invalid input format. Please use # or #-#." >&2
+        exit 1
+    fi
+
+    # Return the parsed values
+    SCENARIOS="$start $end"
 }
