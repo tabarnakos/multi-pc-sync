@@ -26,14 +26,14 @@ ProgramOptions::ProgramOptions(int argc, char *argv[])
 // Section 7: Public/Protected/Private Methods
 void printusage()
 {
-	std::cout << "Usage:" << "\n\r";
-	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--dry-run] [--exit-after-sync] <path>" << "\n\r";
-	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << "\n\r";
-	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << "\n\r";
-	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << "\n\r";
-	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << "\n\r";
-	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << "\n\r";
-	std::cout << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << "\n\r";
+	std::cout << "Usage:" << "\r\n";
+	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--dry-run] [--exit-after-sync] <path>" << "\r\n";
+	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << "\r\n";
+	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << "\r\n";
+	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << "\r\n";
+	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << "\r\n";
+	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << "\r\n";
+	std::cout << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << "\r\n";
 	exit(0);
 }
 
@@ -49,11 +49,11 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     
     if ( !std::filesystem::is_directory( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid directory" << "\n\r";
+        std::cout << opts.path << " is not a valid directory" << "\r\n";
         exit(0);
     } else if ( opts.path != std::filesystem::canonical( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid path" << "\n\r";
+        std::cout << opts.path << " is not a valid path" << "\r\n";
         exit(0);
     }
 
@@ -90,7 +90,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         case 'r':
             opts.rate_limit = std::stof(optarg);
             if (opts.rate_limit < 0) {
-                std::cout << "Rate limit must be non-negative" << "\n\r";
+                std::cout << "Rate limit must be non-negative" << "\r\n";
                 exit(0);
             }
             break;
