@@ -320,10 +320,12 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
 
     if (topLevel)
     {
-        postProcessSyncCommands(syncCommands, remote);
         if (verbose)
             std::cout << "\n\r" << "Exporting sync commands from local to remote" << "\n\r";
+        
         remote->sync(&mFolderIndex, remotePast, this, past, syncCommands, verbose, true);
+        
+        postProcessSyncCommands(syncCommands, remote);
     }
 }
 
@@ -479,7 +481,6 @@ void DirectoryIndexer::postProcessSyncCommands(SyncCommands &syncCommands, Direc
             }
         }
     }
-    syncCommands.sortCommands();
 }
 
 

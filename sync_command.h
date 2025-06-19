@@ -61,31 +61,35 @@ public:
      * Gets the command as a string
      * @return String representation of the command
      */
-    std::string string() const;
+    [[nodiscard]] std::string string() const;
 
     /**
      * Checks if command operates on remote system
      * @return true if remote operation
      */
-    bool isRemote() const;
+    [[nodiscard]] bool isRemote() const;
 
     /**
      * Checks if command is a removal operation
      * @return true if removal operation
      */
-    bool isRemoval() const;
+    [[nodiscard]] bool isRemoval() const;
+
+    [[nodiscard]] bool isFileMove() const;
+
+    [[nodiscard]] bool isCopy() const;
 
     /**
      * Gets the first path (usually source)
      * @return First path string
      */
-    std::string path1() const;
+    [[nodiscard]] std::string path1() const;
 
     /**
      * Gets the second path (usually destination)
      * @return Second path string
      */
-    std::string path2() const;
+    [[nodiscard]] std::string path2() const;
 
 private:
     std::string mCmd;      ///< Command type
@@ -117,6 +121,11 @@ class SyncCommands : public std::list<SyncCommand> {
 public:
     int exportToFile(const std::filesystem::path &path, bool verbose = false);
     int executeAll(const std::map<std::string, std::string> &args, bool verbose = false);
+
+    /**
+     * Sorts the list of commands, moving all removal commands to the end.
+     */
+    void sortCommands();
 };
 
 #endif // _SYNC_COMMAND_H_

@@ -8,6 +8,7 @@
 #include <string>
 #include <unistd.h>
 #include <getopt.h>
+#include <array>
 
 // Section 3: Defines and Macros
 // (none)
