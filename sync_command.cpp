@@ -165,6 +165,8 @@ std::string SyncCommand::string() const {
 
 bool SyncCommand::isRemote() const { return mRemote; }
 bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
+bool SyncCommand::isFileMove() const { return mCmd == "mv"; }
+bool SyncCommand::isCopy() const { return mCmd == "cp" || mCmd == "push" || mCmd == "fetch"; }
 std::string SyncCommand::path1() const { return mSrcPath; }
 std::string SyncCommand::path2() const { return mDestPath; }
 
@@ -184,4 +186,22 @@ int SyncCommands::executeAll(const std::map<std::string, std::string> &args, boo
         cmd.execute(args, verbose);
     }
     return 0;
+}
+
+void SyncCommands::sortCommands() {
+    this->sort([](const SyncCommand &commandA, const SyncCommand &commandB) {
+        auto getPriority = [](const SyncCommand &command) {
+            if (command.isCopy()) {
+                return 3; // File creation commands
+            }
+            if (command.isFileMove()) {
+                return 2; // File move operations
+            }
+            if (command.isRemoval()) {
+                return 1; // File delete operations
+            }
+            return 4; // Other commands
+        };
+        return getPriority(commandA) < getPriority(commandB);
+    });
 }

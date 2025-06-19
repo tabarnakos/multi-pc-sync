@@ -249,14 +249,26 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         unblock_receive();  // Only unlock on error
         return ret;
     }
-    unblock_receive();  // Only unlock on error
+    unblock_receive();  // unlock for real now
+
+    bool lastrunIndexPresent = false;
+
+    if ( std::filesystem::exists(indexpath) )
+    {
+        lastrunIndexPresent = true;
+        if (std::filesystem::exists(lastRunIndexPath))
+        {
+            std::filesystem::remove(lastRunIndexPath);
+        }
+        std::filesystem::rename(indexpath, lastRunIndexPath);
+    }
 
     std::cout << "importing remote index" << "\r\n";
     DirectoryIndexer remoteIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE);
     remoteIndexer.setPath(remotePath);
 
     DirectoryIndexer *lastRunRemoteIndexer = nullptr;
-    if (std::filesystem::exists(lastRunIndexPath))
+    if (std::filesystem::exists(remoteLastRunIndexPath))
     {
         std::cout << "importing remote index from last run" << "\r\n";
         lastRunRemoteIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE_LAST_RUN);
@@ -265,7 +277,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 
     std::cout << "remote and local indexes in hand, ready to sync" << "\r\n";
     DirectoryIndexer *lastRunIndexer = nullptr;
-    if (std::filesystem::exists(indexpath))
+    if (lastrunIndexPresent)
     {
         std::cout << "importing local index from last run" << "\r\n";
         lastRunIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
@@ -273,8 +285,8 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     localIndexer.indexonprotobuf(false);
 
-    //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << '\n';
-    //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << '\n';
+    //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << "\n\r";
+    //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << "\n\r";
 
     std::cout << "Exporting Sync commands." << "\r\n";
 
@@ -287,16 +299,33 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         return 0;
     }
 
+    // Need to put the removals in a list since it invalidates the iterator
+    // when we remove elements from syncCommands
+    // This is necessary to avoid modifying the list while iterating over it
+    std::list <SyncCommand> commandsToRemove;
+
     for (const auto& path : deletions) {
         for (auto &command : syncCommands)
         {
             if (command.path1() == "\""+path+"\"")
             {
-                syncCommands.remove(command);
+                commandsToRemove.push_back(command);
                 std::cout << "Removing command because of deleted file: " << command.string() << "\r\n";
             }
         }
     }
+
+    // Remove the commands that match the deletions
+    for (const auto& command : commandsToRemove)
+    {
+        syncCommands.remove(command);
+    }
+
+    // Sort the commands based on their priority
+    // This will ensure that file creation commands are executed before deletions
+    // and that the order of operations is correct
+    std::cout << "Sorting sync commands." << "\r\n";
+    syncCommands.sortCommands();
 
     std::cout << "\r\n" << "Display Generated Sync Commands: ?" << "\r\n";
     std::cout << "Total commands: " << syncCommands.size() << "\r\n";
