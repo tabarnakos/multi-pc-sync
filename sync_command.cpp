@@ -200,8 +200,8 @@ void SyncCommands::sortCommands() {
             if (command.isRemoval()) {
                 return 1; // File delete operations
             }
-            return 4; // Other commands
+            return 4; // Other commands like mkdir
         };
-        return getPriority(commandA) < getPriority(commandB);
+        return getPriority(commandA) > getPriority(commandB);
     });
 }
