@@ -93,7 +93,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
     } else {
-        std::cerr << "Unknown command: " << mCmd << "\n\r";
+        std::cerr << "Unknown command: " << mCmd << "\r\n";
         return nullptr;
     }
     return TcpCommand::create(commandbuf);
@@ -102,7 +102,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
 int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &args) {
     TcpCommand *cmd = createTcpCommand();
     if (!cmd) {
-        std::cerr << "Failed to create TCP command for: " << string() << "\n\r";
+        std::cerr << "Failed to create TCP command for: " << string() << "\r\n";
         return -1;
     }
     if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
@@ -135,7 +135,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
 }
 
 void SyncCommand::print() {
-    std::cout << string() << "\n\r";
+    std::cout << string() << "\r\n";
 }
 
 int SyncCommand::execute(const std::map<std::string, std::string> &args, bool verbose) {
@@ -153,7 +153,7 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     } else {
         int err = system(string().c_str());
         if (verbose) {
-            std::cout << "Command returned " << err << "\n\r";
+            std::cout << "Command returned " << err << "\r\n";
         }
         return err;
     }
@@ -172,8 +172,8 @@ int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) 
     std::ofstream file(path);
     if (!file.is_open()) return -1;
     for (const auto &cmd : *this) {
-        file << cmd.string() << "\n\r";
-        if (verbose) std::cout << "Exported: " << cmd.string() << "\n\r";
+        file << cmd.string() << "\r\n";
+        if (verbose) std::cout << "Exported: " << cmd.string() << "\r\n";
     }
     file.close();
     return 0;

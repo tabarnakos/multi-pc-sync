@@ -49,18 +49,18 @@ void ClientThread::runclient(context &ctx)
 
     if (connect(serverSocket, serverSocketAddr, sizeof(serverAddress)) < 0)
     {
-        std::cout << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\n\r";
+        std::cout << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\r\n";
         exit(0);
     }
 
-    std::cout << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\n\r";
+    std::cout << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\r\n";
 
     ctx.con_opened = true;
 
     // Request index from the server
     if (requestIndexFromServer(options) < 0)
     {
-        std::cout << "Error requesting index from server" << "\n\r";
+        std::cout << "Error requesting index from server" << "\r\n";
         close(serverSocket);
         return;
     }
@@ -71,7 +71,7 @@ void ClientThread::runclient(context &ctx)
         TcpCommand *receivedCommand = TcpCommand::receiveHeader(serverSocket);
         if (receivedCommand == nullptr)
         {
-            std::cout << "Error receiving command from server" << "\n\r";
+            std::cout << "Error receiving command from server" << "\r\n";
             break;
         }
         const std::string cmdName = receivedCommand->commandName();
@@ -102,23 +102,23 @@ void ClientThread::runclient(context &ctx)
                     break;
                 }
             default:
-                std::cout << "Unknown command received: " << "\n\r";
+                std::cout << "Unknown command received: " << "\r\n";
                 receivedCommand->dump(std::cout);
                 delete receivedCommand;
                 break;
         }
         if (err < 0)
         {
-            std::cout << "Error executing command: " << cmdName << "\n\r";
+            std::cout << "Error executing command: " << cmdName << "\r\n";
             ctx.con_opened = false;
         }
         else if (err > 0)
         {
-            std::cout << "Finished " << "\n\r";
+            std::cout << "Finished " << "\r\n";
             ctx.con_opened = false;
         }
         else
-            std::cout << "Executed command: " << cmdName << "\n\r";
+            std::cout << "Executed command: " << cmdName << "\r\n";
     }
 
     ctx.active = false;
