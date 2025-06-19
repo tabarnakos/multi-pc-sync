@@ -199,7 +199,7 @@ int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool ca
     }
 
     int socket = std::stoi(args.at("txsocket"));
-    uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
+    auto* buffer = new uint8_t[ALLOCATION_SIZE];
     mData.seek(0, SEEK_SET);
     size_t remaining = mData.size();
     

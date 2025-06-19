@@ -59,6 +59,11 @@ fi
 trap "if [ $apply_latency -gt 0 ]; then sudo tc qdisc del dev lo root netem 2>/dev/null; echo 'Cleaned up tc qdisc rules.'; fi" EXIT
 
 read start end <<< "$SCENARIOS"
+
+if [[ $SCENARIOS != "0 0" ]]; then
+    rm -f "$SCRIPT_DIR/test_report.txt"
+fi
+
 for scenario in $(seq "$start" "$end"); do
     # Declare variables
     EXPECTED_FILES=""
@@ -350,8 +355,7 @@ for scenario in $(seq "$start" "$end"); do
     if [ "$apply_latency" -gt 0 ]; then
     apply_latency $apply_latency
     fi
-
-    if [[ $SCENARIOS == "0 " ]]; then
+    if [[ $SCENARIOS == "0 0" ]]; then
         echo "Running interactively in tmux"
 
         # Start a new tmux session named 'sync_debug'
@@ -396,7 +400,7 @@ for scenario in $(seq "$start" "$end"); do
         fi
     fi
 
-    if [[ $SCENARIOS == "0 " ]]; then
+    if [[ $SCENARIOS == "0 0" ]]; then
         # Perform file comparison after processes have exited
         echo "Checking if the expected files exist in the client root directory..."
 
