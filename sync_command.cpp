@@ -93,7 +93,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
     } else {
-        std::cerr << "Unknown command: " << mCmd << '\n';
+        std::cerr << "Unknown command: " << mCmd << "\n\r";
         return nullptr;
     }
     return TcpCommand::create(commandbuf);
@@ -102,7 +102,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
 int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &args) {
     TcpCommand *cmd = createTcpCommand();
     if (!cmd) {
-        std::cerr << "Failed to create TCP command for: " << string() << '\n';
+        std::cerr << "Failed to create TCP command for: " << string() << "\n\r";
         return -1;
     }
     if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
@@ -135,7 +135,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
 }
 
 void SyncCommand::print() {
-    std::cout << string() << '\n';
+    std::cout << string() << "\n\r";
 }
 
 int SyncCommand::execute(const std::map<std::string, std::string> &args, bool verbose) {
@@ -153,14 +153,14 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     } else {
         int err = system(string().c_str());
         if (verbose) {
-            std::cout << "Command returned " << err << '\n';
+            std::cout << "Command returned " << err << "\n\r";
         }
         return err;
     }
 }
 
 std::string SyncCommand::string() const {
-    return mCmd + " " + mSrcPath + (mDestPath.empty() ? "" : " " + mDestPath);
+    return mCmd + " " + mSrcPath + " " + mDestPath;
 }
 
 bool SyncCommand::isRemote() const { return mRemote; }
@@ -172,8 +172,8 @@ int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) 
     std::ofstream file(path);
     if (!file.is_open()) return -1;
     for (const auto &cmd : *this) {
-        file << cmd.string() << '\n';
-        if (verbose) std::cout << "Exported: " << cmd.string() << '\n';
+        file << cmd.string() << "\n\r";
+        if (verbose) std::cout << "Exported: " << cmd.string() << "\n\r";
     }
     file.close();
     return 0;

@@ -59,7 +59,7 @@ DirectoryIndexer::DirectoryIndexer(const std::filesystem::path &path, bool topLe
             std:: cout << mFolderIndex.ParseFromIstream( &mIndexfile );
             mIndexfile.close();
 
-            std::cout << " done" << '\n';
+            std::cout << " done" << "\n\r";
         }
         
         if ( mFolderIndex.name().empty() )
@@ -99,7 +99,7 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
         std::cout << "\t" << folder.permissions();
         std::cout << "\t" << folder.type();
         std::cout << "\t" << *folder.mutable_modifiedtime();
-        std::cout << '\n';
+        std::cout << "\n\r";
         printIndex( &folder, recursionlevel + 1 );
     }
     for ( auto file : *folderIndex->mutable_files() )
@@ -109,7 +109,7 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
         std::cout << "\t" << file.type();
         std::cout << "\t" << *file.mutable_modifiedtime();
         std::cout << "\t" << *file.mutable_hash();
-        std::cout << '\n';
+        std::cout << "\n\r";
     }
 
 }
@@ -134,7 +134,7 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
         return -1;
     
     if ( verbose )
-        std::cout << mDir.path() << '\n';
+        std::cout << mDir.path() << "\n\r";
     
     for ( const auto& file : std::filesystem::directory_iterator( mDir.path() ) )
     {
@@ -303,7 +303,7 @@ size_t DirectoryIndexer::count( com::fileindexer::Folder *folderIndex, int recur
     return result;
 }
 
-void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote )
+void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote )
 {
     if (remote == nullptr)
         return;
@@ -322,30 +322,30 @@ void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIn
     {
         postProcessSyncCommands(syncCommands, remote);
         if (verbose)
-            std::cout << '\n' << "Exporting sync commands from local to remote" << '\n';
+            std::cout << "\n\r" << "Exporting sync commands from local to remote" << "\n\r";
         remote->sync(&mFolderIndex, remotePast, this, past, syncCommands, verbose, true);
     }
 }
 
-void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
 {
     for (auto &remoteFolder : *folderIndex->mutable_folders())
     {
         auto remoteFolderPath = remoteFolder.name();
         auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length() + 1);
         if (verbose)
-            std::cout << "Entering " << remoteFolderPath << '\n';
+            std::cout << "Entering " << remoteFolderPath << "\n\r";
 
         if (nullptr != extract(nullptr, localFolderPath, FOLDER))
         {
             if (verbose)
-                std::cout << "folder exists! " << localFolderPath << '\n';
+                std::cout << "folder exists! " << localFolderPath << "\n\r";
             sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
         }
         else
         {
             if (verbose)
-                std::cout << "folder missing! " << localFolderPath << '\n';
+                std::cout << "folder missing! " << localFolderPath << "\n\r";
 
             if (forcePull || (past->extract(nullptr, localFolderPath, FOLDER) == nullptr))
             {
@@ -362,18 +362,18 @@ void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, Direct
     }
 }
 
-void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, std::list<SyncCommand>& syncCommands, bool isRemote)
+void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote)
 {
     if (remoteFile.hash() != localFile->hash())
     {
         FILE_TIME_COMP_RESULT compResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
         if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
         {
-            std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << '\n';
+            std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << "\n\r";
         }
         else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
         {
-            std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << '\n';
+            std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << "\n\r";
         }
         else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
         {
@@ -392,7 +392,7 @@ void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com:
     }
 }
 
-void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, std::list<SyncCommand>& syncCommands, bool isRemote, bool forcePull, bool verbose)
+void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, SyncCommands &syncCommands, bool isRemote, bool forcePull, bool verbose)
 {
     if (forcePull)
     {
@@ -412,7 +412,10 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
         auto *localPastFile = static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
         if (localPastFile != nullptr)
         {
-            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);
+            // We have a past version of the file, but no current version
+            // This is a file deleting case
+            // Remove it from the remote
+            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);     //TODO: Confirm if isRemote is inverted here
         }
         else
         {
@@ -430,32 +433,32 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
     }
 }
 
-void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, std::list<SyncCommand> &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
 {
     for (auto &remoteFile : *folderIndex->mutable_files())
     {
         auto remoteFilePath = remoteFile.name();
         auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length() + 1);
         if (verbose)
-            std::cout << "checking " << remoteFilePath << '\n';
+            std::cout << "checking " << remoteFilePath << "\n\r";
 
         auto *localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
         if (localFile != nullptr)
         {
             if (verbose)
-                std::cout << "file exists! " << localFilePath << '\n';
+                std::cout << "file exists! " << localFilePath << "\n\r";
             handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
         }
         else
         {
             if (verbose)
-                std::cout << "file missing! " << localFilePath << '\n';
+                std::cout << "file missing! " << localFilePath << "\n\r";
             handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, syncCommands, isRemote, forcePull, verbose);
         }
     }
 }
 
-void DirectoryIndexer::postProcessSyncCommands(std::list<SyncCommand> &syncCommands, DirectoryIndexer *remote)
+void DirectoryIndexer::postProcessSyncCommands(SyncCommands &syncCommands, DirectoryIndexer *remote)
 {
     for (auto it = syncCommands.begin(); it != syncCommands.end(); ++it)
     {
@@ -471,11 +474,12 @@ void DirectoryIndexer::postProcessSyncCommands(std::list<SyncCommand> &syncComma
             {
                 if (!remote->removePath(nullptr, it->path1(), type))
                 {
-                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << '\n';
+                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << "\n\r";
                 }
             }
         }
     }
+    syncCommands.sortCommands();
 }
 
 
@@ -647,7 +651,7 @@ std::list<std::string> DirectoryIndexer::__extractPathComponents( const std::fil
     {
         pathComponents.push_front( pathcopy.filename() );
         if ( verbose )
-            std::cout << pathcopy.filename() << '\n';
+            std::cout << pathcopy.filename() << "\n\r";
         pathcopy = pathcopy.parent_path();
     } while ( pathcopy != "/" );
     return pathComponents;
@@ -752,10 +756,10 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
         if ( folderIndex == nullptr )
             folderIndex = &mFolderIndex;
         /* error out */
-        std::cout << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << '\n';
-        std::cout << "Maybe this info can help:" << '\n';
-        std::cout << "    path = " << path << '\n';
-        std::cout << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << '\n';
+        std::cout << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << "\n\r";
+        std::cout << "Maybe this info can help:" << "\n\r";
+        std::cout << "    path = " << path << "\n\r";
+        std::cout << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << "\n\r";
         exit(1);
     }
 

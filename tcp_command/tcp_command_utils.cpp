@@ -136,16 +136,16 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
         if (num <= 0) {
             if (num == 0) {
                 std::cerr << "Connection closed by peer after sending "
-                          << HumanReadable(chunk_sent) << '\n';
+                          << HumanReadable(chunk_sent) << "\n\r";
             } else {
                 std::cerr << "Send error at " << HumanReadable(chunk_sent)
-                          << ": " << strerror(errno) << '\n';
+                          << ": " << strerror(errno) << "\n\r";
             }
             return -1;
         }
         chunk_sent += num;
         //std::cout << "DEBUG: Sent chunk of " << n
-        //          << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << '\n';
+        //          << " (chunk progress: " << HumanReadable(chunk_sent) << "/" << HumanReadable(len) << ")" << "\n\r";
     }
     return chunk_sent;
 }
@@ -159,18 +159,18 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
         if (num <= 0) {
             if (num == 0) {
                 std::cerr << "Connection closed by peer after receiving "
-                            << chunk_received << " bytes" << '\n';
+                            << chunk_received << " bytes" << "\n\r";
                 return -1;
             }
             std::cerr << "Receive error at " << chunk_received 
-                            << " bytes: " << strerror(errno) << '\n';
+                            << " bytes: " << strerror(errno) << "\n\r";
             return -1;
         }
 
         chunk_received += num;
         //std::cout << "DEBUG: Received chunk of " << HumanReadable(n) 
         //            << "(chunk progress: " << HumanReadable(chunk_received) 
-        //            << "/" << HumanReadable(len) << '\n';
+        //            << "/" << HumanReadable(len) << "\n\r";
     }
 
     return chunk_received;

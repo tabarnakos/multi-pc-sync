@@ -46,6 +46,7 @@ set ( multi_pc_sync_hdr
 
 add_executable( multi_pc_sync ${multi_pc_sync_src} ${multi_pc_sync_hdr} )
 target_compile_options(multi_pc_sync PRIVATE -Wall -Wextra -Wno-sign-compare -O3)
+target_compile_definitions(multi_pc_sync PRIVATE $<$<CONFIG:Debug>:DEBUG> $<$<CONFIG:Release>:RELEASE>)
 
 protobuf_generate(TARGET multi_pc_sync PROTOC_OUT_DIR "..")
 

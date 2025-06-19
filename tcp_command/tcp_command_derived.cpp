@@ -25,6 +25,11 @@
 #include "sync_command.h"
 
 // Section 3: Defines and Macros
+#if defined(DEBUG) || defined(_DEBUG)
+#define FORCE_SYNC_COMMANDS_FILE_EXPORT 1
+#else
+#define FORCE_SYNC_COMMANDS_FILE_EXPORT 0
+#endif
 
 // Section 4: Static Variables
 
@@ -67,7 +72,7 @@ MessageCmd::~MessageCmd() {}
 void MessageCmd::sendMessage(const int socket, const std::string &message)
 {
     MessageCmd cmd(message);
-    std::cout << "[localhost] " << message << '\n';
+    std::cout << "[localhost] " << message << "\n\r";
     block_transmit();
     cmd.transmit({{"txsocket", std::to_string(socket)}});
     unblock_transmit();
@@ -95,7 +100,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     }
     
     /* kick off the indexing */
-    std::cout << "starting to index " << args.at("path") << '\n';
+    std::cout << "starting to index " << args.at("path") << "\n\r";
     DirectoryIndexer indexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     DirectoryIndexer *lastindexer = nullptr;
     if ( lastrunIndexPresent )
@@ -163,33 +168,33 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
         }
     } else 
     {
-        //std::cout << "DEBUG: Sending file: " << lastrunIndexFilename << '\n';
+        //std::cout << "DEBUG: Sending file: " << lastrunIndexFilename << "\n\r";
         int socket = std::stoi(args.at("txsocket"));
-        //std::cout << "DEBUG: Sending file header..." << '\n';
+        //std::cout << "DEBUG: Sending file header..." << "\n\r";
         size_t path_size = lastrunIndexFilename.size();
         
         size_t sent_bytes = sendChunk(socket, &path_size, sizeof(size_t));
         if (sent_bytes < sizeof(size_t)) {
-            std::cerr << "Failed to send path size" << '\n';
+            std::cerr << "Failed to send path size" << "\n\r";
             unblock_transmit();
             return -1;
         }
-        //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << '\n';
+        //std::cout << "DEBUG: Path size sent: " << path_size << " bytes" << "\n\r";
         sent_bytes = sendChunk(socket, lastrunIndexFilename.data(), path_size);
         if (sent_bytes < path_size) {
-            std::cerr << "Failed to send file path" << '\n';
+            std::cerr << "Failed to send file path" << "\n\r";
             unblock_transmit();
             return -1;
         }
-        //std::cout << "DEBUG: File path sent: " << lastrunIndexFilename << '\n';
+        //std::cout << "DEBUG: File path sent: " << lastrunIndexFilename << "\n\r";
         size_t file_size = 0;   //file does not exist
-        //std::cout << "DEBUG: File size is " << file_size << " bytes" << '\n';
+        //std::cout << "DEBUG: File size is " << file_size << " bytes" << "\n\r";
         
         // Send the file size
-        //std::cout << "DEBUG: Sending file size: " << file_size << " bytes" << '\n';
+        //std::cout << "DEBUG: Sending file size: " << file_size << " bytes" << "\n\r";
         sent_bytes = sendChunk(socket, &file_size, sizeof(size_t));
         if (sent_bytes < sizeof(size_t)) {
-            std::cerr << "Failed to send file size" << '\n';
+            std::cerr << "Failed to send file size" << "\n\r";
             unblock_transmit();
             return -1;
         }
@@ -207,7 +212,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), payloadSize);
     
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for IndexPayloadCmd" << '\n';
+        std::cerr << "Error receiving payload for IndexPayloadCmd" << "\n\r";
         unblock_receive();  // Only unlock on error
         return -1;
     }
@@ -216,7 +221,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     size_t indexFileNameSize = 0;
     const auto deletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
 
-    std::cout << "Received index for remote path: " << remotePath << '\n';
+    std::cout << "Received index for remote path: " << remotePath << "\n\r";
 
     const std::filesystem::path localPath = args.at("path");
     const std::filesystem::path indexpath = std::filesystem::path(localPath) / ".folderindex";
@@ -231,7 +236,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     int ret = ReceiveFile(fileargs);
     if ( ret < 0 )
     {
-        std::cerr << "Error receiving remote index file." << '\n';
+        std::cerr << "Error receiving remote index file." << "\n\r";
         unblock_receive();  // Only unlock on error
         return ret;
     }
@@ -240,29 +245,29 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     ret = ReceiveFile(fileargs);
     if ( ret < 0 )
     {
-        std::cerr << "Error receiving remote last run index file." << '\n';
+        std::cerr << "Error receiving remote last run index file." << "\n\r";
         unblock_receive();  // Only unlock on error
         return ret;
     }
     unblock_receive();  // Only unlock on error
 
-    std::cout << "importing remote index" << '\n';
+    std::cout << "importing remote index" << "\n\r";
     DirectoryIndexer remoteIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE);
     remoteIndexer.setPath(remotePath);
 
     DirectoryIndexer *lastRunRemoteIndexer = nullptr;
     if (std::filesystem::exists(lastRunIndexPath))
     {
-        std::cout << "importing remote index from last run" << '\n';
+        std::cout << "importing remote index from last run" << "\n\r";
         lastRunRemoteIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE_LAST_RUN);
         lastRunRemoteIndexer->setPath(remotePath);
     }
 
-    std::cout << "remote and local indexes in hand, ready to sync" << '\n';
+    std::cout << "remote and local indexes in hand, ready to sync" << "\n\r";
     DirectoryIndexer *lastRunIndexer = nullptr;
     if (std::filesystem::exists(indexpath))
     {
-        std::cout << "importing local index from last run" << '\n';
+        std::cout << "importing local index from last run" << "\n\r";
         lastRunIndexer = new DirectoryIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
     }
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
@@ -271,14 +276,14 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << '\n';
     //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << '\n';
 
-    std::cout << "Exporting Sync commands." << '\n';
+    std::cout << "Exporting Sync commands." << "\n\r";
 
     SyncCommands syncCommands;
     localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true, false);
 
     if (syncCommands.empty())
     {
-        std::cout << "No sync commands generated." << '\n';
+        std::cout << "No sync commands generated." << "\n\r";
         return 0;
     }
 
@@ -288,13 +293,13 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
             if (command.path1() == "\""+path+"\"")
             {
                 syncCommands.remove(command);
-                std::cout << "Removing command because of deleted file: " << command.string() << '\n';
+                std::cout << "Removing command because of deleted file: " << command.string() << "\n\r";
             }
         }
     }
 
-    std::cout << '\n' << "Display Generated Sync Commands: ?" << '\n';
-    std::cout << "Total commands: " << syncCommands.size() << '\n';
+    std::cout << "\n\r" << "Display Generated Sync Commands: ?" << "\n\r";
+    std::cout << "Total commands: " << syncCommands.size() << "\n\r";
     
     // Check for auto_sync and dry_run options
     const bool auto_sync = (args.find("auto_sync") != args.end() && args.at("auto_sync") == "true");
@@ -306,7 +311,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         // Show the traditional Y/N prompt
         do
         {
-            std::cout << "Print commands ? (Y/N) " << '\n';
+            std::cout << "Print commands ? (Y/N) " << "\n\r";
             std::cin >> answer;
         } while (!answer.starts_with('y') && !answer.starts_with('Y') &&
                  !answer.starts_with('n') && !answer.starts_with('N'));
@@ -337,25 +342,25 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         // Show the traditional Y/N prompt for execution
         do
         {
-            std::cout << "Execute commands ? (Y/N) " << '\n';
+            std::cout << "Execute commands ? (Y/N) " << "\n\r";
             std::cin >> answer;
         } while (!answer.starts_with('y') && !answer.starts_with('Y') &&
                  !answer.starts_with('n') && !answer.starts_with('N'));
     } else if (auto_sync)
     {
-        std::cout << "Auto-sync mode enabled, executing commands without confirmation." << '\n';
+        std::cout << "Auto-sync mode enabled, executing commands without confirmation." << "\n\r";
         answer = "Y";
     } else if (dry_run)
     {
-        std::cout << "Dry run mode enabled, commands will not be executed." << '\n';
+        std::cout << "Dry run mode enabled, commands will not be executed." << "\n\r";
         answer = "N";
     }
 
     // Export to file if not auto_sync mode or if dry_run mode
-    if (!auto_sync || dry_run)
+    if ( FORCE_SYNC_COMMANDS_FILE_EXPORT || !auto_sync || dry_run)
     {
         const std::filesystem::path exportPath = localPath / "sync_commands.sh";
-        std::cout << "Exporting sync commands to file: " << exportPath << '\n';
+        std::cout << "Exporting sync commands to file: " << exportPath << "\n\r";
         syncCommands.exportToFile(exportPath);
     }
 
@@ -397,7 +402,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     TcpCommand::unblock_transmit();
     delete command;
 
-    std::cout << "Sent SYNC_COMPLETE to server" << '\n';
+    std::cout << "Sent SYNC_COMPLETE to server" << "\n\r";
     return 0;
 }
 
@@ -407,7 +412,7 @@ int MkdirCmd::execute(const std::map<std::string,std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
     unblock_receive();
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for MkdirCmd" << '\n';
+        std::cerr << "Error receiving payload for MkdirCmd" << "\n\r";
         return -1;
     }
 
@@ -421,7 +426,7 @@ int RmCmd::execute(const std::map<std::string,std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for RmCmd" << '\n';
+        std::cerr << "Error receiving payload for RmCmd" << "\n\r";
         return -1;
     }
 
@@ -435,7 +440,7 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for FileFetchCmd" << '\n';
+        std::cerr << "Error receiving payload for FileFetchCmd" << "\n\r";
         return -1;
     }
 
@@ -446,14 +451,14 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
         block_transmit();
         if ( SendFile(fileargs) < 0 ) {
             unblock_transmit();
-            std::cerr << "Error sending file: " << path << '\n';
+            std::cerr << "Error sending file: " << path << "\n\r";
             MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Error sending file: " + path);
             return -1;
         }
         unblock_transmit();
     }
     else {
-        std::cerr << "File not found: " << path << '\n';
+        std::cerr << "File not found: " << path << "\n\r";
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "File not found: " + path);
         return -1;
     }
@@ -466,7 +471,7 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving file path in FilePushCmd" << '\n';
+        std::cerr << "Error receiving file path in FilePushCmd" << "\n\r";
         unblock_receive();
         return -1;
     }
@@ -475,7 +480,7 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
     std::map<std::string, std::string> fileargs = args;
     fileargs["path"] = path;
     
-    //std::cout << "DEBUG: FilePushCmd receiving file to path: " << path << '\n';
+    //std::cout << "DEBUG: FilePushCmd receiving file to path: " << path << "\n\r";
     int ret = ReceiveFile(fileargs);
     unblock_receive();
     return ret;
@@ -487,7 +492,7 @@ int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for RemoteLocalCopyCmd" << '\n';
+        std::cerr << "Error receiving payload for RemoteLocalCopyCmd" << "\n\r";
         return -1;
     }
 
@@ -498,11 +503,11 @@ int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
         std::filesystem::copy(srcPath, destPath, 
             std::filesystem::copy_options::overwrite_existing | 
             std::filesystem::copy_options::recursive);
-        std::cout << "Copied " << srcPath << " to " << destPath << '\n';
+        std::cout << "Copied " << srcPath << " to " << destPath << "\n\r";
         return 0;
     } catch (const std::filesystem::filesystem_error &e) {
         std::cerr << "Error copying " << srcPath << " to " << destPath 
-                  << ": " << e.what() << '\n';
+                  << ": " << e.what() << "\n\r";
         return -1;
     }
 }
@@ -520,7 +525,7 @@ int MessageCmd::execute(const std::map<std::string, std::string> &args)
     mData.read(message, messageSize);
     message[messageSize] = '\0';
 
-    std::cout << "[" << args.at("ip") << "] " << message << '\n';
+    std::cout << "[" << args.at("ip") << "] " << message << "\n\r";
     delete[] message;
 
     return 0;
@@ -532,7 +537,7 @@ int RmdirCmd::execute(const std::map<std::string,std::string> &args)
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
     unblock_receive();
     if (bytesReceived < payloadSize) {
-        std::cerr << "Error receiving payload for RmdirCmd" << '\n';
+        std::cerr << "Error receiving payload for RmdirCmd" << "\n\r";
         return -1;
     }
 
@@ -558,10 +563,10 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     command->transmit(args, true);
     delete command;
 
-    std::cout << "Sync complete for " << args.at("path") << '\n';
+    std::cout << "Sync complete for " << args.at("path") << "\n\r";
     // Check if we should exit after sync (for unit testing)
     if (args.find("exit_after_sync") != args.end() && args.at("exit_after_sync") == "true") {
-        std::cout << "Exiting server after sync completion (unit testing mode)" << '\n';
+        std::cout << "Exiting server after sync completion (unit testing mode)" << "\n\r";
         exit(0);
     }
     return 1;
@@ -571,6 +576,6 @@ int SyncDoneCmd::execute(const std::map<std::string, std::string> &args)
 {
     unblock_receive();
     
-    std::cout << "Sync done for " << args.at("path") << '\n';
+    std::cout << "Sync done for " << args.at("path") << "\n\r";
     return 1;
 }
