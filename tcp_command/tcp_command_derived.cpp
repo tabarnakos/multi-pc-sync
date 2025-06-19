@@ -263,18 +263,6 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         std::filesystem::rename(indexpath, lastRunIndexPath);
     }
 
-    bool lastrunIndexPresent = false;
-
-    if ( std::filesystem::exists(indexpath) )
-    {
-        lastrunIndexPresent = true;
-        if (std::filesystem::exists(lastRunIndexPath))
-        {
-            std::filesystem::remove(lastRunIndexPath);
-        }
-        std::filesystem::rename(indexpath, lastRunIndexPath);
-    }
-
     std::cout << "importing remote index" << "\r\n";
     DirectoryIndexer remoteIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_REMOTE);
     remoteIndexer.setPath(remotePath);
