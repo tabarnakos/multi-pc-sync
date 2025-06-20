@@ -6,4 +6,4 @@ folder.pb.h
 .vscode/
 .cache
 test_sync_env*
-testing/test_report.txt
+testing/test_report*
