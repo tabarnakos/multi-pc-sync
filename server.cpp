@@ -79,7 +79,7 @@ void ServerThread::runserver(context &ctx)
         std::cout << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << "\r\n";
         ctx.con_opened = true;
 
-        while (!ctx.quit.load() && ctx.con_opened)
+        while ((!ctx.quit.load()) && ctx.con_opened)
         {
             TcpCommand *receivedCommand = TcpCommand::receiveHeader(clientSocket);
             if (receivedCommand == nullptr)

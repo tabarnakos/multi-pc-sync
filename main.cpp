@@ -82,10 +82,14 @@ int main(int argc, char *argv[])
         }
 
         client->start();
-        while (!client->isActive())
+        if ( !client->waitForActive() )
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::cout << "Client thread failed to start" << "\r\n";
+            delete client;
+            return -1;
         }
+
+        std::cout << "Client is active and connecting to server..." << "\r\n";
 
         while (client->isActive())
         {

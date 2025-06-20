@@ -625,6 +625,7 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     // Check if we should exit after sync (for unit testing)
     if (args.find("exit_after_sync") != args.end() && args.at("exit_after_sync") == "true") {
         std::cout << "Exiting server after sync completion (unit testing mode)" << "\r\n";
+        exit(0);
     }
     return 1;
 }

@@ -74,13 +74,25 @@ public:
      * Checks if the thread is currently active
      * @return true if thread is running
      */
-    bool isActive() const { return ctx.active.load(); }
+    [[nodiscard]] bool isActive() const { return ctx.active.load() && (ctx.thread != nullptr) && !ctx.thread->joinable(); }
+
+    /**
+     * Waits for the thread to become active
+     */
+    [[nodiscard]] bool waitForActive() const
+    {
+        if (ctx.thread->joinable())
+            return false;
+
+        ctx.active.wait(false);
+        return true;
+    }
 
     /**
      * Checks if a network connection is established
      * @return true if connected
      */
-    bool isConnected() const { return ctx.con_opened; }
+    [[nodiscard]] bool isConnected() const { return ctx.con_opened; }
 
 protected:
     void kill() { ctx.quit = true; }
