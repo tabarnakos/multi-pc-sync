@@ -219,7 +219,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 
     std::string remotePath = extractStringFromPayload(kPayloadIndex, SEEK_SET);
     size_t indexFileNameSize = 0;
-    const auto deletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
+    const auto remoteDeletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
 
     std::cout << "Received index for remote path: " << remotePath << "\r\n";
 
@@ -285,6 +285,8 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     localIndexer.indexonprotobuf(false);
 
+    const auto localDeletions = localIndexer.getDeletions(lastRunIndexer);
+
     //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << "\n\r";
     //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << "\n\r";
 
@@ -322,7 +324,17 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     // This is necessary to avoid modifying the list while iterating over it
     std::list <SyncCommand> commandsToRemove;
 
-    for (const auto& path : deletions) {
+    for (const auto& path : remoteDeletions) {
+        for (auto &command : syncCommands)
+        {
+            if (command.path1() == "\""+path+"\"")
+            {
+                commandsToRemove.push_back(command);
+                std::cout << "Removing command because of deleted file: " << command.string() << "\r\n";
+            }
+        }
+    }
+    for (const auto& path : localDeletions) {
         for (auto &command : syncCommands)
         {
             if (command.path1() == "\""+path+"\"")
@@ -431,6 +443,10 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         lastRunRemoteIndexer = nullptr;
     }
 
+    // Finally, re-index the local directory to ensure it is up-to-date
+    std::cout << "Re-indexing local directory after sync" << "\r\n";
+    localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+
     // Send SYNC_COMPLETE command to server to indicate client is done
     GrowingBuffer commandbuf;
     size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
@@ -449,10 +465,6 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     delete command;
 
     std::cout << "Sent SYNC_COMPLETE to server" << "\r\n";
-
-    // Finally, re-index the local directory to ensure it is up-to-date
-    std::cout << "Re-indexing local directory after sync" << "\r\n";
-    localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
 
     return 0;
 }
