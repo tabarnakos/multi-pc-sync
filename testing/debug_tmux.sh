@@ -87,7 +87,8 @@ for scenario in $(seq "$start" "$end"); do
         echo "13. Scenario 13: (Re-sync) Client edited files."
         echo "14. Scenario 14: (Re-sync) Server deleted files."
         echo "15. Scenario 15: (Re-sync) Client deleted files."
-        read -p "Enter the scenario number (1-15): " scenario
+        echo "16. Scenario 16: (Stress test) Deeply nested 1000+ files with conflicts."
+        read -p "Enter the scenario number (1-16): " scenario
     fi
     echo "Running scenario: $scenario"
     
@@ -255,7 +256,7 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$CLIENT_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$CLIENT_ROOT" "./file3.txt" "./file3.txt" 1
 
-            create_folder "$CLIENT_ROOT" "./folder1" "./folder3"                        # Folder1 will be moved to folder3
+            create_folder "$CLIENT_ROOT" "./folder1" "./folder1"                        # Folder1 will be moved to folder3
             create_file "$CLIENT_ROOT" "./folder1/file4.txt" "./folder3/file4.txt" 1    # File4 will be moved to folder3
             create_file "$CLIENT_ROOT" "./folder1/file5.txt" "./folder3/file5.txt" 1    # File5 will be moved to folder3
             create_folder "$CLIENT_ROOT" "./folder2" "./folder2"        
@@ -267,7 +268,7 @@ for scenario in $(seq "$start" "$end"); do
             $CLIENT_CMD_LINE &
             wait
             echo "Moving folder1 to folder3 on client."
-            mv "$CLIENT_ROOT/folder1" "$CLIENT_ROOT/folder3"
+            move_path "$CLIENT_ROOT" "./folder1" "./folder3"  # Use the move_path function to handle the move
             ;;
         12)
             scenario_name="Re-sync: Server edited files."
@@ -323,12 +324,12 @@ for scenario in $(seq "$start" "$end"); do
         14)
             scenario_name="Re-sync: Server deleted files."
 
-            create_file "$SERVER_ROOT" "./file1.txt" "" 1                               # File1 will be deleted
+            create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1                               # File1 will be deleted
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$SERVER_ROOT" "./file3.txt" "./file3.txt" 1
             # Create large files for testing chunk transfers
             create_file "$SERVER_ROOT" "./1MBfile.bin" "./1MBfile.bin" 1
-            create_file "$SERVER_ROOT" "./10MBfile.bin" "" 10                           # 10MBfile will be deleted
+            create_file "$SERVER_ROOT" "./10MBfile.bin" "./10MBfile.bin" 10                           # 10MBfile will be deleted
             create_file "$SERVER_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
 
             # need to run a sync here to ensure the client has the initial files
@@ -338,7 +339,12 @@ for scenario in $(seq "$start" "$end"); do
             $CLIENT_CMD_LINE &
             wait
             echo "Deleting file1 and 10MBfile on server."
-            rm "$SERVER_ROOT/file1.txt" "$SERVER_ROOT/10MBfile.bin"
+            # rm "$SERVER_ROOT/file1.txt" "$SERVER_ROOT/10MBfile.bin"
+            find "$SERVER_ROOT" -type f -exec md5sum {} ';'
+            echo EXPECTED_HASHES="${EXPECTED_HASHES}"
+            rm_path "$SERVER_ROOT" "./file1.txt"
+            rm_path "$SERVER_ROOT" "./10MBfile.bin"
+            echo EXPECTED_HASHES="${EXPECTED_HASHES}"
             ;;
         15)
             scenario_name="Re-sync: Client deleted files."
@@ -359,6 +365,63 @@ for scenario in $(seq "$start" "$end"); do
             wait
             echo "Deleting file1 and 10MBfile on client."
             rm "$CLIENT_ROOT/file1.txt" "$CLIENT_ROOT/10MBfile.bin"
+            ;;
+        16)
+            scenario_name="Stress test: deeply nested 1000+ files with conflicts"
+
+            # Build a 3-level nested tree (10x10x10 = 1000 files) on server
+            for i in {1..10}; do
+                for j in {1..10}; do
+                    # Create a folder for each level
+                    folder="nested/level${i}/sub${j}"
+                    create_folder "$SERVER_ROOT" "./$folder" "./$folder"
+
+                    for k in {1..10}; do
+                        folder="nested/level${i}/sub${j}/subsub${k}"
+                        if [ $folder == "nested/level1/sub1/subsub1" ]; then
+                            # Create a folder that will be deleted later
+                            create_folder "$SERVER_ROOT" "./$folder" ""
+                            create_file "$SERVER_ROOT" "./$folder/file${k}.txt" "" 0.01
+                        else
+                            create_folder "$SERVER_ROOT" "./$folder" "./$folder"
+                            create_file "$SERVER_ROOT" "./$folder/file${k}.txt" "$folder/file${k}.txt" 0.01
+                        fi
+                    done
+                done
+            done
+
+            # Build overlapping subset on client (to create initial differences)
+            for i in {5..15}; do
+                for j in {5..15}; do
+                    for k in {5..15}; do
+                        folder="nested/level${i}/sub${j}/subsub${k}"
+                        create_folder "$CLIENT_ROOT" "./$folder" "$folder"  
+                        create_file "$CLIENT_ROOT" "./$folder/file${k}.txt" "$folder/file${k}.txt" 0.01
+                    done
+                done
+            done
+
+            # Run initial sync
+            echo "Running initial sync for stress-test scenario"
+            $SERVER_CMD_LINE &
+            sleep 1
+            $CLIENT_CMD_LINE &
+            wait
+
+            # Server modifications: delete some files and move a subtree
+            echo "Server: deleting subtree level1/sub1/subsub1 and file edits"
+            rm -r "$SERVER_ROOT/nested/level1/sub1/subsub1"
+            echo "server edit" >"$SERVER_ROOT/nested/level2/sub2/subsub2/file2.txt"
+            move_path $SERVER_ROOT "./nested/level3/sub3" "./nested/moved3"
+
+            # Client modifications: add new files, copy, conflict edits
+            echo "Client: creating new branch and editing conflicts"
+            folder_new="nested/newbranch/subA"
+            create_folder "$CLIENT_ROOT" "./$folder_new" "$folder_new"
+            create_file "$CLIENT_ROOT" "./$folder_new/new1.txt" "$folder_new/new1.txt" 0
+            cp "$CLIENT_ROOT/nested/level4/sub4/subsub4/file4.txt" "$CLIENT_ROOT/nested/level4/sub4/subsub4/file4_copy.txt"
+            echo "client conflict" >"$CLIENT_ROOT/nested/level2/sub2/subsub2/file2.txt"
+
             ;;
         *)
             echo "Invalid scenario number. Please run the script again and select a valid scenario."

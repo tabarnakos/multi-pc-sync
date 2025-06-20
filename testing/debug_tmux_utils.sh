@@ -183,6 +183,77 @@ create_folder() {
     fi
 }
 
+# Function to move a file or folder and update EXPECTED_FILES
+move_path() {
+    local root="$1"            # base directory
+    local src="$2"             # source relative path
+    local dest="$3"            # destination relative path
+
+    local src_full="$root/$src"
+    local dest_full="$root/$dest"
+
+    # Ensure destination directory exists
+    mkdir -p "$(dirname "$dest_full")"
+
+    # Move the file or folder
+    mv "$src_full" "$dest_full"
+
+    # Update EXPECTED_FILES: replace src with dest
+    local new_list=""
+    for entry in $EXPECTED_FILES; do
+        if [ "$entry" = "$src" ]; then
+            new_list+="$dest "
+        else
+            new_list+="$entry "
+        fi
+    done
+    # Trim trailing space
+    EXPECTED_FILES="${new_list% }"
+}
+
+# Function to recursively remove a path and update EXPECTED_FILES and EXPECTED_HASHES
+rm_path() {
+    local root="$1"
+    local relpath="$2"
+    local fullpath="$root/$relpath"
+
+    # Ensure relpath does not end with a slash
+    fullpath="$root/$relpath"
+
+    if [ -f $fullpath ]; then
+        # If it's a file, remove it directly
+        local hash
+        hash=$(md5sum "$fullpath" | awk '{print $1}')
+        echo "Removing file: $fullpath with hash: $hash"
+        EXPECTED_FILES=$(echo "$EXPECTED_FILES" | tr ' ' '\n' | grep -Fxv "$relpath" | tr '\n' ' ')
+        EXPECTED_HASHES=$(echo "$EXPECTED_HASHES" | tr ' ' '\n' | grep -Fxv "$hash" | tr '\n' ' ')
+        rm -f "$fullpath"
+        return
+    fi
+
+    echo "Removing directory: $fullpath"
+    # Collect all files and their hashes in the directory
+    local dir_files
+    local dir_hashes
+    dir_files=$(find "$fullpath" -printf '%P\n')
+    dir_hashes=$(find "$fullpath" -type f -exec md5sum {} + | awk '{print $1}')
+    # Update EXPECTED_FILES and EXPECTED_HASHES
+    for file in $dir_files; do
+        local rel_file="./$file"
+        EXPECTED_FILES=$(echo "$EXPECTED_FILES" | tr ' ' '\n' | grep -Fxv "$rel_file" | tr '\n' ' ')
+    done
+    for hash in $dir_hashes; do
+        EXPECTED_HASHES=$(echo "$EXPECTED_HASHES" | tr ' ' '\n' | grep -Fxv "$hash" | tr '\n' ' ')
+    done
+    # Ensure trailing spaces are trimmed
+    EXPECTED_FILES="${EXPECTED_FILES%% }"
+    EXPECTED_HASHES="${EXPECTED_HASHES%% }"
+    # Now remove the directory and its contents
+    rm -rf "$fullpath"
+}
+
+
+
 parse_range() {
     local input="$1"
     local start end
