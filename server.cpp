@@ -108,4 +108,6 @@ void ServerThread::runserver(context &ctx)
 
     ctx.active = false;
     ctx.active.notify_all();
+    close(serverSocket);
+    std::cout << "Server thread exiting" << "\r\n";
 }
