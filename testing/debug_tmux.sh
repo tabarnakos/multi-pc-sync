@@ -105,7 +105,7 @@ for scenario in $(seq "$start" "$end"); do
 
     case $scenario in
         1)
-            echo "Running Scenario 1: Client files are empty, server files are populated."
+            scenario_name="Initial sync: Client files empty, Server files populated"
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
@@ -122,8 +122,8 @@ for scenario in $(seq "$start" "$end"); do
             ;;
         
         2)
-            echo "Running Scenario 2: Server files are empty, client files are populated."
-            
+            scenario_name="Initial sync: Server files are empty, Client files are populated."
+
             create_file "$CLIENT_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$CLIENT_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$CLIENT_ROOT" "./file3.txt" "./file3.txt" 1
@@ -138,7 +138,7 @@ for scenario in $(seq "$start" "$end"); do
             create_folder "$CLIENT_ROOT" "./folder2" "./folder2"
             ;;
         3)
-            echo "Running Scenario 3: Nested files and folders on client and server."
+            scenario_name="Initial sync: Nested files and folders on client and server."
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
@@ -172,7 +172,7 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$CLIENT_ROOT" "./folder5/subfolder5/subsubfolder5/file12.txt" "./folder5/subfolder5/subsubfolder5/file12.txt" 1
             ;;
         4)
-            echo "Running Scenario 4: (Initial sync) 20ms latency, files on server only."
+            scenario_name="Initial sync: 20ms latency, files on server only."
             apply_latency=20
             # File setup similar to Scenario 1
 
@@ -185,7 +185,7 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$SERVER_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
             ;;
         5)
-            echo "Running Scenario 5: (Initial sync) 250ms latency, files on server only."
+            scenario_name="Initial sync: 250ms latency, files on server only."
             apply_latency=250
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
@@ -198,7 +198,7 @@ for scenario in $(seq "$start" "$end"); do
             # Add your scenario 5 setup here
             ;;
         6)
-            echo "Running Scenario 6: (Initial sync) 20ms latency, files on client only."
+            scenario_name="Initial sync: 20ms latency, files on client only."
             apply_latency=20
 
             create_file "$CLIENT_ROOT" "./file1.txt" "./file1.txt" 1
@@ -210,7 +210,7 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$CLIENT_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
             ;;
         7)
-            echo "Running Scenario 7: (Initial sync) 250ms latency, files on client only."
+            scenario_name="Initial sync: 250ms latency, files on client only."
             apply_latency=250
 
             create_file "$CLIENT_ROOT" "./file1.txt" "./file1.txt" 1
@@ -222,15 +222,15 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$CLIENT_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
             ;;
         8)
-            echo "Running Scenario 8: Reserved for future use."
+            scenario_name="Reserved for future use."
             # Add your scenario 8 setup here
             ;;
         9)
-            echo "Running Scenario 9: Reserved for future use."
+            scenario_name="Reserved for future use."
             # Add your scenario 9 setup here
             ;;
         10)
-            echo "Running Scenario 10: Server moved files."
+            scenario_name="Re-sync: Server moved files."
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
@@ -242,12 +242,15 @@ for scenario in $(seq "$start" "$end"); do
             # need to run a sync here to ensure the client has the initial files
             echo "Running initial sync to ensure client has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Moving folder1 to folder3 on server."
             mv "$SERVER_ROOT/folder1" "$SERVER_ROOT/folder3"
             ;;
         11)
-            echo "Running Scenario 11: Client moved files."
-            
+            scenario_name="Re-sync: Client moved files."
+
             create_file "$CLIENT_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$CLIENT_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$CLIENT_ROOT" "./file3.txt" "./file3.txt" 1
@@ -260,11 +263,14 @@ for scenario in $(seq "$start" "$end"); do
             # need to run a sync here to ensure the server has the initial files
             echo "Running initial sync to ensure server has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Moving folder1 to folder3 on client."
             mv "$CLIENT_ROOT/folder1" "$CLIENT_ROOT/folder3"
             ;;
         12)
-            echo "Running Scenario 12: Server edited files."
+            scenario_name="Re-sync: Server edited files."
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
@@ -275,20 +281,22 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$SERVER_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
 
             create_folder "$SERVER_ROOT" "./folder1" "./folder1"
-            create_file "$SERVER_ROOT" "./folder1/file4.txt" "" 1                       # File4 will be edited, store its hash later
-            create_file "$SERVER_ROOT" "./folder1/file5.txt" "" 1                       # File5 will be edited, store its hash later
+            create_file "$SERVER_ROOT" "./folder1/file4.txt" "" 2                       # File4 will be edited, store its hash later
+            create_file "$SERVER_ROOT" "./folder1/file5.txt" "" 2                       # File5 will be edited, store its hash later
             create_folder "$SERVER_ROOT" "./folder2" "./folder2"
 
             # need to run a sync here to ensure the client has the initial files
             echo "Running initial sync to ensure client has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
             echo "Editing file4 and file5 on server."
-            create_file "$SERVER_ROOT" "./folder1/file4.txt" "./folder1/file4.txt" 1
-            create_file "$SERVER_ROOT" "./folder1/file5.txt" "./folder1/file5.txt" 1
+            create_file "$SERVER_ROOT" "./folder1/file4.txt" "./folder1/file4.txt" 1    # File4 is now smaller, so hash will be wrong if the client doesn't erase the rest
+            create_file "$SERVER_ROOT" "./folder1/file5.txt" "./folder1/file5.txt" 1    # File4 is now smaller, so hash will be wrong if the client doesn't erase the rest
             ;;
         13)
-            echo "Running Scenario 13: Client edited files."
+            scenario_name="Re-sync: Client edited files."
 
             create_file "$SERVER_ROOT" "./file1.txt" "./file1.txt" 1
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
@@ -299,20 +307,22 @@ for scenario in $(seq "$start" "$end"); do
             create_file "$SERVER_ROOT" "./100MBfile.bin" "./100MBfile.bin" 100
 
             create_folder "$SERVER_ROOT" "./folder1" "./folder1"
-            create_file "$SERVER_ROOT" "./folder1/file4.txt" "" 1                       # File4 will be edited, store its hash later
-            create_file "$SERVER_ROOT" "./folder1/file5.txt" "" 1                       # File5 will be edited, store its hash later
+            create_file "$SERVER_ROOT" "./folder1/file4.txt" "" 2                       # File4 will be edited, store its hash later
+            create_file "$SERVER_ROOT" "./folder1/file5.txt" "" 2                       # File5 will be edited, store its hash later
             create_folder "$SERVER_ROOT" "./folder2" "./folder2"
             # need to run a sync here to ensure the server has the initial files
             echo "Running initial sync to ensure server has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
             echo "Editing file4 and file5 on client."
-            create_file "$CLIENT_ROOT" "./folder1/file4.txt" "./folder1/file4.txt" 1
-            create_file "$CLIENT_ROOT" "./folder1/file5.txt" "./folder1/file5.txt" 1
+            create_file "$CLIENT_ROOT" "./folder1/file4.txt" "./folder1/file4.txt" 1    # File4 is now smaller, so hash will be wrong if the server doesn't erase the rest
+            create_file "$CLIENT_ROOT" "./folder1/file5.txt" "./folder1/file5.txt" 1    # File5 is now smaller, so hash will be wrong if the server doesn't erase the rest
             ;;
         14)
-            echo "Running Scenario 14: Server deleted files."
-            
+            scenario_name="Re-sync: Server deleted files."
+
             create_file "$SERVER_ROOT" "./file1.txt" "" 1                               # File1 will be deleted
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$SERVER_ROOT" "./file3.txt" "./file3.txt" 1
@@ -324,13 +334,15 @@ for scenario in $(seq "$start" "$end"); do
             # need to run a sync here to ensure the client has the initial files
             echo "Running initial sync to ensure client has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
             echo "Deleting file1 and 10MBfile on server."
             rm "$SERVER_ROOT/file1.txt" "$SERVER_ROOT/10MBfile.bin"
             ;;
         15)
-            echo "Running Scenario 15: Client deleted files."
-            
+            scenario_name="Re-sync: Client deleted files."
+
             create_file "$SERVER_ROOT" "./file1.txt" "" 1                               # File1 will be deleted
             create_file "$SERVER_ROOT" "./file2.txt" "./file2.txt" 1
             create_file "$SERVER_ROOT" "./file3.txt" "./file3.txt" 1
@@ -342,7 +354,9 @@ for scenario in $(seq "$start" "$end"); do
             # need to run a sync here to ensure the server has the initial files
             echo "Running initial sync to ensure server has the initial files."
             $SERVER_CMD_LINE &
-            $CLIENT_CMD_LINE
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
             echo "Deleting file1 and 10MBfile on client."
             rm "$CLIENT_ROOT/file1.txt" "$CLIENT_ROOT/10MBfile.bin"
             ;;
@@ -351,6 +365,9 @@ for scenario in $(seq "$start" "$end"); do
             exit 1
             ;;
     esac
+
+    echo "========== Scenario $scenario =========="
+    echo "$scenario_name"
 
     if [ "$apply_latency" -gt 0 ]; then
     apply_latency $apply_latency
@@ -389,7 +406,9 @@ for scenario in $(seq "$start" "$end"); do
 
     else
         $SERVER_CMD_LINE &
-        $CLIENT_CMD_LINE
+        sleep 0.25  # Give the server time to start
+        $CLIENT_CMD_LINE &
+        wait
     fi
 
     if [ "$apply_latency" -gt 0 ]; then
@@ -402,21 +421,23 @@ for scenario in $(seq "$start" "$end"); do
 
     if [[ $SCENARIOS == "0 0" ]]; then
         # Perform file comparison after processes have exited
-        echo "Checking if the expected files exist in the client root directory..."
+        echo "========== Scenario $scenario - $scenario_name Test Report =========="
 
         echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..."
         compare_files "$CLIENT_ROOT"
         echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..."
         compare_files "$SERVER_ROOT"
+
+        echo "========== Scenario $scenario - $scenario_name /Test Report =========="
     else
-        echo "========== Scenario $scenario Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
+        echo "========== Scenario $scenario - $scenario_name Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
 
         echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
         compare_files "$CLIENT_ROOT" >> "$SCRIPT_DIR/test_report.txt"
         echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
         compare_files "$SERVER_ROOT" >> "$SCRIPT_DIR/test_report.txt"
 
-        echo "========== Scenario $scenario /Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
+        echo "========== Scenario $scenario - $scenario_name /Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
     fi
 done
 

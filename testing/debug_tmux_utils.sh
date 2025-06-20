@@ -1,10 +1,3 @@
-send_line() {
-  local pane="$1"
-  shift
-  local line="$*"
-  tmux send-keys -t sync_debug:$pane "stdbuf -oL echo \"$line\"" C-m
-}
-
 run_server() {
     local gdbserver_port="$1"
     shift
@@ -70,9 +63,9 @@ compare_files() {
         fi
     done
 
-    for file in $expected_hashes; do
-        if ! echo "$all_hashes" | grep -q "^$file$"; then
-            missing_hashes+="$file\n"
+    for hash in $expected_hashes; do
+        if ! echo "$all_hashes" | grep -q "^$hash$"; then
+            missing_hashes+="$hash\n"
         fi
     done
 
@@ -84,10 +77,10 @@ compare_files() {
         fi
     done
 
-    for file in $all_hashes; do
-        if ! echo "$expected_hashes" | grep -Fxq "$file"; then
-            if ! echo "$hashes_to_ignore" | grep -q "$file"; then
-                extra_hashes+="$file\n"
+    for hash in $all_hashes; do
+        if ! echo "$expected_hashes" | grep -Fxq "$hash"; then
+            if ! echo "$hashes_to_ignore" | grep -q "$hash"; then
+                extra_hashes+="$hash\n"
             fi
         fi
     done
