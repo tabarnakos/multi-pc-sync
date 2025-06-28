@@ -57,3 +57,70 @@ You can use `gdbserver` to debug either the server or client process, or both. E
 gdbserver :12345 ./multi-pc-sync -d 9000 /srv/data/server_folder
 gdbserver :12346 ./multi-pc-sync -s 127.0.0.1:9000 /home/user/client_folder
 ```
+
+# Features / Test results
+
+Call it a feature or a bug, I don't know if the other sync programs have such extensive testing, but this one does. My goal is not necessarily to have everything green, rather is that whenever there is data being overwritten, there should be an option somewhere.
+
+## ✅ File Sync Test Scenarios
+
+## 1. File Creation and Deletion
+- [✅] File created on source only
+- [✅] File created on destination only
+- [✅] File created on both sides with identical content
+- [❗] File created on both sides with different content (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
+- [✅] File deleted on source only
+- [✅] File deleted on destination only
+- [✅] File deleted on both sides
+
+## 2. File Modification
+- [✅] File modified on source only
+- [✅] File modified on destination only
+- [❗] File modified differently on both sides (conflict) (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
+
+## 3. File Renaming and Moving
+- [✅] File renamed on source only
+- [✅] File renamed on destination only
+- [✅] File moved to another folder on source
+- [✅] File moved to another folder on destination
+- [✅] File moved and modified simultaneously on one side
+- [✅] File renamed on both sides but with different names
+
+## 4. Directory Operations
+- [✅] New directory created on source only
+- [✅] New directory created on destination only
+- [✅] Directory renamed on source or destination
+- [✅] Directory deleted on source or destination
+- [✅] Directory with content moved
+- [✅] Directory with nested changes inside (combination)
+
+## 5. Combination Scenarios
+- [ ] Multiple operations on same file (e.g., modify then rename)
+- [ ] Operations on files within renamed directories
+- [ ] Operations on files within moved directories
+- [ ] Circular rename (A→B, B→A across sides)
+
+## 6. Conflict Scenarios
+- [ ] Same file modified on both sides without sync
+- [ ] File deleted on one side, modified on the other
+- [ ] File moved on one side, renamed on the other
+- [ ] Same file created independently on both sides with different content
+
+## 7. Permissions and Metadata (if applicable)
+- [ ] Permissions changed on one side
+- [ ] Timestamps changed without content change
+- [ ] Ownership or extended attributes changed
+
+## 8. Edge Cases
+- [ ] File with special characters in the name
+- [ ] Very large file
+- [ ] File with 0 bytes
+- [ ] Filename case changes (case sensitivity issues)
+- [ ] Long path names
+- [ ] Files with identical hashes but different content
+- [ ] Clock skew between source and destination
+
+## 9. Repeatability and Idempotency
+- [✅] Running sync twice with no changes (should be a no-op)
+- [✅] Running sync after a full sync (should be fast)
+- [ ] Interrupt/resume sync mid-operation

@@ -1,3 +1,135 @@
+# Helper: remove item from list
+remove_item_from_list() {
+    local item_to_remove="$2"
+    local new_list=""
+    for item in $1; do
+        if [[ "$item" != "$item_to_remove" ]]; then
+            new_list+="$item "
+        fi
+    done
+    echo "${new_list%% }"
+}
+
+add_item_to_list() {
+    local item_to_add="$2"
+    local new_list="$1"
+    if [[ ! " $new_list " =~ " $item_to_add " ]]; then
+        new_list+=" $item_to_add"
+    fi
+    echo "${new_list%% }"
+}
+count_items_in_list() {
+    local list="$1"
+    local count=0
+    for item in $list; do
+        count=$((count + 1))
+    done
+    echo "$count"
+}
+
+
+hash_file(){
+    local root="$1"
+    local rel="$2"
+    local abs="$root/${rel#./}"
+
+    if [ ! -f "$abs" ]; then
+        echo "hash_file: $abs does not exist or is not a file" >&2
+        return 1
+    fi
+
+    # Return the hash of the file
+    echo "$(md5sum "$abs" | awk '{print $1}')"
+}
+
+# remove_path <root> <relpath>
+# Removes a file or directory, updates EXPECTED_FILES, and removes corresponding md5sums from EXPECTED_HASHES
+remove_path() {
+    local root="$1"
+    local rel="$2"
+    local abs="$root/${rel#./}"
+
+    if [ -f "$abs" ]; then
+        # Remove file from EXPECTED_FILES
+        local updated_files=""
+        for f in $EXPECTED_FILES; do
+            if [[ "$f" != "$rel" ]]; then
+                updated_files+="$f "
+            fi
+        done
+        EXPECTED_FILES="${updated_files%% }"
+        # Remove hash from EXPECTED_HASHES
+        local hash=$(md5sum "$abs" | awk '{print $1}')
+        EXPECTED_HASHES=$(remove_item_from_list "$EXPECTED_HASHES" "$hash")
+        rm "$abs"
+    elif [ -d "$abs" ]; then
+        # Directory: remove all matching paths in EXPECTED_FILES and hashes
+        local updated_files=""
+        # Find all files under the directory
+        local files_to_remove=( )
+        while IFS= read -r -d $'\0' file; do
+            # Convert to relpath
+            local relfile="./${file#$root/}"
+            files_to_remove+=("$relfile")
+        done < <(find "$abs" -type f -print0)
+        # Remove hashes for all files
+        for relfile in "${files_to_remove[@]}"; do
+            local hash=$(hash_file "$root" "$relfile")
+            EXPECTED_HASHES=$(remove_item_from_list "$EXPECTED_HASHES" "$hash")
+        done
+        # Remove all matching EXPECTED_FILES
+        for f in $EXPECTED_FILES; do
+            if [[ "$f" != $rel* ]]; then
+                updated_files+="$f "
+            fi
+        done
+        EXPECTED_FILES="${updated_files%% }"
+        rm -rf "$abs"
+    else
+        echo "remove_path: Source path $abs does not exist or is not a file/folder" >&2
+        return 1
+    fi
+}
+# move_path <root> <src_relpath> <dst_relpath>
+# Moves a file or directory and updates EXPECTED_FILES accordingly
+move_path() {
+    local root="$1"
+    local src_rel="$2"
+    local dst_rel="$3"
+    local src_abs="$root/${src_rel#./}"
+    local dst_abs="$root/${dst_rel#./}"
+
+    if [ -f "$src_abs" ]; then
+        # File: update EXPECTED_FILES (space-separated)
+        EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "$dst_rel")
+        EXPECTED_FILES=$(remove_item_from_list "$EXPECTED_FILES" "$src_rel")
+        mv "$src_abs" "$dst_abs"
+    elif [ -d "$src_abs" ]; then
+        # Directory: update all matching paths in EXPECTED_FILES (space-separated)
+        local updated_files=""
+        for f in $EXPECTED_FILES; do
+            if [[ "$f" == $src_rel* ]]; then
+                updated_files+="$dst_rel${f#$src_rel} "
+            else
+                updated_files+="$f "
+            fi
+        done
+        EXPECTED_FILES="${updated_files%% }" # Remove trailing space
+        mv "$src_abs" "$dst_abs"
+    else
+        echo "move_path: Source path $src_abs does not exist or is not a file/folder" >&2
+        return 1
+    fi
+}
+canonical() {
+    local path="$1"
+    # Remove trailing slashes
+    path="${path%/}"
+    # Get absolute path
+    echo "$(realpath "$path")"
+}
+
+
 run_server() {
     local gdbserver_port="$1"
     shift
@@ -9,6 +141,7 @@ run_server() {
         gdbserver :$gdbserver_port $server_cmd_line
         return
     else
+        echo "$server_cmd_line"
         $server_cmd_line
     fi
 }
@@ -24,6 +157,7 @@ run_client() {
         gdbserver :$gdbserver_port $client_cmd_line
         return
     else
+        echo "$client_cmd_line"
         $client_cmd_line
     fi
 }
@@ -39,6 +173,8 @@ compare_files() {
     expected_hashes=$(echo "$EXPECTED_HASHES" | tr ' ' '\n')
 
     files_to_ignore="./.folderindex ./.folderindex.last_run ./.remote.folderindex ./.remote.folderindex.last_run ./sync_commands.sh"
+
+    echo "expected $(count_items_in_list "$expected_files") files, $(count_items_in_list "$expected_hashes") hashes"
 
     # Capture hashes of files to ignore
     hashes_to_ignore=""
@@ -147,8 +283,8 @@ apply_latency() {
 create_file() {
     local root="$1"    # base directory where file is created
     local relpath="$2" # relative path inside root
-    local exp="$3"     # expected path to add or empty string to skip
-    local size_mb="$4" # file size in megabytes; 0 for empty file
+    local exp="$2"     # expected path to add or empty string to skip
+    local size_mb="$3" # file size in megabytes; 0 for empty file
 
     local fullpath="$root/$relpath"
     # ensure directory exists
@@ -162,8 +298,8 @@ create_file() {
 
     # on non-empty exp, register expected file and its md5 hash
     if [ -n "$exp" ]; then
-        EXPECTED_FILES="$EXPECTED_FILES $exp"
-        EXPECTED_HASHES="$EXPECTED_HASHES $(md5sum "$fullpath" | awk '{print $1}')"
+        EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "$exp")
+        EXPECTED_HASHES=$(add_item_to_list "$EXPECTED_HASHES" "$(hash_file "$root" "$relpath")")
     fi
 }
 
@@ -171,7 +307,7 @@ create_file() {
 create_folder() {
     local root="$1"    # base directory where file is created
     local relpath="$2" # relative path inside root
-    local exp="$3"     # expected path to add or empty string to skip
+    local exp="$2"     # expected path to add or empty string to skip
 
     local fullpath="$root/$relpath"
     # ensure directory exists
@@ -277,4 +413,43 @@ parse_range() {
 
     # Return the parsed values
     SCENARIOS="$start $end"
+}
+
+# edit_file <root> <relpath>
+# Overwrites half of the file with random data, updates EXPECTED_HASHES accordingly
+edit_file() {
+    local root="$1"
+    local rel="$2"
+    local abs="$root/${rel#./}"
+
+    if [ ! -f "$abs" ]; then
+        echo "edit_file: $abs does not exist or is not a file" >&2
+        return 1
+    fi
+
+    # Remove old hash from EXPECTED_HASHES
+    local old_hash
+    old_hash=$(md5sum "$abs" | awk '{print $1}')
+    echo "Removing old hash: $old_hash"
+    EXPECTED_HASHES=$(remove_item_from_list "$EXPECTED_HASHES" "$old_hash")
+
+    # Get file size in bytes
+    local filesize
+    filesize=$(stat -c%s "$abs")
+    if [ "$filesize" -eq 0 ]; then
+        echo "edit_file: $abs is empty, nothing to edit" >&2
+        return 1
+    fi
+
+    # Calculate half size (rounded down)
+    local halfsize=$((filesize / 2))
+
+    # Overwrite half of the file with random data
+    dd if=/dev/urandom of="$abs" bs=1 count="$halfsize" conv=notrunc status=none
+
+    # Compute new hash and append to EXPECTED_HASHES
+    local new_hash
+    new_hash=$(md5sum "$abs" | awk '{print $1}')
+    echo "Adding new hash: $new_hash"
+    EXPECTED_HASHES="$EXPECTED_HASHES $new_hash"
 }
