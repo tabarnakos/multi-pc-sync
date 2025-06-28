@@ -401,7 +401,92 @@ for scenario in $(seq "$start" "$end"); do
             remove_path "$SERVER_ROOT" "./file1.txt"
             remove_path "$CLIENT_ROOT" "./file1.txt"
             ;;
+        17)
 
+            scenario_name="File modified differently on both sides."
+
+            create_file "$SERVER_ROOT" "./file1.txt" 1
+
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+
+            echo "Modifying file1 on both sides."
+            edit_file "$SERVER_ROOT" "./file1.txt"
+            edit_file "$CLIENT_ROOT" "./file1.txt"
+
+            if [ "$VERBOSE" == "1" ]; then
+                echo "SERVER FILE HASH IS $(hash_file "$SERVER_ROOT" "./file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
+            fi
+            if [ "$VERBOSE" == "1" ]; then
+                echo "CLIENT FILE HASH IS $(hash_file "$CLIENT_ROOT" "./file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
+            fi
+            ;;
+        18)
+            scenario_name="File moved to another folder on server"
+
+            create_file "$SERVER_ROOT" "./file1.txt" 1
+            create_folder "$SERVER_ROOT" "./folder1"
+
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+
+            echo "Moving file1 to another folder on server."
+            move_path "$SERVER_ROOT" "./file1.txt" "./folder1/file1.txt"
+            ;;
+
+        19)
+            scenario_name="File moved to another folder on client"
+
+            create_file "$CLIENT_ROOT" "./file1.txt" 1
+            create_folder "$CLIENT_ROOT" "./folder1"
+
+            echo "Running initial sync to ensure server has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+
+            echo "Moving file1 to another folder on client."
+            move_path "$CLIENT_ROOT" "./file1.txt" "./folder1/file1.txt"
+            ;;
+
+        20)
+            scenario_name="File moved and modified simultaneously on one side"
+            create_file "$SERVER_ROOT" "./file1.txt" 1
+            create_folder "$SERVER_ROOT" "./folder1"
+
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+
+            echo "Moving file1 to another folder on server."
+            move_path "$SERVER_ROOT" "./file1.txt" "./folder1/file1.txt"
+            echo "Modifying file1 on server."
+            edit_file "$SERVER_ROOT" "./folder1/file1.txt"
+            ;;
+        21)
+            scenario_name="File renamed on both sides but with different names"
+            create_file "$SERVER_ROOT" "./file1.txt" 1
+
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+
+            echo "Renaming file1 on server."
+            move_path "$SERVER_ROOT" "./file1.txt" "./file1_server_renamed.txt"
+            echo "Renaming file1 on client."
+            move_path "$CLIENT_ROOT" "./file1.txt" "./file1_client_renamed.txt"
+            ;;
         99)
         #Too large for now
             scenario_name="Large and complex file system"
@@ -442,7 +527,7 @@ for scenario in $(seq "$start" "$end"); do
             done
 
             # Initial sync so both sides have matching large trees
-            echo "Running initial sync for scenario 16..."
+            echo "Running initial sync for scenario 99..."
             $SERVER_CMD_LINE &
             sleep 0.25
             $CLIENT_CMD_LINE &

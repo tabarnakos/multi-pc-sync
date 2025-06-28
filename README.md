@@ -28,15 +28,15 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 ## 2. File Modification
 - [✅] File modified on source only
 - [✅] File modified on destination only
-- [ ] File modified differently on both sides (conflict)
+- [❗] File modified differently on both sides (conflict) (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
 
 ## 3. File Renaming and Moving
 - [✅] File renamed on source only
 - [✅] File renamed on destination only
-- [ ] File moved to another folder on source
-- [ ] File moved to another folder on destination
-- [ ] File moved and modified simultaneously on one side
-- [ ] File renamed on both sides but with different names
+- [✅] File moved to another folder on source
+- [✅] File moved to another folder on destination
+- [✅] File moved and modified simultaneously on one side
+- [✅] File renamed on both sides but with different names
 
 ## 4. Directory Operations
 - [✅] New directory created on source only
