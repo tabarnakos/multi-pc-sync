@@ -95,16 +95,17 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] Directory with nested changes inside (combination)
 
 ## 5. Combination Scenarios
-- [ ] Multiple operations on same file (e.g., modify then rename)
-- [ ] Operations on files within renamed directories
-- [ ] Operations on files within moved directories
-- [ ] Circular rename (A→B, B→A across sides)
+- [✅] Multiple operations on same file - modify then rename
+- [✅] Operations on files within renamed directories
+- [✅] Operations on files within moved directories
+- [❗] Circular rename (A→B, B→A across sides)  (This use-case is not yet supported, and difficult to detect)
 
 ## 6. Conflict Scenarios
-- [ ] Same file modified on both sides without sync
-- [ ] File deleted on one side, modified on the other
-- [ ] File moved on one side, renamed on the other
-- [ ] Same file created independently on both sides with different content
+- [❗] Same file modified on both sides without sync (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
+- [❗] File deleted on the server, modified on the client (currently causes data loss)
+- [❗] File deleted on the client, modified on the server (currently causes data loss)
+- [❗] File moved on the server, renamed on the client    (currently causes data loss)
+- [❗] File moved on the client, renamed on the server    (currently causes data loss)
 
 ## 7. Permissions and Metadata (if applicable)
 - [ ] Permissions changed on one side
@@ -113,9 +114,9 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 
 ## 8. Edge Cases
 - [ ] File with special characters in the name
-- [ ] Very large file
-- [ ] File with 0 bytes
-- [ ] Filename case changes (case sensitivity issues)
+- [✅] Very large file (10GB)
+- [❗] File with 0 bytes (does not work, needs fixing)
+- [✅] Filename case changes (case sensitivity issues)
 - [ ] Long path names
 - [ ] Files with identical hashes but different content
 - [ ] Clock skew between source and destination

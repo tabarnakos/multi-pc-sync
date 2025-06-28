@@ -92,14 +92,31 @@ for scenario in $(seq "$start" "$end"); do
         echo "5. Scenario 5: (Initial sync) 250ms latency, files on server only."
         echo "6. Scenario 6: (Initial sync) 20ms latency, files on client only."
         echo "7. Scenario 7: (Initial sync) 250ms latency, files on client only."
-        echo "8. Reserved for future use."
-        echo "9. Reserved for future use."
+        echo "8. Scenario 8: File created on both sides with identical content."
+        echo "9. Scenario 9: File created on both sides with different content."
         echo "10. Scenario 10: (Re-sync) Server moved files."
         echo "11. Scenario 11: (Re-sync) Client moved files."
         echo "12. Scenario 12: (Re-sync) Server edited files."
         echo "13. Scenario 13: (Re-sync) Client edited files."
         echo "14. Scenario 14: (Re-sync) Server deleted files."
         echo "15. Scenario 15: (Re-sync) Client deleted files."
+        echo "16. Scenario 16: (Re-sync) File deleted on both sides."
+        echo "17. Scenario 17: (Re-sync) File modified differently on both sides."
+        echo "18. Scenario 18: (Re-sync) File moved to another folder on server."
+        echo "19. Scenario 19: (Re-sync) File moved to another folder on client."
+        echo "20. Scenario 20: (Re-sync) File moved and modified simultaneously on one side."
+        echo "21. Scenario 21: (Re-sync) File renamed on both sides but with different names."
+        echo "22. Scenario 22: Multiple operations on same file - modify then rename."
+        echo "23. Scenario 23: Operations on files within renamed directories. Test file rename, edit and delete."
+        echo "24. Scenario 24: Operations on files within moved directories. Test file rename, edit and delete."
+        echo "25. Scenario 25: Circular rename (A→B, B→A across sides)."
+        echo "26. Scenario 26: File deleted on the server, modified on the client."
+        echo "27. Scenario 27: File deleted on the client, modified on the server."
+        echo "28. Scenario 28: File moved on the server, renamed on the client."
+        echo "29. Scenario 29: File moved on the client, renamed on the server."
+        echo "30. Scenario 30: Filename case changes."
+        echo "31. Scenario 31: Very large file (10GB)."
+        echo "32. Scenario 32: File with 0 bytes."
         echo "99. Scenario 99: (Large and complex file system) Build a large file system on both client and server."
         read -p "Enter the scenario number (1-15): " scenario
     fi
@@ -487,8 +504,155 @@ for scenario in $(seq "$start" "$end"); do
             echo "Renaming file1 on client."
             move_path "$CLIENT_ROOT" "./file1.txt" "./file1_client_renamed.txt"
             ;;
+        22)
+            scenario_name="Multiple operations on same file - modify then rename"
+            create_file "$SERVER_ROOT" "./file1.txt" 1
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Editing file1 on server."
+            edit_file "$SERVER_ROOT" "./file1.txt"
+            echo "Renaming file1 to file1_renamed.txt on server."
+            move_path "$SERVER_ROOT" "./file1.txt" "./file1_renamed.txt"
+            ;;
+        23)
+            scenario_name="Operations on files within renamed directories. Test file rename, edit and delete"
+            # Setup: create folder and files
+            create_folder "$SERVER_ROOT" "./dirA"
+            create_file "$SERVER_ROOT" "./dirA/file1.txt" 1
+            create_file "$SERVER_ROOT" "./dirA/file2.txt" 1
+            create_file "$SERVER_ROOT" "./dirA/file3.txt" 1
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Renaming dirA to dirB on server."
+            echo $EXPECTED_FILES
+            move_path "$SERVER_ROOT" "./dirA" "./dirB"
+            echo $EXPECTED_FILES
+            echo "Renaming file1.txt to file1_renamed.txt inside dirB on server."
+            move_path "$SERVER_ROOT" "./dirB/file1.txt" "./dirB/file1_renamed.txt"
+            echo "Editing file2.txt inside dirB on server."
+            edit_file "$SERVER_ROOT" "./dirB/file2.txt"
+            echo "Deleting file3.txt inside dirB on server."
+            remove_path "$SERVER_ROOT" "./dirB/file3.txt"
+            ;;
+        24)
+            scenario_name="Operations on files within moved directories"
+            # Setup: create parent and child directories and files
+            create_folder "$SERVER_ROOT" "./parentA"
+            create_folder "$SERVER_ROOT" "./parentA/childA"
+            create_file "$SERVER_ROOT" "./parentA/childA/file1.txt" 1
+            create_file "$SERVER_ROOT" "./parentA/childA/file2.txt" 1
+            create_file "$SERVER_ROOT" "./parentA/childA/file3.txt" 1
+            echo "Running initial sync to ensure client has the initial files."
+            $SERVER_CMD_LINE &
+            sleep 0.25  # Give the server time to start
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Moving childA from parentA to parentB on server."
+            create_folder "$SERVER_ROOT" "./parentB"
+            move_path "$SERVER_ROOT" "./parentA/childA" "./parentB/childA"
+            echo "Renaming file1.txt to file1_renamed.txt inside parentB/childA on server."
+            move_path "$SERVER_ROOT" "./parentB/childA/file1.txt" "./parentB/childA/file1_renamed.txt"
+            echo "Editing file2.txt inside parentB/childA on server."
+            edit_file "$SERVER_ROOT" "./parentB/childA/file2.txt"
+            echo "Deleting file3.txt inside parentB/childA on server."
+            remove_path "$SERVER_ROOT" "./parentB/childA/file3.txt"
+            ;;
+        25)
+            scenario_name="Circular rename (A→B, B→A across sides)"
+            # Setup: create fileA and fileB on both sides
+            create_file "$SERVER_ROOT" "./fileA.txt" 1
+            create_file "$SERVER_ROOT" "./fileB.txt" 1
+            echo "Running initial sync to ensure both sides have fileA.txt and fileB.txt."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            
+            # perform the move manually
+            mv "$SERVER_ROOT/fileB.txt" "$SERVER_ROOT/fileA.txt"
+            mv "$CLIENT_ROOT/fileA.txt" "$CLIENT_ROOT/fileB.txt"
+            ;;
+        26)
+            scenario_name="File deleted on the server, modified on the client"
+            create_file "$SERVER_ROOT" "./file26.txt" 1
+            echo "Running initial sync..."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Deleting file26 on server, modifying on client..."
+            rm "${SERVER_ROOT}/file26.txt"  # do not update the expected files here, we do not want the sync program to delete in this case
+            edit_file "$CLIENT_ROOT" "./file26.txt"
+            ;;
+        27)
+            scenario_name="File deleted on the client, modified on the server"
+            create_file "$CLIENT_ROOT" "./file27.txt" 1
+            echo "Running initial sync..."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Deleting file27 on client, modifying on server..."
+            rm "${CLIENT_ROOT}/file27.txt" # do not update the expected files here, we do not want the sync program to delete in this case
+            edit_file "$SERVER_ROOT" "./file27.txt"
+            ;;
+        28)
+            scenario_name="File moved on the server, renamed on the client"
+            create_file "$SERVER_ROOT" "./file28.txt" 1
+            echo "Running initial sync..."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Moving file28 on server, renaming on client..."
+            move_path "$SERVER_ROOT" "./file28.txt" "./folder_move/file28.txt"
+            move_path "$CLIENT_ROOT" "./file28.txt" "./file28_renamed.txt"
+            EXPECTED_FILES="$EXPECTED_FILES ./file28_renamed.txt"   # Need to update expected files here manually
+            ;;
+        29)
+            scenario_name="File moved on the client, renamed on the server"
+            create_file "$CLIENT_ROOT" "./file29.txt" 1
+            echo "Running initial sync..."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Moving file29 on client, renaming on server..."
+            move_path "$CLIENT_ROOT" "./file29.txt" "./folder_move/file29.txt"
+            move_path "$SERVER_ROOT" "./file29.txt" "./file29_renamed.txt"
+            EXPECTED_FILES="$EXPECTED_FILES ./file29_renamed.txt"   # Need to update expected files here manually
+            ;;
+        30)
+            scenario_name="Filename case changes"
+            create_file "$SERVER_ROOT" "./CaseTest.txt" 1
+            echo "Running initial sync..."
+            $SERVER_CMD_LINE &
+            sleep 0.25
+            $CLIENT_CMD_LINE &
+            wait
+            echo "Renaming CaseTest.txt to casetest.txt on server."
+            move_path "$SERVER_ROOT" "./CaseTest.txt" "./casetest.txt"
+            ;;
+        31)
+            scenario_name="Very large file (10GB)"
+            echo "Creating a 10GB file on server..."
+            create_file "$SERVER_ROOT" "./hugefile_10GB.bin" 10240
+            echo "Running sync for very large file..."
+            ;;
+        32)
+            scenario_name="File with 0 bytes"
+            echo "Creating a 0-byte file on server..."
+            create_file "$SERVER_ROOT" "./emptyfile.txt" 0
+            echo "Running sync for 0-byte file..."
+            ;;
         99)
-        #Too large for now
+        # Too large for now
             scenario_name="Large and complex file system"
             echo "Building large file system on both client and server..."
 
@@ -554,63 +718,6 @@ for scenario in $(seq "$start" "$end"); do
             echo "5: Client and server added different files of same name"
             create_file "$SERVER_ROOT" "./level1_sub2/file_1.bin_added" 1
             create_file "$CLIENT_ROOT" "./level1_sub2/file_1.bin_added" 1
-
-            ;;
-        16)
-            scenario_name="Stress test: deeply nested 1000+ files with conflicts"
-
-            # Build a 3-level nested tree (10x10x10 = 1000 files) on server
-            for i in {1..10}; do
-                for j in {1..10}; do
-                    # Create a folder for each level
-                    folder="nested/level${i}/sub${j}"
-                    create_folder "$SERVER_ROOT" "./$folder" "./$folder"
-
-                    for k in {1..10}; do
-                        folder="nested/level${i}/sub${j}/subsub${k}"
-                        if [ $folder == "nested/level1/sub1/subsub1" ]; then
-                            # Create a folder that will be deleted later
-                            create_folder "$SERVER_ROOT" "./$folder" ""
-                            create_file "$SERVER_ROOT" "./$folder/file${k}.txt" "" 0.01
-                        else
-                            create_folder "$SERVER_ROOT" "./$folder" "./$folder"
-                            create_file "$SERVER_ROOT" "./$folder/file${k}.txt" "$folder/file${k}.txt" 0.01
-                        fi
-                    done
-                done
-            done
-
-            # Build overlapping subset on client (to create initial differences)
-            for i in {5..15}; do
-                for j in {5..15}; do
-                    for k in {5..15}; do
-                        folder="nested/level${i}/sub${j}/subsub${k}"
-                        create_folder "$CLIENT_ROOT" "./$folder" "$folder"  
-                        create_file "$CLIENT_ROOT" "./$folder/file${k}.txt" "$folder/file${k}.txt" 0.01
-                    done
-                done
-            done
-
-            # Run initial sync
-            echo "Running initial sync for stress-test scenario"
-            $SERVER_CMD_LINE &
-            sleep 1
-            $CLIENT_CMD_LINE &
-            wait
-
-            # Server modifications: delete some files and move a subtree
-            echo "Server: deleting subtree level1/sub1/subsub1 and file edits"
-            rm -r "$SERVER_ROOT/nested/level1/sub1/subsub1"
-            echo "server edit" >"$SERVER_ROOT/nested/level2/sub2/subsub2/file2.txt"
-            move_path $SERVER_ROOT "./nested/level3/sub3" "./nested/moved3"
-
-            # Client modifications: add new files, copy, conflict edits
-            echo "Client: creating new branch and editing conflicts"
-            folder_new="nested/newbranch/subA"
-            create_folder "$CLIENT_ROOT" "./$folder_new" "$folder_new"
-            create_file "$CLIENT_ROOT" "./$folder_new/new1.txt" "$folder_new/new1.txt" 0
-            cp "$CLIENT_ROOT/nested/level4/sub4/subsub4/file4.txt" "$CLIENT_ROOT/nested/level4/sub4/subsub4/file4_copy.txt"
-            echo "client conflict" >"$CLIENT_ROOT/nested/level2/sub2/subsub2/file2.txt"
 
             ;;
         *)
