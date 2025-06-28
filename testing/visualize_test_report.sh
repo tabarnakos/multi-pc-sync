@@ -322,7 +322,7 @@ create_grid_layout() {
 
 # Main function
 main() {
-    local report_file="${1:-test_report_before.txt}"
+    local report_file="${1:-test_report.txt}"
     
     if [ ! -f "$report_file" ]; then
         echo -e "${RED}Error: Test report file '$report_file' not found!${NC}"
