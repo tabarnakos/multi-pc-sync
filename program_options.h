@@ -5,14 +5,14 @@
 // Section 2: Includes
 #include <filesystem>
 #include <string>
+#include <cstdint>
 
 // Section 3: Defines and Macros
 // (none)
 
-// Section 4: Classes
 class ProgramOptions {
 public:
-    enum MODE {
+    enum MODE : std::uint8_t {
         MODE_CLIENT = 0,
         MODE_SERVER,
     };

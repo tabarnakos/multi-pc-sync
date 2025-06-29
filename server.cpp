@@ -19,6 +19,7 @@
 
 // Section 2: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
+#define SERVER_LISTEN_BACKLOG 5         // Maximum pending connections for listen()
 
 // Section 3: ServerThread Implementation
 void ServerThread::runserver(context &ctx)
@@ -54,8 +55,7 @@ void ServerThread::runserver(context &ctx)
         std::cout << "Unable to bind to port " << ntohs(serverAddress.sin_port) << "\r\n";
         exit(0);
     }
-
-    if (listen(serverSocket, 5) != 0)
+    if (listen(serverSocket, SERVER_LISTEN_BACKLOG) != 0)
     {
         std::cout << "Unable to listen on socket" << "\r\n";
         exit(0);

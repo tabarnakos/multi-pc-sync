@@ -37,7 +37,7 @@ public:
      * @param size Number of bytes to read
      * @return Number of bytes actually read
      */
-    size_t read(void *buf, const size_t size);
+    size_t read(void *buf, size_t size);
 
     /**
      * Writes data from the provided buffer into this growing buffer
@@ -45,7 +45,7 @@ public:
      * @param size Number of bytes to write
      * @return Number of bytes written
      */
-    size_t write(const void *buf, const size_t size);
+    size_t write(const void *buf, size_t size);
 
     /**
      * Template method to write a value of any type
@@ -59,13 +59,13 @@ public:
      * @param fd File descriptor to write to
      * @param size Number of bytes to write
      */
-    void dumpToFile(FILE *fd, uintmax_t size);
+    void dumpToFile(FILE *file, uintmax_t size);
 
     /**
      * Dumps buffer contents to an output stream
      * @param os The output stream to write to
      */
-    void dump(std::ostream &os);
+    void dump(std::ostream &outputStream);
 
     /**
      * Seeks to a position in the buffer
@@ -121,6 +121,8 @@ protected:
 
 private:
     int advise_access(size_t size);
+    int moveBackward(int& off);
+    int moveForward(int& off);
     size_t mSize = 0;
     std::vector<void *> mBuffers;
     std::vector<size_t> mBufferSizes;

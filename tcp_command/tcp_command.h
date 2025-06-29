@@ -163,7 +163,7 @@ public:
      * @param args Map of arguments including "path" for the file path and "txsocket" for the target socket
      * @return 0 on success, negative value on error
      */
-    int SendFile(const std::map<std::string, std::string>& args);
+    static int SendFile(const std::map<std::string, std::string>& args);
 
     /**
      * Receives a chunk of data from a socket
@@ -179,7 +179,7 @@ public:
      * @param args Map of arguments including "path" for the destination path and "txsocket" for the source socket
      * @return 0 on success, negative value on error
      */
-    int ReceiveFile(const std::map<std::string, std::string>& args);
+    static int ReceiveFile(const std::map<std::string, std::string>& args);
 
     /**
      * Dumps debug information about the command to an output stream

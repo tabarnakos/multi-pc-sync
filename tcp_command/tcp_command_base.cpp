@@ -28,6 +28,7 @@
 
 // Section 3: Defines and Macros
 constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms
+constexpr int PERCENTAGE_FACTOR = 100;
 
 // Section 4: Static Variables
 std::binary_semaphore TcpCommand::TCPSendSemaphore{1};
@@ -164,9 +165,9 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
         size_t remainingBytes = targetSize - totalReceived;
         size_t bytesToReceive = std::min<size_t>(remainingBytes, bufSize);
         
-        ssize_t n = recv(socket, buffer, bytesToReceive, 0);
-        if (n <= 0) {
-            if (n == 0) {
+        ssize_t num = recv(socket, buffer, bytesToReceive, 0);
+        if (num <= 0) {
+            if (num == 0) {
                 std::cerr << "Connection closed by peer after receiving " << totalReceived << " bytes" << "\r\n";
             } else {
                 std::cerr << "Receive error after " << totalReceived << " bytes: " << strerror(errno) << "\r\n";
@@ -175,13 +176,13 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
             return totalReceived;
         }
 
-        if (mData.write(buffer, n) != n) {
-            std::cerr << "Error writing " << n << " bytes to buffer" << "\r\n";
+        if (mData.write(buffer, num) != num) {
+            std::cerr << "Error writing " << num << " bytes to buffer" << "\r\n";
             delete[] buffer;
             return totalReceived;
         }
 
-        totalReceived += n;
+        totalReceived += num;
         //std::cout << "DEBUG: receivePayload received " << n << " bytes (total: " << totalReceived 
         //          << "/" << targetSize << ")" << "\r\n";
     }
@@ -253,7 +254,7 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
     // Send the file size
-    size_t file_size_net = static_cast<size_t>(file_size);
+    auto file_size_net = static_cast<size_t>(file_size);
     //std::cout << "DEBUG: Sending file size: " << file_size_net << " bytes" << "\r\n";
     sent_bytes = sendChunk(socket, &file_size_net, sizeof(size_t));
     if (sent_bytes < sizeof(size_t)) {
@@ -262,7 +263,7 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     }
     
     // Now send the file contents in chunks
-    uint8_t* buffer = new uint8_t[ALLOCATION_SIZE];
+    auto* buffer = new uint8_t[ALLOCATION_SIZE];
     size_t total_bytes_sent = 0;
 
     while (total_bytes_sent < file_size) {
@@ -285,10 +286,9 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         //std::cout << "DEBUG: Sent chunk of " << chunk_sent 
         //          << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
         //          << "/" << HumanReadable(file_size) << ")" << "\r\n";
-
         // Force flush output to ensure logs appear in real-time
         std::cout << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
-                  << " (" << (total_bytes_sent * 100 / file_size) << "%)" << "\r\n";
+                  << " (" << (total_bytes_sent * PERCENTAGE_FACTOR / file_size) << "%)" << "\r\n";
     }
 
     //std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
@@ -476,7 +476,7 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
             return nullptr;
     }
 
-    if (!command) {
+    if (command == nullptr) {
         std::cerr << "Error: Failed to create command object" << "\r\n";
         return nullptr;
     }

@@ -59,7 +59,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
 
     int chr;
     opts.port = -1;
-    opts.mode = opts.MODE_SERVER;
+    opts.mode = ProgramOptions::MODE_SERVER;
     
     static constexpr std::array<option, 3> long_options{{
         {.name = "dry-run", .has_arg = no_argument, .flag = nullptr, .val = 1},
@@ -74,7 +74,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         {
         case 's':
         {
-            opts.mode = opts.MODE_CLIENT;
+            opts.mode = ProgramOptions::MODE_CLIENT;
             opts.ip = strtok( optarg,":" );
             char * portstr = strtok( nullptr, ":" );
             if ( nullptr == portstr )
@@ -83,7 +83,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         }
             break;
         case 'd':
-            opts.mode = opts.MODE_SERVER;
+            opts.mode = ProgramOptions::MODE_SERVER;
             opts.ip = "127.0.0.1";
             opts.port = atoi( optarg );
             break;

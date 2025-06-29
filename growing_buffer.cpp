@@ -10,19 +10,22 @@
 #include <iomanip>
 #include <iostream>
 #include <ostream>
+#include <print>
 #include <vector>
 
 // Section 3: Defines and Macros
-// (none)
+constexpr int DUMP_PREVIEW_BYTES = 8;
+constexpr int DUMP_LINE_BYTES = 16;
+constexpr size_t ONE_GIGABYTE = 1ULL << 30; // 1 GiB
 
 // Section 4: Static Variables
 // (none)
 
 // Section 5: Constructors and Destructors
-GrowingBuffer::GrowingBuffer() {}
+GrowingBuffer::GrowingBuffer() = default;
 
 GrowingBuffer::~GrowingBuffer() {
-    for (auto buf : mBuffers)
+    for (auto *buf : mBuffers)
         free(buf);
 }
 
@@ -67,21 +70,21 @@ size_t GrowingBuffer::write(const void *buf, const size_t size) {
     return size - bytes_left;
 }
 
-void GrowingBuffer::dumpToFile(FILE *fd, uintmax_t size) {
+void GrowingBuffer::dumpToFile(FILE *file, uintmax_t size) {
     size_t total_left = mSize - (mBufferIndex * mBufferSizes[0] + mIndex);
-    if (size > total_left) size = total_left; // Clamp to available data
+    size = std::min(size, total_left); // Clamp to available data
     std::cout << "dump " << size << " bytes to file" << "\r\n";
     std::cout << "mBufferIndex = " << mBufferIndex << "\r\n";
     std::cout << "mBufferSizes[mBufferIndex] = " << mBufferSizes[mBufferIndex] << "\r\n";
     std::cout << "mIndex = " << mIndex << "\r\n";
     std::cout << "data = ";
-    for (int i = 0; i < 8 && (mIndex + i) < mBufferSizes[mBufferIndex]; ++i) {
-        printf("%02x ", *(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex + i));
+    for (int i = 0; i < DUMP_PREVIEW_BYTES && (mIndex + i) < mBufferSizes[mBufferIndex]; ++i) {
+        std::print("{:02x} ", *(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex + i));
     }
     std::cout << "\r\n";
     while (size > 0) {
         size_t chunk = std::min(mBufferSizes[mBufferIndex] - mIndex, (size_t)size);
-        auto w_size = fwrite(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex, 1, chunk, fd);
+        auto w_size = fwrite(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex, 1, chunk, file);
         mIndex = mIndex + w_size;
         if (mIndex == mBufferSizes[mBufferIndex]) {
             mIndex = 0;
@@ -96,21 +99,21 @@ void GrowingBuffer::dumpToFile(FILE *fd, uintmax_t size) {
     }
 }
 
-void GrowingBuffer::dump(std::ostream &os) {
+void GrowingBuffer::dump(std::ostream &outputStream) {
     size_t prevIndex = mPublicIndex;
     this->seek(0, SEEK_SET);
     size_t dataSize = this->size();
     std::vector<uint8_t> buffer(dataSize);
     this->read(buffer.data(), dataSize);
-    os << "Raw mData (" << dataSize << " bytes):" << "\r\n";
+    outputStream << "Raw mData (" << dataSize << " bytes):" << "\r\n";
     for (size_t i = 0; i < dataSize; ++i) {
-        if ( i % 8 == 0 && i != 0 )
-            os << "  ";
-        if (i % 16 == 0)
-            os << "\r\n" << std::hex << std::setw(8) << std::setfill('0') << i << ": ";
-        os << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
+        if ( i % DUMP_PREVIEW_BYTES == 0 && i != 0 )
+            outputStream << "  ";
+        if (i % DUMP_LINE_BYTES == 0)
+            outputStream << "\r\n" << std::hex << std::setw(DUMP_PREVIEW_BYTES) << std::setfill('0') << i << ": ";
+        outputStream << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
     }
-    os << std::dec << "\r\n";
+    outputStream << std::dec << "\r\n";
     this->seek(prevIndex, mPublicIndex);
 }
 
@@ -131,71 +134,92 @@ size_t GrowingBuffer::tell() const{
     return mPublicIndex;
 }
 
-int GrowingBuffer::move(int off) {
-    if (off > 0)
-    {
-        if ( advise_access(off) < 0 ) {
-            return -1; // Error: advise_access failed
-        }
-    }
-    mPublicIndex += off;
-    if (off < 0) {
-        while (off != 0) {
-            if ((ssize_t)mIndex >= -off) {
-                mIndex += off;
-                off = 0;
-            } else {
-                if (mBufferIndex == 0) {
-                    // Prevent underflow: clamp to start of buffer
-                    mIndex = 0;
-                    mPublicIndex = 0;
-                    // Return early or set an error code if needed
-                    return -1;
-                }
-                off += mIndex + 1;
-                if (mBufferIndex == 0) {
-                    // Prevent underflow again (double check)
-                    mIndex = 0;
-                    mPublicIndex = 0;
-                    return -1;
-                }
-                mBufferIndex--;
-                if (mBufferIndex >= mBufferSizes.size()) {
-                    // Error: underflow, clamp to start and return
-                    mBufferIndex = 0;
-                    mIndex = 0;
-                    mPublicIndex = 0;
-                    return -1;
-                }
-                mIndex = mBufferSizes[mBufferIndex] - 1;
-            }
-        }
-    } else if (off > 0) {
-        while (off != 0) {
-            ssize_t remain = mBufferSizes[mBufferIndex] - mIndex;
-            if (remain > off) {
-                mIndex += off;
-                off = 0;
-            } else {
-                off -= remain;
-                if (mBufferIndex == mBufferSizes.size() - 1) {
-                    // At the last buffer - clamp to end
-                    mIndex = mBufferSizes[mBufferIndex];
-                    // Don't modify mPublicIndex since it's already been updated
-                    return 0;
-                }
+int GrowingBuffer::moveBackward(int& off) {
+    while (off != 0) {
+        if ((ssize_t)mIndex >= -off) {
+            // Can move within current buffer
+            mIndex += off;
+            off = 0;
+        } else {
+            // Need to move to previous buffer
+            if (mBufferIndex == 0) {
+                // Already at first buffer, clamp to start
                 mIndex = 0;
-                mBufferIndex++;
-                // This check is no longer needed since we check for last buffer above
-                // but keep it as a safety net
-                if (mBufferIndex >= mBufferSizes.size()) {
-                    mBufferIndex = mBufferSizes.size() - 1;
-                    mIndex = mBufferSizes[mBufferIndex];
-                    return 0;
-                }
+                mPublicIndex = 0;
+                return -1;
+            }
+            
+            // Move to previous buffer
+            off += mIndex + 1;
+            mBufferIndex--;
+            
+            if (mBufferIndex >= mBufferSizes.size()) {
+                // Safety check for buffer index underflow
+                mBufferIndex = 0;
+                mIndex = 0;
+                mPublicIndex = 0;
+                return -1;
+            }
+            
+            // Position at end of previous buffer
+            mIndex = mBufferSizes[mBufferIndex] - 1;
+        }
+    }
+    return 0;
+}
+
+int GrowingBuffer::moveForward(int& off) {
+    while (off != 0) {
+        // Calculate remaining bytes in current buffer
+        ssize_t remain = mBufferSizes[mBufferIndex] - mIndex;
+        
+        if (remain > off) {
+            // Can move within current buffer
+            mIndex += off;
+            off = 0;
+        } else {
+            // Need to move to next buffer
+            off -= remain;
+            
+            if (mBufferIndex == mBufferSizes.size() - 1) {
+                // Already at last buffer, clamp to end
+                mIndex = mBufferSizes[mBufferIndex];
+                return 0;
+            }
+            
+            // Move to next buffer
+            mIndex = 0;
+            mBufferIndex++;
+            
+            // Safety check for buffer index overflow
+            if (mBufferIndex >= mBufferSizes.size()) {
+                mBufferIndex = mBufferSizes.size() - 1;
+                mIndex = mBufferSizes[mBufferIndex];
+                return 0;
             }
         }
     }
+    return 0;
+}
+
+int GrowingBuffer::move(int off) {
+    // Handle growth for forward movement
+    if (off > 0 && advise_access(off) < 0) {
+        return -1; // Error: advise_access failed
+    }
+    
+    // Update public index
+    mPublicIndex += off;
+    
+    // Delegate to specialized functions based on direction
+    if (off < 0) {
+        return moveBackward(off);
+    }
+    
+    if (off > 0) {
+        return moveForward(off);
+    }
+    
     return 0;
 }
 
@@ -213,18 +237,18 @@ int GrowingBuffer::advise_access(size_t size) {
         }
 
         // Protect against excessive allocation
-        if (new_buf_size > (1 << 30)) { // 1GB limit
+        if (new_buf_size > ONE_GIGABYTE) { // 1GB limit
             return -1;
         }
 
-        void *p = malloc(new_buf_size);
-        if (!p) {
+        void *ptr = malloc(new_buf_size);
+        if (ptr == nullptr) {
             // Error: allocation failed
             return -1;
         }
 
-        memset(p, 0, new_buf_size);
-        mBuffers.push_back(p);
+        memset(ptr, 0, new_buf_size);
+        mBuffers.push_back(ptr);
         mBufferSizes.push_back(new_buf_size);
         if (mPublicIndex == mSize) {
             // we were at the end of the buffer, and mPublicIndex was pointing to nothing
