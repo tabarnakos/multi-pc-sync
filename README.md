@@ -17,6 +17,8 @@ In server mode, `multi-pc-sync` runs as a daemon, listening for client connectio
 
 - `-d <port>`: Start the server (daemon) on the specified TCP port.
 - `<path>`: The directory to synchronize. At the time of writing only canonical paths are supported.
+- **Options:**
+  - `--cfg=<path>`: Path to the config file. Configures behavior on file conflicts.
 - **Debugging Options:**
   - `-r <rate>`: Limit TCP command rate (Hz). `0` means unlimited (default: 0).
   - `--exit-after-sync`: Exit server after sending SyncDoneCmd (for unit testing).
@@ -42,6 +44,7 @@ In client mode, the application launches with a path argument and starts a clien
   - `-r <rate>`: Limit TCP command rate (Hz). `0` means unlimited (default: 0).
   - `-y`: Skip Y/N prompt and automatically sync.
   - `--dry-run`: Print commands but don't execute them.
+  - `--cfg=<path>`: Path to the config file. Configures behavior on file conflicts.
 
 **Example:**
 ```sh
