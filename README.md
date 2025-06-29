@@ -115,7 +115,7 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 ## 8. Edge Cases
 - [ ] File with special characters in the name
 - [✅] Very large file (10GB)
-- [❗] File with 0 bytes (does not work, needs fixing)
+- [✅] File with 0 bytes
 - [✅] Filename case changes (case sensitivity issues)
 - [ ] Long path names
 - [ ] Files with identical hashes but different content
