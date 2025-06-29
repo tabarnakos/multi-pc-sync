@@ -3,7 +3,8 @@
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+YELLOW='\033[1;33m'  # Used for partial pass
+ORANGE='\033[0;33m'  # Another option for partial pass
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
@@ -81,6 +82,7 @@ draw_test_box() {
 parse_test_report() {
     local file="$1"
     local current_scenario=""
+    local scenario_title=""
     local client_section=""
     local server_section=""
     local in_client_section=false
@@ -141,11 +143,13 @@ parse_test_report() {
 create_grid_layout() {
     local file="$1"
     local scenarios=()
+    local scenario_titles=()
     local client_results=()
     local server_results=()
     
     # Parse all scenarios first
     local current_scenario=""
+    local current_title=""
     local client_section=""
     local server_section=""
     local in_client_section=false
@@ -158,11 +162,14 @@ create_grid_layout() {
             # Process previous scenario if exists and complete
             if [ -n "$current_scenario" ] && [ "$scenario_complete" = true ]; then
                 scenarios+=("$current_scenario")
+                scenario_titles+=("$current_title")
                 client_results+=($(check_test_result "$client_section"))
                 server_results+=($(check_test_result "$server_section"))
             fi
             
             current_scenario=$(echo "$line" | sed -n 's/.*Scenario \([0-9]*\).*/\1/p')
+            # Extract scenario title - handle format "Scenario X - Title Test Report"
+            current_title=$(echo "$line" | sed -n 's/^=*\s*Scenario [0-9]\+\s*-\s*\(.*\)\s*Test Report.*$/\1/p' | sed 's/[[:space:]]*$//')
             client_section=""
             server_section=""
             in_client_section=false
@@ -193,6 +200,7 @@ create_grid_layout() {
     # Process the last scenario if complete
     if [ -n "$current_scenario" ] && [ "$scenario_complete" = true ]; then
         scenarios+=("$current_scenario")
+        scenario_titles+=("$current_title")
         client_results+=($(check_test_result "$client_section"))
         server_results+=($(check_test_result "$server_section"))
     fi
@@ -202,7 +210,7 @@ create_grid_layout() {
     echo -e "${WHITE}                           MULTI-PC-SYNC TEST REPORT VISUALIZATION            ${NC}"
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = No missing/extra files or hashes  ${RED}FAIL${NC} = Missing/extra files or hashes"
+    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = No missing/extra files or hashes  ${RED}FAIL${NC} = Missing/extra files or hashes  ${ORANGE}PARTIAL${NC} = Mixed results"
     echo -e "${CYAN}        CLI = Client Test Result, SRV = Server Test Result${NC}"
     echo ""
     
@@ -315,6 +323,38 @@ create_grid_layout() {
     
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo -e "${WHITE}SUMMARY:${NC} Total Tests: $total_tests | ${GREEN}Passed: $passed_tests${NC} | ${RED}Failed: $failed_tests${NC}"
+    echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    
+    # Display detailed list of scenarios with titles and status
+    echo ""
+    echo -e "${WHITE}DETAILED TEST RESULTS:${NC}"
+    echo -e "${WHITE}─────────────────────────────────────────────────────────────────────────────────${NC}"
+    echo ""
+    
+    for ((i=0; i<${#scenarios[@]}; i++)); do
+        local scenario_num="${scenarios[$i]}"
+        local title="${scenario_titles[$i]}"
+        local client_result="${client_results[$i]}"
+        local server_result="${server_results[$i]}"
+        local status_color=""
+        
+        # Determine status color based on client and server results
+        if [ "$client_result" = "PASS" ] && [ "$server_result" = "PASS" ]; then
+            status_color="$GREEN"
+            status="PASS"
+        elif [ "$client_result" = "FAIL" ] && [ "$server_result" = "FAIL" ]; then
+            status_color="$RED"
+            status="FAIL"
+        else
+            status_color="$ORANGE"
+            status="PARTIAL"
+        fi
+        
+        # Add padding to scenario number for alignment
+        printf "${WHITE}%-3s${NC} ${status_color}%-8s${NC} %s\n" "$scenario_num" "[$status]" "$title"
+    done
+    
+    echo ""
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
 }
 
