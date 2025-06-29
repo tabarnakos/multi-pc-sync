@@ -219,7 +219,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 
     std::string remotePath = extractStringFromPayload(kPayloadIndex, SEEK_SET);
     size_t indexFileNameSize = 0;
-    const auto deletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
+    const auto remoteDeletions = parseDeletionLogFromBuffer(mData, indexFileNameSize, SEEK_CUR);
 
     std::cout << "Received index for remote path: " << remotePath << "\r\n";
 
@@ -285,8 +285,10 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     DirectoryIndexer localIndexer(localPath, true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     localIndexer.indexonprotobuf(false);
 
-    //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << "\r\n";
-    //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << "\r\n";
+    const auto localDeletions = localIndexer.getDeletions(lastRunIndexer);
+
+    //std::cout << "local index size: " << localIndexer.count(nullptr, 10) << "\n\r";
+    //std::cout << "remote index size: " << remoteIndexer.count(nullptr, 10) << "\n\r";
 
     std::cout << "Exporting Sync commands." << "\r\n";
 
@@ -296,6 +298,24 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     if (syncCommands.empty())
     {
         std::cout << "No sync commands generated." << "\r\n";
+        
+        // Send SYNC_COMPLETE command to server to indicate client is done
+        GrowingBuffer commandbuf;
+        size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
+        commandbuf.write(&commandSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_COMPLETE;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        TcpCommand *command = TcpCommand::create(commandbuf);
+        if (command == nullptr)
+        {
+            MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create SyncCompleteCmd");
+            return -1;
+        }
+        TcpCommand::block_transmit();
+        command->transmit(args, true);
+        TcpCommand::unblock_transmit();
+        delete command;
+
         return 0;
     }
 
@@ -304,7 +324,17 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     // This is necessary to avoid modifying the list while iterating over it
     std::list <SyncCommand> commandsToRemove;
 
-    for (const auto& path : deletions) {
+    for (const auto& path : remoteDeletions) {
+        for (auto &command : syncCommands)
+        {
+            if (command.path1() == "\""+path+"\"")
+            {
+                commandsToRemove.push_back(command);
+                std::cout << "Removing command because of deleted file: " << command.string() << "\r\n";
+            }
+        }
+    }
+    for (const auto& path : localDeletions) {
         for (auto &command : syncCommands)
         {
             if (command.path1() == "\""+path+"\"")
@@ -413,6 +443,10 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         lastRunRemoteIndexer = nullptr;
     }
 
+    // Finally, re-index the local directory to ensure it is up-to-date
+    std::cout << "Re-indexing local directory after sync" << "\r\n";
+    localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+
     // Send SYNC_COMPLETE command to server to indicate client is done
     GrowingBuffer commandbuf;
     size_t commandSize = TcpCommand::kSizeSize + TcpCommand::kCmdSize;
@@ -431,6 +465,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     delete command;
 
     std::cout << "Sent SYNC_COMPLETE to server" << "\r\n";
+
     return 0;
 }
 
@@ -588,8 +623,15 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
         MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "Failed to create SyncDoneCmd");
         return -1;
     }
+    block_transmit();
     command->transmit(args, true);
+    unblock_transmit();
     delete command;
+
+    // Re-index the local directory after sync completion
+    std::cout << "Re-indexing local directory after sync completion" << "\r\n";
+    DirectoryIndexer localIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
+    localIndexer.indexonprotobuf(false);
 
     std::cout << "Sync complete for " << args.at("path") << "\r\n";
     // Check if we should exit after sync (for unit testing)

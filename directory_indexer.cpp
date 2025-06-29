@@ -380,14 +380,16 @@ void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com:
         else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
         {
             /* remote file is younger */
-            syncCommands.emplace_back("rm", localFilePath, "", isRemote );
+            /* this is a file replace, no need to erase the old file */
+            //syncCommands.emplace_back("rm", localFilePath, "", isRemote );
             syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote );
             localFile->set_hash(remoteFile.hash());
         }
         else
         {
             /* local file is younger */
-            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote );
+            /* this is a file replace, no need to erase the old file */
+            //syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote );
             syncCommands.emplace_back(isRemote ? "fetch" : "push", localFilePath, remoteFilePath, !isRemote );
             remoteFile.set_hash(localFile->hash());
         }
@@ -476,7 +478,7 @@ void DirectoryIndexer::postProcessSyncCommands(SyncCommands &syncCommands, Direc
             {
                 if (!remote->removePath(nullptr, it->path1(), type))
                 {
-                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES" << "\r\n";
+                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES. Ignore if you moved the file." << "\r\n";
                 }
             }
         }
@@ -510,7 +512,7 @@ void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& curr
         }
         if (!foundInCurrent) {
             // Construct the full path relative to the DirectoryIndexer's root and convert to string
-            deletions.push_back((this->mDir.path() / filePath).string());
+            deletions.push_back(filePath.string());
         }
     }
 
@@ -528,7 +530,7 @@ void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& curr
         }
         if (!foundInCurrent) {
             // If the whole folder is deleted, add its path (as string)
-            deletions.push_back((this->mDir.path() / folderPath).string());
+            deletions.push_back(folderPath.string());
             // To list all contents of the deleted folder, you would iterate through lastRunSubFolder files/folders
             // and add their paths as strings to the deletions vector, relative to folderPath.
             // For example:
@@ -539,7 +541,7 @@ void DirectoryIndexer::findDeletedRecursive(const com::fileindexer::Folder& curr
             // The current implementation just marks the top-level deleted folder.
         } else if (currentMatchingSubFolder != nullptr) {
             // If folder exists, recurse into it
-            findDeletedRecursive(*currentMatchingSubFolder, lastRunSubFolder, folderPath, deletions);
+            findDeletedRecursive(*currentMatchingSubFolder, lastRunSubFolder, "", deletions);
         }
     }
 }

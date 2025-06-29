@@ -6,7 +6,7 @@
 
 namespace SocketHelpers
 {
-    enum status_code
+    enum status_code : std::uint8_t
     {
         BYTES_RECEIVED = 0,
         RECV_FAILED,

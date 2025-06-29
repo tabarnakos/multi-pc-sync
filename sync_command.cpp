@@ -16,13 +16,13 @@
 // (none)
 
 // Section 5: Constructors and Destructors
-SyncCommand::SyncCommand(const std::string &cmd, const std::string &srcPath, const std::string &destPath, bool remote)
-    : mCmd(cmd), mRemote(remote) {
-    mSrcPath = "\"" + srcPath + "\"";
+SyncCommand::SyncCommand(std::string cmd, std::string srcPath, std::string destPath, bool remote)
+    : mCmd(std::move(cmd)), mRemote(remote) {
+    mSrcPath = "\"" + std::move(srcPath) + "\"";
     if (destPath.empty())
         mDestPath.clear();
     else
-        mDestPath = "\"" + destPath + "\"";
+        mDestPath = "\"" + std::move(destPath) + "\"";
 }
 
 // Section 6: Static Methods
@@ -101,7 +101,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
 
 int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &args) {
     TcpCommand *cmd = createTcpCommand();
-    if (!cmd) {
+    if (cmd == nullptr) {
         std::cerr << "Failed to create TCP command for: " << string() << "\r\n";
         return -1;
     }
@@ -117,7 +117,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         auto opts = args;
         stripQuotes(mSrcPath);
         opts["path"] = mSrcPath;
-        cmd->SendFile(opts);
+        TcpCommand::SendFile(opts);
     }
     TcpCommand::unblock_transmit();
 
@@ -126,7 +126,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
         auto opts = args;
         stripQuotes(mDestPath);
         opts["path"] = mDestPath;
-        cmd->ReceiveFile(opts);
+        TcpCommand::ReceiveFile(opts);
 
         TcpCommand::unblock_receive();
     }
@@ -134,7 +134,7 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
     return result;
 }
 
-void SyncCommand::print() {
+void SyncCommand::print() const{
     std::cout << string() << "\r\n";
 }
 
@@ -150,13 +150,13 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     }
     if (mRemote || mCmd == "push" || mCmd == "fetch") {
         return executeTcpCommand(args);
-    } else {
-        int err = system(string().c_str());
-        if (verbose) {
-            std::cout << "Command returned " << err << "\r\n";
-        }
-        return err;
     }
+    
+    int err = system(string().c_str());
+    if (verbose) {
+        std::cout << "Command returned " << err << "\r\n";
+    }
+    return err;
 }
 
 std::string SyncCommand::string() const {
@@ -200,8 +200,8 @@ void SyncCommands::sortCommands() {
             if (command.isRemoval()) {
                 return 1; // File delete operations
             }
-            return 4; // Other commands
+            return 4; // Other commands like mkdir
         };
-        return getPriority(commandA) < getPriority(commandB);
+        return getPriority(commandA) > getPriority(commandB);
     });
 }

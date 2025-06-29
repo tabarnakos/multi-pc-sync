@@ -9,6 +9,10 @@
 // C++ Standard Library
 #include <cstdint>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+
+constexpr size_t ONE_KILOBYTE = 1 << 10; // 1024 bytes
 
 // Section 2: Class Definition
 // Utility class to format byte sizes in human-readable format
@@ -18,19 +22,19 @@ public:
 
     explicit HumanReadable(uintmax_t bytes) : size(bytes) {}
 
-    friend std::ostream& operator<<(std::ostream& os, const HumanReadable& hr) {
+    friend std::ostream& operator<<(std::ostream& outputStream, const HumanReadable& humanReadable) {
         const char* units[] = {"B", "KB", "MB", "GB", "TB"};
         size_t unitIndex = 0;
-        double size = hr.size;
+        double size = humanReadable.size;
 
-        while (size >= 1024 && unitIndex < 4) {
-            size /= 1024;
+        while (size >= ONE_KILOBYTE && unitIndex < 4) {
+            size /= ONE_KILOBYTE;
             unitIndex++;
         }
-
-        char buffer[64];
-        snprintf(buffer, sizeof(buffer), unitIndex == 0 ? "%.0f %s" : "%.2f %s", size, units[unitIndex]);
-        return os << buffer;
+        
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(unitIndex == 0 ? 0 : 2) << size << " " << units[unitIndex];
+        return outputStream << oss.str();
     }
 };
 

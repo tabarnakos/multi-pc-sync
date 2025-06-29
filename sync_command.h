@@ -26,7 +26,7 @@ public:
      * @param destPath Destination path for the operation
      * @param remote Whether this is a remote operation
      */
-    SyncCommand(const std::string &cmd, const std::string &srcPath, const std::string &destPath, bool remote);
+    SyncCommand(std::string cmd, std::string srcPath, std::string destPath, bool remote);
 
     /**
      * Default destructor
@@ -47,7 +47,7 @@ public:
     /**
      * Prints the command details to standard output
      */
-    void print();
+    void print() const;
 
     /**
      * Executes the synchronization command
@@ -114,7 +114,7 @@ private:
      * Removes quotes from path string
      * @param path Path string to process
      */
-    void stripQuotes(std::string &path);
+    static void stripQuotes(std::string &path);
 };
 
 class SyncCommands : public std::list<SyncCommand> {

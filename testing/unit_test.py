@@ -26,7 +26,7 @@ CYAN = "cyan"
 def colored(msg, color):
     return Text(msg, style=color)
 
-MULTI_PC_SYNC_BIN = "./build/multi_pc_sync"  # Change this if your binary is elsewhere
+MULTI_PC_SYNC_BIN = "../build/multi_pc_sync"  # Change this if your binary is elsewhere
 
 if not Path(MULTI_PC_SYNC_BIN).exists():
     console.print(f"[red]ERROR: {MULTI_PC_SYNC_BIN} not found![/red]")

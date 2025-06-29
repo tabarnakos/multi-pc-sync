@@ -23,6 +23,8 @@
 #include "tcp_command.h"
 
 // Section 2: Main Function
+constexpr int SLEEP_DURATION_MS = 10;
+
 int main(int argc, char *argv[])
 {
     const auto opts = ProgramOptions::parseArgs(argc, argv);
@@ -46,9 +48,7 @@ int main(int argc, char *argv[])
 
         server->start();
         while (!server->isActive())
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
+            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
 
         std::cout << "Server is active and waiting for connections..." << "\r\n";
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
                 std::cout << "Client disconnected." << "\r\n";
                 connected = false;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
         }
 
         delete server;
@@ -82,14 +82,16 @@ int main(int argc, char *argv[])
         }
 
         client->start();
-        while (!client->isActive())
+        if ( !client->waitForActive() )
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::cout << "Client thread failed to start" << "\r\n";
+            delete client;
+            return -1;
         }
 
         while (client->isActive())
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
         }
 
         delete client;

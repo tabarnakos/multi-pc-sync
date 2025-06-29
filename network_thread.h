@@ -12,6 +12,7 @@
 #include <thread>
 #include <map>
 #include <atomic>
+#include <utility>
 
 // Project Includes
 #include "program_options.h"
@@ -33,22 +34,20 @@ public:
          * Constructs a new context with program options
          * @param opts Program configuration options
          */
-        context(const ProgramOptions &opts) :
-            opts(opts),
+        context(ProgramOptions opts) :
+            opts(std::move(opts)),
             latch(1),
-            thread(nullptr),
             quit(false),
-            active(false),
-            con_opened(false)
+            active(false)
         {}
         ~context() = default;
 
         const ProgramOptions opts;     ///< Program configuration
         std::latch latch;             ///< Synchronization latch
-        std::thread *thread;          ///< Pointer to thread object
+        std::thread *thread{};          ///< Pointer to thread object
         std::atomic<bool> quit;       ///< Flag to signal thread termination
         std::atomic<bool> active;     ///< Flag indicating thread is running
-        bool con_opened;              ///< Flag indicating connection status
+        bool con_opened{};              ///< Flag indicating connection status
     };
 
     /**
@@ -56,8 +55,8 @@ public:
      * @param f Thread function to execute
      * @param opts Program configuration options
      */
-    NetworkThread(const std::function<void(context &)> &f, const ProgramOptions &opts) : ctx(opts)
-    { ctx.thread = new std::thread(f, std::ref(ctx)); }
+    NetworkThread(const std::function<void(context &)> &func, const ProgramOptions &opts) : ctx(opts)
+    { ctx.thread = new std::thread(func, std::ref(ctx)); }
 
     /**
      * Destructor - ensures thread is properly terminated and cleaned up
@@ -74,13 +73,25 @@ public:
      * Checks if the thread is currently active
      * @return true if thread is running
      */
-    bool isActive() const { return ctx.active.load(); }
+    [[nodiscard]] bool isActive() const { return ctx.active.load() && (ctx.thread != nullptr) && !ctx.thread->joinable(); }
+
+    /**
+     * Waits for the thread to become active
+     */
+    [[nodiscard]] bool waitForActive() const
+    {
+        if (ctx.thread->joinable())
+            return false;
+
+        ctx.active.wait(false);
+        return true;
+    }
 
     /**
      * Checks if a network connection is established
      * @return true if connected
      */
-    bool isConnected() const { return ctx.con_opened; }
+    [[nodiscard]] bool isConnected() const { return ctx.con_opened; }
 
 protected:
     void kill() { ctx.quit = true; }

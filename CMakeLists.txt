@@ -4,7 +4,7 @@ project(multi_pc_sync VERSION 0.9)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED True)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -45,7 +45,7 @@ set ( multi_pc_sync_hdr
 	)
 
 add_executable( multi_pc_sync ${multi_pc_sync_src} ${multi_pc_sync_hdr} )
-target_compile_options(multi_pc_sync PRIVATE -Wall -Wextra -Wno-sign-compare -O3)
+target_compile_options(multi_pc_sync PRIVATE -Wall -Wextra -Wno-sign-compare -Wpedantic $<$<CONFIG:Debug>:-O0> $<$<CONFIG:Release>:-O3>)
 target_compile_definitions(multi_pc_sync PRIVATE $<$<CONFIG:Debug>:DEBUG> $<$<CONFIG:Release>:RELEASE>)
 
 protobuf_generate(TARGET multi_pc_sync PROTOC_OUT_DIR "..")
