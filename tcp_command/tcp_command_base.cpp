@@ -384,6 +384,12 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         file.close();   // Will automatically flush the file buffer
         delete[] buffer;
     }
+    else
+    {
+        // If file size is 0, just create an empty file
+        const std::string touch_command = std::string("touch ") + args.at("path");
+        system(touch_command.c_str());
+    }
 
     return 0;
 }
