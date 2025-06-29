@@ -206,11 +206,12 @@ create_grid_layout() {
     echo -e "${CYAN}        CLI = Client Test Result, SRV = Server Test Result${NC}"
     echo ""
     
-    # Display scenarios in a 5x3 grid
+    # Display scenarios in a dynamic grid with 5 columns
     local cols=5
     local total=${#scenarios[@]}
-    
-    for ((row=0; row<3; row++)); do
+    local rows=$(( (total + cols - 1) / cols ))
+
+    for ((row=0; row<rows; row++)); do
         # Top border line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
@@ -222,12 +223,11 @@ create_grid_layout() {
             fi
         done
         echo ""
-        
+
         # Scenario number line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
             if [ $idx -lt $total ]; then
-                # Use 'ScenarioX' to ensure 10-char width (no overflow for two-digit)
                 printf "│${WHITE}%-10s${NC}│" "Scenario${scenarios[$idx]}"
                 if [ $col -lt $((cols-1)) ]; then
                     printf " "
@@ -235,7 +235,7 @@ create_grid_layout() {
             fi
         done
         echo ""
-        
+
         # Middle separator line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
@@ -247,12 +247,11 @@ create_grid_layout() {
             fi
         done
         echo ""
-        
+
         # Header line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
             if [ $idx -lt $total ]; then
-                # Header cells: 5 chars for CLI, 4 for SRV
                 printf "│${CYAN}%-5s${NC}│${CYAN}%-4s${NC}│" "CLI" "SRV"
                 if [ $col -lt $((cols-1)) ]; then
                     printf " "
@@ -260,27 +259,26 @@ create_grid_layout() {
             fi
         done
         echo ""
-        
+
         # Result line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
             if [ $idx -lt $total ]; then
                 local client_color=""
                 local server_color=""
-                
+
                 if [ "${client_results[$idx]}" = "PASS" ]; then
                     client_color="$GREEN"
                 else
                     client_color="$RED"
                 fi
-                
+
                 if [ "${server_results[$idx]}" = "PASS" ]; then
                     server_color="$GREEN"
                 else
                     server_color="$RED"
                 fi
-                
-                # Result cells: 5 chars for client, 4 chars for server
+
                 printf "│${client_color}%-5s${NC}│${server_color}%-4s${NC}│" "${client_results[$idx]}" "${server_results[$idx]}"
                 if [ $col -lt $((cols-1)) ]; then
                     printf " "
@@ -288,7 +286,7 @@ create_grid_layout() {
             fi
         done
         echo ""
-        
+
         # Bottom border line
         for ((col=0; col<cols; col++)); do
             local idx=$((row * cols + col))
