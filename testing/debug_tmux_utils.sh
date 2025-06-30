@@ -321,27 +321,30 @@ create_folder() {
 
 parse_range() {
     local input="$1"
-    local start end
+    local part start end
+    SCENARIOS=""
 
     if [[ -z "$input" ]]; then
-        echo "No input provided. Defaulting to interactive mode"
-        start="0" # No start
-        end="0"   # No end
-    elif [[ "$input" =~ ^[0-9]+$ ]]; then
-        echo "Single number provided: $input"
-        start="$input"
-        end="$input"
-    elif [[ "$input" =~ ^([0-9]+)-([0-9]+)$ ]]; then
-        start="${BASH_REMATCH[1]}"
-        end="${BASH_REMATCH[2]}"
-        echo "Range provided: Start=$start, End=$end"
-    else
-        echo "Invalid input format. Please use # or #-#." >&2
-        exit 1
+        # no input → interactive mode
+        SCENARIOS="0"
+        return
     fi
 
-    # Return the parsed values
-    SCENARIOS="$start $end"
+    IFS=',' read -ra parts <<< "$input"
+    for part in "${parts[@]}"; do
+        if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            start=${BASH_REMATCH[1]}; end=${BASH_REMATCH[2]}
+            for ((i=start; i<=end; i++)); do
+                SCENARIOS+=" $i"
+            done
+        elif [[ "$part" =~ ^[0-9]+$ ]]; then
+            SCENARIOS+=" $part"
+        else
+            echo "Invalid scenario spec: $part" >&2
+            exit 1
+        fi
+    done
+    SCENARIOS="${SCENARIOS## }"
 }
 
 # edit_file <root> <relpath>
@@ -381,4 +384,17 @@ edit_file() {
     new_hash=$(md5sum "$abs" | awk '{print $1}')
     echo "Adding new hash: $new_hash"
     EXPECTED_HASHES="$EXPECTED_HASHES $new_hash"
+}
+
+verbose_log() {
+    if [[ "$VERBOSE" == "1" ]]; then
+        echo "[VERBOSE] $*"
+    fi
+}
+
+wait_for_server_start() {
+    # Wait for the server to start and bind to the port
+    while ! sudo ss -tlnp 2>/dev/null | grep -q ":$MULTI_PC_SYNC_PORT.*multi_pc_sync"; do
+        sleep 0.01
+    done
 }

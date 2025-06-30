@@ -191,7 +191,7 @@ scenario_10() {
     # need to run a sync here to ensure the client has the initial files
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25  # Give the server time to start
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving folder1 to folder3 on server."
@@ -215,7 +215,7 @@ scenario_11() {
     # need to run a sync here to ensure the server has the initial files
     echo "Running initial sync to ensure server has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25  # Give the server time to start
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving folder1 to folder3 on client."
@@ -241,7 +241,7 @@ scenario_12() {
     # need to run a sync here to ensure the client has the initial files
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25  # Give the server time to start
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Editing file4 and file5 on server."
@@ -267,7 +267,7 @@ scenario_13() {
     # need to run a sync here to ensure the server has the initial files
     echo "Running initial sync to ensure server has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25  # Give the server time to start
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Editing file4 and file5 on client."
@@ -285,7 +285,7 @@ scenario_14() {
     create_file "$SERVER_ROOT" "./100MBfile.bin" 100
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Deleting file1 and 10MBfile on server."
@@ -303,7 +303,7 @@ scenario_15() {
     create_file "$SERVER_ROOT" "./100MBfile.bin" 100
     echo "Running initial sync to ensure server has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Deleting file1 and 10MBfile on client."
@@ -316,7 +316,7 @@ scenario_16() {
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Deleting file1 on both sides."
@@ -329,7 +329,7 @@ scenario_17() {
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Modifying file1 on both sides."
@@ -349,7 +349,7 @@ scenario_18() {
     create_folder "$SERVER_ROOT" "./folder1"
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file1 to another folder on server."
@@ -362,7 +362,7 @@ scenario_19() {
     create_folder "$CLIENT_ROOT" "./folder1"
     echo "Running initial sync to ensure server has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file1 to another folder on client."
@@ -375,7 +375,7 @@ scenario_20() {
     create_folder "$SERVER_ROOT" "./folder1"
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file1 to another folder on server."
@@ -389,7 +389,7 @@ scenario_21() {
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Renaming file1 on server."
@@ -403,7 +403,7 @@ scenario_22() {
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Editing file1 on server."
@@ -420,7 +420,7 @@ scenario_23() {
     create_file "$SERVER_ROOT" "./dirA/file3.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Renaming dirA to dirB on server."
@@ -442,7 +442,7 @@ scenario_24() {
     create_file "$SERVER_ROOT" "./parentA/childA/file3.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving childA from parentA to parentB on server."
@@ -464,7 +464,7 @@ scenario_25() {
     create_file "$CLIENT_ROOT" "./fileB.txt" 1
     echo "Running initial sync to ensure both sides have fileA.txt and fileB.txt."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Renaming fileA.txt to fileB.txt on server (should overwrite/replace)."
@@ -478,7 +478,7 @@ scenario_26() {
     create_file "$SERVER_ROOT" "./file26.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Deleting file26 on server, modifying on client..."
@@ -491,7 +491,7 @@ scenario_27() {
     create_file "$CLIENT_ROOT" "./file27.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Deleting file27 on client, modifying on server..."
@@ -504,7 +504,7 @@ scenario_28() {
     create_file "$SERVER_ROOT" "./file28.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file28 on server, renaming on client..."
@@ -518,7 +518,7 @@ scenario_29() {
     create_file "$CLIENT_ROOT" "./file29.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file29 on client, renaming on server..."
@@ -532,7 +532,7 @@ scenario_30() {
     create_file "$SERVER_ROOT" "./CaseTest.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
     echo "Renaming CaseTest.txt to casetest.txt on server."
@@ -612,7 +612,7 @@ scenario_99() {
     # Initial sync so both sides have matching large trees
     echo "Running initial sync for scenario 99..."
     $SERVER_CMD_LINE &
-    sleep 0.25
+    wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
 

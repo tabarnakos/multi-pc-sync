@@ -1,30 +1,30 @@
 #!/bin/bash
 # Script to start a tmux session for debugging multi-pc-sync
-
-VERBOSE=0
-if [[ "$1" == "--verbose" ]]; then
-    VERBOSE=1
-    shift
-fi
-
-verbose_log() {
-    if [[ "$VERBOSE" == "1" ]]; then
-        echo "[VERBOSE] $*"
-    fi
-}
-
-SCENARIO_RANGE="${1:-""}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/debug_tmux_utils.sh"
 source "$SCRIPT_DIR/scenarios.sh"
 
-# Process --list flag
-if [[ "$1" == "--list" ]]; then
+# parse flags in any order
+VERBOSE=0
+LIST=0
+while [[ "$1" == --* ]]; do
+    case "$1" in
+        --verbose) VERBOSE=1; shift;;
+        --list)    LIST=1;    shift;;
+        *)         break;;
+    esac
+done
+
+# handle --list
+if [[ "$LIST" -eq 1 ]]; then
     echo "Available scenarios:"
     list_scenarios
     exit 0
 fi
+
+# next arg is scenario range
+SCENARIO_RANGE="${1:-""}"
+shift || true
 
 SERVER_GDBSERVER_PORT=12345
 CLIENT_GDBSERVER_PORT=12346
@@ -79,18 +79,17 @@ fi
 # Trap to clean up tc rules on exit
 trap "if [ $apply_latency -gt 0 ]; then sudo tc qdisc del dev lo root netem 2>/dev/null; verbose_log 'Cleaned up tc qdisc rules.'; fi" EXIT
 
-read start end <<< "$SCENARIOS"
-
-if [[ $SCENARIOS != "0 0" ]]; then
+if [[ -f "$SCRIPT_DIR/test_report.txt" ]]; then
+    verbose_log "Removing existing test report file: $SCRIPT_DIR/test_report.txt"
     rm -f "$SCRIPT_DIR/test_report.txt"
 fi
 
-for scenario in $(seq "$start" "$end"); do
+for scenario in $SCENARIOS; do
     # Declare variables
     EXPECTED_FILES=""
     EXPECTED_HASHES=""
     apply_latency="0" # Flag to indicate if latency should be applied
-    if [[ $scenario == "0" ]]; then
+    if [[ "$scenario" == "0" ]]; then
         # Ask the user to select the scenario
         echo "Please select the scenario to run:"
         list_scenarios
@@ -119,7 +118,7 @@ for scenario in $(seq "$start" "$end"); do
     if [ "$apply_latency" -gt 0 ]; then
         apply_latency $apply_latency
     fi
-    if [[ $SCENARIOS == "0 0" ]]; then
+    if [[ $SCENARIOS == "0" ]]; then
         verbose_log "Running interactively in tmux"
 
         # Start a new tmux session named 'sync_debug'
@@ -153,7 +152,7 @@ for scenario in $(seq "$start" "$end"); do
 
     else
         $SERVER_CMD_LINE &
-        sleep 0.25  # Give the server time to start
+        wait_for_server_start
         $CLIENT_CMD_LINE &
         wait
     fi
@@ -166,41 +165,19 @@ for scenario in $(seq "$start" "$end"); do
         fi
     fi
 
-    if [[ $SCENARIOS == "0 0" ]]; then
-        # Perform file comparison after processes have exited
-        echo "========== Scenario $scenario - $scenario_name Test Report =========="
-        if [[ "$VERBOSE" == "1" ]]; then
-            echo "EXPECTED_FILES content: " >> "$SCRIPT_DIR/test_report.txt"
-            echo $(echo "$EXPECTED_FILES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
-            echo "EXPECTED_HASHES content: " >> "$SCRIPT_DIR/test_report.txt"
-            echo $(echo "$EXPECTED_HASHES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
-        fi
-
-        echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..."
-        compare_files "$CLIENT_ROOT"
-        echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..."
-        compare_files "$SERVER_ROOT"
-
-        echo "========== Scenario $scenario - $scenario_name /Test Report =========="
-    else
-        echo "========== Scenario $scenario - $scenario_name Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
-        if [[ "$VERBOSE" == "1" ]]; then
-            echo "EXPECTED_FILES content: " >> "$SCRIPT_DIR/test_report.txt"
-            echo $(echo "$EXPECTED_FILES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
-            echo "EXPECTED_HASHES content: " >> "$SCRIPT_DIR/test_report.txt"
-            echo $(echo "$EXPECTED_HASHES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
-        fi
-        echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
-        compare_files "$CLIENT_ROOT" >> "$SCRIPT_DIR/test_report.txt"
-        echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
-        compare_files "$SERVER_ROOT" >> "$SCRIPT_DIR/test_report.txt"
-
-        echo "========== Scenario $scenario - $scenario_name /Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
+    echo "========== Scenario $scenario - $scenario_name Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
+    if [[ "$VERBOSE" == "1" ]]; then
+        echo "EXPECTED_FILES content: " >> "$SCRIPT_DIR/test_report.txt"
+        echo $(echo "$EXPECTED_FILES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
+        echo "EXPECTED_HASHES content: " >> "$SCRIPT_DIR/test_report.txt"
+        echo $(echo "$EXPECTED_HASHES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
     fi
+    echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
+    compare_files "$CLIENT_ROOT" >> "$SCRIPT_DIR/test_report.txt"
+    echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
+    compare_files "$SERVER_ROOT" >> "$SCRIPT_DIR/test_report.txt"
+
+    echo "========== Scenario $scenario - $scenario_name /Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
 done
 
-
-
-
-
-
+$SCRIPT_DIR/visualize_test_report.sh "$SCRIPT_DIR/test_report.txt"
