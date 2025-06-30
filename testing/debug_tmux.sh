@@ -19,6 +19,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/debug_tmux_utils.sh"
 source "$SCRIPT_DIR/scenarios.sh"
 
+# Process --list flag
+if [[ "$1" == "--list" ]]; then
+    echo "Available scenarios:"
+    list_scenarios
+    exit 0
+fi
+
 SERVER_GDBSERVER_PORT=12345
 CLIENT_GDBSERVER_PORT=12346
 PROGRAM="multi_pc_sync"
@@ -86,40 +93,8 @@ for scenario in $(seq "$start" "$end"); do
     if [[ $scenario == "0" ]]; then
         # Ask the user to select the scenario
         echo "Please select the scenario to run:"
-        echo "1. Scenario 1: (Initial sync) client files are empty, server files are populated."
-        echo "2. Scenario 2: (Initial sync) server files are empty, client files are populated."
-        echo "3. Scenario 3: (Initial sync) Nested files and folders on client and server."
-        echo "4. Scenario 4: (Initial sync) 20ms latency, files on server only."
-        echo "5. Scenario 5: (Initial sync) 250ms latency, files on server only."
-        echo "6. Scenario 6: (Initial sync) 20ms latency, files on client only."
-        echo "7. Scenario 7: (Initial sync) 250ms latency, files on client only."
-        echo "8. Scenario 8: File created on both sides with identical content."
-        echo "9. Scenario 9: File created on both sides with different content."
-        echo "10. Scenario 10: (Re-sync) Server moved files."
-        echo "11. Scenario 11: (Re-sync) Client moved files."
-        echo "12. Scenario 12: (Re-sync) Server edited files."
-        echo "13. Scenario 13: (Re-sync) Client edited files."
-        echo "14. Scenario 14: (Re-sync) Server deleted files."
-        echo "15. Scenario 15: (Re-sync) Client deleted files."
-        echo "16. Scenario 16: (Re-sync) File deleted on both sides."
-        echo "17. Scenario 17: (Re-sync) File modified differently on both sides."
-        echo "18. Scenario 18: (Re-sync) File moved to another folder on server."
-        echo "19. Scenario 19: (Re-sync) File moved to another folder on client."
-        echo "20. Scenario 20: (Re-sync) File moved and modified simultaneously on one side."
-        echo "21. Scenario 21: (Re-sync) File renamed on both sides but with different names."
-        echo "22. Scenario 22: Multiple operations on same file - modify then rename."
-        echo "23. Scenario 23: Operations on files within renamed directories. Test file rename, edit and delete."
-        echo "24. Scenario 24: Operations on files within moved directories. Test file rename, edit and delete."
-        echo "25. Scenario 25: Circular rename (A→B, B→A across sides)."
-        echo "26. Scenario 26: File deleted on the server, modified on the client."
-        echo "27. Scenario 27: File deleted on the client, modified on the server."
-        echo "28. Scenario 28: File moved on the server, renamed on the client."
-        echo "29. Scenario 29: File moved on the client, renamed on the server."
-        echo "30. Scenario 30: Filename case changes."
-        echo "31. Scenario 31: Very large file (10GB)."
-        echo "32. Scenario 32: File with 0 bytes."
-        echo "99. Scenario 99: (Large and complex file system) Build a large file system on both client and server."
-        read -p "Enter the scenario number (1-15): " scenario
+        list_scenarios
+        read -p "Enter the scenario number : " scenario
     fi
     echo "Running scenario: $scenario"
     
@@ -194,7 +169,7 @@ for scenario in $(seq "$start" "$end"); do
     if [[ $SCENARIOS == "0 0" ]]; then
         # Perform file comparison after processes have exited
         echo "========== Scenario $scenario - $scenario_name Test Report =========="
-        if ["$VERBOSE" == "1" ]; then
+        if [[ "$VERBOSE" == "1" ]]; then
             echo "EXPECTED_FILES content: " >> "$SCRIPT_DIR/test_report.txt"
             echo $(echo "$EXPECTED_FILES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
             echo "EXPECTED_HASHES content: " >> "$SCRIPT_DIR/test_report.txt"
@@ -209,7 +184,7 @@ for scenario in $(seq "$start" "$end"); do
         echo "========== Scenario $scenario - $scenario_name /Test Report =========="
     else
         echo "========== Scenario $scenario - $scenario_name Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
-        if [ "$VERBOSE" == "1" ]; then
+        if [[ "$VERBOSE" == "1" ]]; then
             echo "EXPECTED_FILES content: " >> "$SCRIPT_DIR/test_report.txt"
             echo $(echo "$EXPECTED_FILES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
             echo "EXPECTED_HASHES content: " >> "$SCRIPT_DIR/test_report.txt"

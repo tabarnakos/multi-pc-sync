@@ -1,11 +1,49 @@
 #!/bin/bash
 # Scenario setup functions for multi-pc-sync testing
 
-# Each scenario is a function: scenario_01, scenario_02, ...
-# Arguments: none (relies on global vars from debug_tmux.sh)
+# per-scenario name helpers:
+set_scenario_01_name() { scenario_name="Initial sync: Client files empty, Server files populated"; }
+set_scenario_02_name() { scenario_name="Initial sync: Server files are empty, Client files are populated."; }
+set_scenario_03_name() { scenario_name="Initial sync: Nested files and folders on client and server."; }
+set_scenario_04_name() { scenario_name="Initial sync: 20ms latency, files on server only."; }
+set_scenario_05_name() { scenario_name="Initial sync: 250ms latency, files on server only."; }
+set_scenario_06_name() { scenario_name="Initial sync: 20ms latency, files on client only."; }
+set_scenario_07_name() { scenario_name="Initial sync: 250ms latency, files on client only."; }
+set_scenario_08_name() { scenario_name="File created on both sides with identical content."; }
+set_scenario_09_name() { scenario_name="File created on both sides with different content."; }
+set_scenario_10_name() { scenario_name="Re-sync: Server moved files."; }
+set_scenario_11_name() { scenario_name="Re-sync: Client moved files."; }
+set_scenario_12_name() { scenario_name="Re-sync: Server edited files."; }
+set_scenario_13_name() { scenario_name="Re-sync: Client edited files."; }
+set_scenario_14_name() { scenario_name="Re-sync: Server deleted files."; }
+set_scenario_15_name() { scenario_name="Re-sync: Client deleted files."; }
+set_scenario_16_name() { scenario_name="Re-sync: File deleted on both sides."; }
+set_scenario_17_name() { scenario_name="Re-sync: File modified differently on both sides."; }
+set_scenario_18_name() { scenario_name="Re-sync: File moved to another folder on server"; }
+set_scenario_19_name() { scenario_name="Re-sync: File moved to another folder on client"; }
+set_scenario_20_name() { scenario_name="Re-sync: File moved and modified simultaneously on one side"; }
+set_scenario_21_name() { scenario_name="Re-sync: File renamed on both sides but with different names"; }
+set_scenario_22_name() { scenario_name="Re-sync: Multiple operations on same file - modify then rename"; }
+set_scenario_23_name() { scenario_name="Re-sync: Operations on files within renamed directories"; }
+set_scenario_24_name() { scenario_name="Re-sync: Operations on files within moved directories"; }
+set_scenario_25_name() { scenario_name="Re-sync: Circular rename (A→B, B→A across sides)"; }
+set_scenario_26_name() { scenario_name="Re-sync: File deleted on the server, modified on the client"; }
+set_scenario_27_name() { scenario_name="Re-sync: File deleted on the client, modified on the server"; }
+set_scenario_28_name() { scenario_name="Re-sync: File moved on the server, renamed on the client"; }
+set_scenario_29_name() { scenario_name="Re-sync: File moved on the client, renamed on the server"; }
+set_scenario_30_name() { scenario_name="Re-sync: Filename case changes"; }
+set_scenario_31_name() { scenario_name="Very large file (10GB)"; }
+set_scenario_32_name() { scenario_name="File with 0 bytes"; }
+set_scenario_33_name() { scenario_name="Custom scenario 33"; }
+set_scenario_34_name() { scenario_name="Custom scenario 34"; }
+set_scenario_35_name() { scenario_name="Custom scenario 35"; }
+
+# This scenario is for building a large and complex file system for testing, not yet supported
+set_scenario_99_name() { scenario_name="Large and complex file system"; }
+
 
 scenario_01() {
-    scenario_name="Initial sync: Client files empty, Server files populated"
+    set_scenario_01_name # Initial sync: Client files empty, Server files populated
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
     create_file "$SERVER_ROOT" "./file3.txt" 1
@@ -19,7 +57,7 @@ scenario_01() {
 }
 
 scenario_02() {
-    scenario_name="Initial sync: Server files are empty, Client files are populated."
+    set_scenario_02_name # Initial sync: Server files are empty, Client files are populated.
     create_file "$CLIENT_ROOT" "./file1.txt" 1
     create_file "$CLIENT_ROOT" "./file2.txt" 1
     create_file "$CLIENT_ROOT" "./file3.txt" 1
@@ -34,7 +72,7 @@ scenario_02() {
 
 
 scenario_03() {
-    scenario_name="Initial sync: Nested files and folders on client and server."
+    set_scenario_03_name # Initial sync: Nested files and folders on client and server.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
     create_file "$SERVER_ROOT" "./file3.txt" 1
@@ -66,7 +104,7 @@ scenario_03() {
 }
 
 scenario_04() {
-    scenario_name="Initial sync: 20ms latency, files on server only."
+    set_scenario_04_name # Initial sync: 20ms latency, files on server only.
     apply_latency=20
     # File setup similar to Scenario 1
 
@@ -80,7 +118,7 @@ scenario_04() {
 }
 
 scenario_05() {
-    scenario_name="Initial sync: 250ms latency, files on server only."
+    set_scenario_05_name # Initial sync: 250ms latency, files on server only.
     apply_latency=250
     # File setup similar to Scenario 1
 
@@ -94,7 +132,7 @@ scenario_05() {
 }
 
 scenario_06() {
-    scenario_name="Initial sync: 20ms latency, files on client only."
+    set_scenario_06_name # Initial sync: 20ms latency, files on client only.
     apply_latency=20
     # File setup similar to Scenario 2
 
@@ -108,7 +146,7 @@ scenario_06() {
 }
 
 scenario_07() {
-    scenario_name="Initial sync: 250ms latency, files on client only."
+    set_scenario_07_name # Initial sync: 250ms latency, files on client only.
     apply_latency=250
     # File setup similar to Scenario 2
 
@@ -122,14 +160,14 @@ scenario_07() {
 }
 
 scenario_08() {
-    scenario_name="File created on both sides with identical content."
+    set_scenario_08_name # File created on both sides with identical content.
             
     create_file "$SERVER_ROOT" "./file1.txt" 1
     cp "$SERVER_ROOT/file1.txt" "$CLIENT_ROOT/file1.txt"
 }
 
 scenario_09() {
-    scenario_name="File created on both sides with different content."
+    set_scenario_09_name # File created on both sides with different content.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     if [ "$VERBOSE" == "1" ]; then
         echo "SERVER FILE HASH IS $(hash_file "$SERVER_ROOT" "./file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
@@ -141,7 +179,7 @@ scenario_09() {
 }
 
 scenario_10() {
-    scenario_name="Re-sync: Server moved files."
+    set_scenario_10_name # Re-sync: Server moved files.
 
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
@@ -163,7 +201,7 @@ scenario_10() {
 }
 
 scenario_11() {
-    scenario_name="Re-sync: Client moved files."
+    set_scenario_11_name # Re-sync: Client moved files.
 
     create_file "$CLIENT_ROOT" "./file1.txt" 1
     create_file "$CLIENT_ROOT" "./file2.txt" 1
@@ -185,7 +223,7 @@ scenario_11() {
 }
 
 scenario_12() {
-    scenario_name="Re-sync: Server edited files."
+    set_scenario_12_name # Re-sync: Server edited files.
 
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
@@ -212,7 +250,7 @@ scenario_12() {
 }
 
 scenario_13() {
-    scenario_name="Re-sync: Client edited files."
+    set_scenario_13_name # Re-sync: Client edited files.
 
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
@@ -238,7 +276,7 @@ scenario_13() {
 }
 
 scenario_14() {
-    scenario_name="Re-sync: Server deleted files."
+    set_scenario_14_name # Re-sync: Server deleted files.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
     create_file "$SERVER_ROOT" "./file3.txt" 1
@@ -256,7 +294,7 @@ scenario_14() {
 }
 
 scenario_15() {
-    scenario_name="Re-sync: Client deleted files."
+    set_scenario_15_name # Re-sync: Client deleted files.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$SERVER_ROOT" "./file2.txt" 1
     create_file "$SERVER_ROOT" "./file3.txt" 1
@@ -274,7 +312,7 @@ scenario_15() {
 }
 
 scenario_16() {
-    scenario_name="File deleted on both sides."
+    set_scenario_16_name # Re-sync: File deleted on both sides.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
@@ -287,7 +325,7 @@ scenario_16() {
 }
 
 scenario_17() {
-    scenario_name="File modified differently on both sides."
+    set_scenario_17_name # Re-sync: File modified differently on both sides.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
@@ -306,7 +344,7 @@ scenario_17() {
 }
 
 scenario_18() {
-    scenario_name="File moved to another folder on server"
+    set_scenario_18_name # Re-sync: File moved to another folder on server.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_folder "$SERVER_ROOT" "./folder1"
     echo "Running initial sync to ensure client has the initial files."
@@ -319,7 +357,7 @@ scenario_18() {
 }
 
 scenario_19() {
-    scenario_name="File moved to another folder on client"
+    set_scenario_19_name # Re-sync: File moved to another folder on client.
     create_file "$CLIENT_ROOT" "./file1.txt" 1
     create_folder "$CLIENT_ROOT" "./folder1"
     echo "Running initial sync to ensure server has the initial files."
@@ -332,7 +370,7 @@ scenario_19() {
 }
 
 scenario_20() {
-    scenario_name="File moved and modified simultaneously on one side"
+    set_scenario_20_name # Re-sync: File moved and modified simultaneously on one side.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_folder "$SERVER_ROOT" "./folder1"
     echo "Running initial sync to ensure client has the initial files."
@@ -347,7 +385,7 @@ scenario_20() {
 }
 
 scenario_21() {
-    scenario_name="File renamed on both sides but with different names"
+    set_scenario_21_name # Re-sync: File renamed on both sides but with different names.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
@@ -361,7 +399,7 @@ scenario_21() {
 }
 
 scenario_22() {
-    scenario_name="Multiple operations on same file - modify then rename"
+    set_scenario_22_name # Re-sync: Multiple operations on same file - modify then rename.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     echo "Running initial sync to ensure client has the initial files."
     $SERVER_CMD_LINE &
@@ -375,7 +413,7 @@ scenario_22() {
 }
 
 scenario_23() {
-    scenario_name="Operations on files within renamed directories. Test file rename, edit and delete"
+    set_scenario_23_name # Re-sync: Operations on files within renamed directories.
     create_folder "$SERVER_ROOT" "./dirA"
     create_file "$SERVER_ROOT" "./dirA/file1.txt" 1
     create_file "$SERVER_ROOT" "./dirA/file2.txt" 1
@@ -396,7 +434,7 @@ scenario_23() {
 }
 
 scenario_24() {
-    scenario_name="Operations on files within moved directories"
+    set_scenario_24_name # Re-sync: Operations on files within moved directories.
     create_folder "$SERVER_ROOT" "./parentA"
     create_folder "$SERVER_ROOT" "./parentA/childA"
     create_file "$SERVER_ROOT" "./parentA/childA/file1.txt" 1
@@ -419,7 +457,7 @@ scenario_24() {
 }
 
 scenario_25() {
-    scenario_name="Circular rename (A→B, B→A across sides)"
+    set_scenario_25_name # Re-sync: Circular rename (A→B, B→A across sides).
     create_file "$SERVER_ROOT" "./fileA.txt" 1
     create_file "$SERVER_ROOT" "./fileB.txt" 1
     create_file "$CLIENT_ROOT" "./fileA.txt" 1
@@ -436,7 +474,7 @@ scenario_25() {
 }
 
 scenario_26() {
-    scenario_name="File deleted on the server, modified on the client"
+    set_scenario_26_name # Re-sync: File deleted on the server, modified on the client.
     create_file "$SERVER_ROOT" "./file26.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
@@ -449,7 +487,7 @@ scenario_26() {
 }
 
 scenario_27() {
-    scenario_name="File deleted on the client, modified on the server"
+    set_scenario_27_name # Re-sync: File deleted on the client, modified on the server.
     create_file "$CLIENT_ROOT" "./file27.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
@@ -462,7 +500,7 @@ scenario_27() {
 }
 
 scenario_28() {
-    scenario_name="File moved on the server, renamed on the client"
+    set_scenario_28_name # Re-sync: File moved on the server, renamed on the client.
     create_file "$SERVER_ROOT" "./file28.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
@@ -476,7 +514,7 @@ scenario_28() {
 }
 
 scenario_29() {
-    scenario_name="File moved on the client, renamed on the server"
+    set_scenario_29_name # Re-sync: File moved on the client, renamed on the server.
     create_file "$CLIENT_ROOT" "./file29.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
@@ -490,7 +528,7 @@ scenario_29() {
 }
 
 scenario_30() {
-    scenario_name="Filename case changes"
+    set_scenario_30_name # Re-sync: Filename case changes.
     create_file "$SERVER_ROOT" "./CaseTest.txt" 1
     echo "Running initial sync..."
     $SERVER_CMD_LINE &
@@ -502,36 +540,39 @@ scenario_30() {
 }
 
 scenario_31() {
-    scenario_name="Very large file (10GB)"
+    set_scenario_31_name # Very large file (10GB)
     echo "Creating a 10GB file on server..."
     create_file "$SERVER_ROOT" "./hugefile_10GB.bin" 10240
     echo "Running sync for very large file..."
 }
 
 scenario_32() {
-    scenario_name="File with 0 bytes"
+    set_scenario_32_name # File with 0 bytes
     echo "Creating a 0-byte file on server..."
     create_file "$SERVER_ROOT" "./emptyfile.txt" 0
     echo "Running sync for 0-byte file..."
 }
 
 scenario_33() {
-    scenario_name="Custom scenario 33"
+    set_scenario_33_name # Custom scenario 33
+    echo "This is a placeholder for scenario 33."
     # Add logic for scenario 33 here
 }
 
 scenario_34() {
-    scenario_name="Custom scenario 34"
+    set_scenario_34_name # Custom scenario 34
+    echo "This is a placeholder for scenario 34."
     # Add logic for scenario 34 here
 }
 
 scenario_35() {
-    scenario_name="Custom scenario 35"
+    set_scenario_35_name # Custom scenario 35
+    echo "This is a placeholder for scenario 35."
     # Add logic for scenario 35 here
 }
 
 scenario_99() {
-    scenario_name="Large and complex file system"
+    set_scenerio_99_name # Large and complex file system
     echo "Building large file system on both client and server..."
 
     # Create deeply nested folders and files on server (at least 10 levels, overall 1000+ items)
@@ -599,8 +640,6 @@ scenario_99() {
 
 }
 
-
-
 # At the end, a dispatcher function for debug_tmux.sh:
 run_scenario() {
     local scenario_num="$1"
@@ -611,4 +650,25 @@ run_scenario() {
         echo "Scenario function $func not found" >&2
         exit 1
     fi
+}
+
+set_scenario_name() {
+    local scenario_num="$1"
+    local func="set_scenario_$(printf '%02d' "$scenario_num")_name"
+    if declare -f "$func" > /dev/null; then
+        $func
+    else
+        scenario_name=""    # no scenario defined
+    fi
+}
+
+# Function to list all available scenarios
+list_scenarios() {
+    # insert a for loop to call set_scenario_name for each scenario
+    for i in {1..99}; do
+        set_scenario_name "$i"
+        if [[ -n "$scenario_name" ]]; then
+            echo "$i. Scenario: $i: $scenario_name"
+        fi
+    done
 }
