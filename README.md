@@ -44,20 +44,106 @@ In client mode, the application launches with a path argument and starts a clien
   - `-r <rate>`: Limit TCP command rate (Hz). `0` means unlimited (default: 0).
   - `-y`: Skip Y/N prompt and automatically sync.
   - `--dry-run`: Print commands but don't execute them.
+  - `--print-before-sync`: Print commands before executing them (equivalent to `--dry-run -y`).
   - `--cfg=<path>`: Path to the config file. Configures behavior on file conflicts.
 
-**Example:**
+**Examples:**
 ```sh
+# Basic synchronization
 ./multi_pc_sync -s 192.168.1.10:9000 /home/user/Documents
+
+# Print commands before executing them
+./multi_pc_sync -s 192.168.1.10:9000 --print-before-sync /home/user/Documents
 ```
 
 ## Debugging multi-pc-sync
 
-For advanced debugging, including GDB, see the scripts and tools in the `testing/` directory.  
-You can use `gdbserver` to debug either the server or client process, or both. Example:
+The project includes a comprehensive testing and debugging framework in the `testing/` directory. These tools allow you to run predefined test scenarios, debug with gdbserver, and validate the application behavior against expected results.
+
+### Testing Framework Scripts
+
+- `debug_tmux.sh`: Main script for running tests and interactive debugging sessions
+- `debug_tmux_utils.sh`: Utility functions for file operations, hash calculations, and test verification
+- `scenarios.sh`: Defines test scenarios that exercise different synchronization behaviors
+- `visualize_test_report.sh`: Generates human-readable test reports
+
+### Running Test Scenarios
+
+You can run specific test scenarios or ranges:
 
 ```sh
+# List available test scenarios
+./testing/debug_tmux.sh --list
+
+# Run a specific scenario (e.g., #9: File created on both sides with different content)
+./testing/debug_tmux.sh 9
+
+# Run multiple scenarios
+./testing/debug_tmux.sh 1,3,9
+
+# Run ranges of scenarios
+./testing/debug_tmux.sh 1-5,8-10,31
+
+# Run interactive mode (select scenario at runtime)
+./testing/debug_tmux.sh
+```
+
+### Interactive Debugging
+
+For interactive debugging with a tmux split view:
+
+```sh
+# Run in verbose mode with interactive debugging
+./testing/debug_tmux.sh --verbose
+```
+
+This launches:
+1. A tmux session with two panes - server (top) and client (bottom)
+2. Both panes prompt if you want to run with gdbserver
+3. You can attach VS Code or another debugger to gdbserver ports (12345 for server, 12346 for client)
+4. At the end of the debugging session, kill both applications and type "exit" in both panes of tmux. The script will detect it and generate the test report.
+
+The recommended way of debugging is to use Visual Studio Code or a similar code editor that can attach to a remote host and attach to both server and client in the same IDE.
+
+### Simulating Network Conditions
+
+Some scenarios automatically simulate network latency to test performance over slow connections:
+
+```sh
+# Run scenarios that test performance with different latencies
+./testing/debug_tmux.sh 4-7
+```
+
+Scenarios 4-7 test synchronization with 20ms and 250ms network latencies.
+
+### Understanding Test Results
+
+After running tests:
+1. The script reports missing/extra files/folders/hashes for each scenario
+2. Results are saved to `testing/test_report.txt`
+3. `visualize_test_report.sh` is automatically run to convert the detailed test report into a pass/fail human-readable, colorized summary.
+
+### Advanced Debugging Tips
+
+#### Verbose Mode
+
+Run with `--verbose` to see detailed output including file hashes and commands:
+
+```sh
+./testing/debug_tmux.sh --verbose 9
+```
+
+In verbose mode, `--print-before-sync` replaces `-y` flag, showing all commands before they execute.
+
+#### Manual GDB Debugging
+
+You can also manually debug using gdbserver:
+
+```sh
+# Server debugging
 gdbserver :12345 ./multi-pc-sync -d 9000 /srv/data/server_folder
+
+# Client debugging
 gdbserver :12346 ./multi-pc-sync -s 127.0.0.1:9000 /home/user/client_folder
 ```
 

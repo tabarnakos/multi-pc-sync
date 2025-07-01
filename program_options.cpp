@@ -29,11 +29,12 @@ ProgramOptions::ProgramOptions(int argc, char *argv[])
 void printusage()
 {
 	std::cout << "Usage:" << "\r\n";
-	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--cfg=<cfgfile>] [--dry-run] [--exit-after-sync] <path>" << "\r\n";
+	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--cfg=<cfgfile>] [--dry-run] [--print-before-sync] [--exit-after-sync] <path>" << "\r\n";
 	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << "\r\n";
 	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << "\r\n";
 	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << "\r\n";
 	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << "\r\n";
+    std::cout << "\t" << "--print-before-sync" << "\t" << "print commands before executing them (equivalent to --dry-run -y)" << "\r\n";
 	std::cout << "\t" << "--cfg=<cfgfile>" << "\t" << "path to configuration file for additional options" << "\r\n";
 	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << "\r\n";
 	std::cout << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << "\r\n";
@@ -63,11 +64,17 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     int chr;
     opts.port = -1;
     opts.mode = ProgramOptions::MODE_SERVER;
+
+    static constexpr int kDryRunOption = 1;
+    static constexpr int kExitAfterSyncOption = 2;
+    static constexpr int kConfigFileOption = 3;
+    static constexpr int kPrintBeforeSyncOption = 4;
     
-    static constexpr std::array<option, 4> long_options{{
-        {.name = "dry-run", .has_arg = no_argument, .flag = nullptr, .val = 1},
-        {.name = "exit-after-sync", .has_arg = no_argument, .flag = nullptr, .val = 2},
-        {.name = "cfg", .has_arg = required_argument, .flag = nullptr, .val = 3},
+    static constexpr std::array<option, 5> long_options{{
+        {.name = "dry-run", .has_arg = no_argument, .flag = nullptr, .val = kDryRunOption},
+        {.name = "exit-after-sync", .has_arg = no_argument, .flag = nullptr, .val = kExitAfterSyncOption},
+        {.name = "cfg", .has_arg = required_argument, .flag = nullptr, .val = kConfigFileOption},
+        {.name = "print-before-sync", .has_arg = no_argument, .flag = nullptr, .val = kPrintBeforeSyncOption},
         {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
     }};
     
@@ -101,18 +108,23 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         case 'y':
             opts.auto_sync = true;
             break;
-        case 1: // --dry-run
+        case kDryRunOption:
             opts.dry_run = true;
             break;
-        case 2: // --exit-after-sync
+        case kExitAfterSyncOption:
             opts.exit_after_sync = true;
             break;
-        case 3: // --cfg=<cfgfile>
+        case kConfigFileOption:
             opts.config_file = std::filesystem::path(optarg);
             if (!std::filesystem::exists(*opts.config_file) || !std::filesystem::is_regular_file(*opts.config_file)) {
                 std::cout << "Config file not found or not a regular file: " << optarg << "\r\n";
                 exit(0);
             }
+            break;
+        case kPrintBeforeSyncOption:
+            // --print-before-sync is equivalent to --dry-run and --auto-sync
+            opts.dry_run = true;
+            opts.auto_sync = true;
             break;
         default:
         case '?':
