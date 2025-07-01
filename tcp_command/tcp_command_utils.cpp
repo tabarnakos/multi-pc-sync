@@ -90,6 +90,8 @@ const char* TcpCommand::commandName() {
         case CMD_ID_RMDIR_REQUEST: return "RMDIR_REQUEST";
         case CMD_ID_SYNC_COMPLETE: return "SYNC_COMPLETE";
         case CMD_ID_SYNC_DONE: return "SYNC_DONE";
+        case CMD_ID_REMOTE_SYMLINK: return "REMOTE_SYMLINK";
+        case CMD_ID_REMOTE_MOVE: return "REMOTE_MOVE";
         default: return "UNKNOWN";
     }
 }

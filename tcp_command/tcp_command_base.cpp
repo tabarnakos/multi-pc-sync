@@ -80,6 +80,10 @@ TcpCommand* TcpCommand::create(GrowingBuffer& data) {
             return new MessageCmd(data);
         case CMD_ID_SYNC_DONE:
             return new SyncDoneCmd(data);
+        case CMD_ID_REMOTE_SYMLINK:
+            return new RemoteSymlinkCmd(data);
+        case CMD_ID_REMOTE_MOVE:
+            return new RemoteMoveCmd(data);
     }
 }
 

@@ -92,7 +92,30 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
-    } else {
+    } else if (mCmd == "symlink") {
+        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 3) + srcPathStripped.length() + destPathStripped.length();
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_SYMLINK;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        pathSize = srcPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(srcPathStripped.c_str(), pathSize);
+        pathSize = destPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(destPathStripped.c_str(), pathSize);
+    } else if (mCmd == "mv") {
+        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 3) + srcPathStripped.length() + destPathStripped.length();
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_MOVE; // Using copy for move
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        pathSize = srcPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(srcPathStripped.c_str(), pathSize);
+        pathSize = destPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(destPathStripped.c_str(), pathSize);
+    } else
+    {
         std::cerr << "Unknown command: " << mCmd << "\r\n";
         return nullptr;
     }
@@ -151,7 +174,26 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     if (mRemote || mCmd == "push" || mCmd == "fetch") {
         return executeTcpCommand(args);
     }
-    
+
+    if (mCmd == "symlink") {
+        // Remove existing destination if it exists
+        stripQuotes(mSrcPath);
+        stripQuotes(mDestPath);
+        if (std::filesystem::exists(mDestPath)) {
+            std::filesystem::remove(mDestPath);
+        }
+        std::error_code ec;
+        std::filesystem::create_symlink(mSrcPath, mDestPath, ec);
+        if (ec) {
+            std::cerr << "Failed to create symlink from " << mDestPath << " to " << mSrcPath << ": " << ec.message() << "\r\n";
+            return -1;
+        }
+        std::cout << "Created symlink: " << mDestPath << " -> " << mSrcPath << "\r\n";
+        return 0;
+    }
+
+    std::cout << "Executing command: " << string() << "\r\n";
+
     int err = system(string().c_str());
     if (verbose) {
         std::cout << "Command returned " << err << "\r\n";
@@ -167,6 +209,7 @@ bool SyncCommand::isRemote() const { return mRemote; }
 bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
 bool SyncCommand::isFileMove() const { return mCmd == "mv"; }
 bool SyncCommand::isCopy() const { return mCmd == "cp" || mCmd == "push" || mCmd == "fetch"; }
+bool SyncCommand::isSymlink() const { return mCmd == "symlink"; }
 std::string SyncCommand::path1() const { return mSrcPath; }
 std::string SyncCommand::path2() const { return mDestPath; }
 
@@ -192,15 +235,18 @@ void SyncCommands::sortCommands() {
     this->sort([](const SyncCommand &commandA, const SyncCommand &commandB) {
         auto getPriority = [](const SyncCommand &command) {
             if (command.isCopy()) {
-                return 3; // File creation commands
+                return 4; // File creation commands
             }
             if (command.isFileMove()) {
-                return 2; // File move operations
+                return 3; // File move operations
             }
             if (command.isRemoval()) {
-                return 1; // File delete operations
+                return 2; // File delete operations
             }
-            return 4; // Other commands like mkdir
+            if (command.isSymlink()) {
+                return 1; // Symlink creation
+            }
+            return 5; // Other commands like mkdir
         };
         return getPriority(commandA) > getPriority(commandB);
     });

@@ -157,7 +157,7 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] File created on source only
 - [✅] File created on destination only
 - [✅] File created on both sides with identical content
-- [❗] File created on both sides with different content (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
+- [✅] File created on both sides with different content (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
 - [✅] File deleted on source only
 - [✅] File deleted on destination only
 - [✅] File deleted on both sides

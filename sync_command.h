@@ -79,6 +79,8 @@ public:
 
     [[nodiscard]] bool isCopy() const;
 
+    [[nodiscard]] bool isSymlink() const;
+
     /**
      * Gets the first path (usually source)
      * @return First path string

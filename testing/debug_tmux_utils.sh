@@ -51,13 +51,7 @@ remove_path() {
 
     if [ -f "$abs" ]; then
         # Remove file from EXPECTED_FILES
-        local updated_files=""
-        for f in $EXPECTED_FILES; do
-            if [[ "$f" != "$rel" ]]; then
-                updated_files+="$f "
-            fi
-        done
-        EXPECTED_FILES="${updated_files%% }"
+        EXPECTED_FILES=$(remove_item_from_list "$EXPECTED_FILES" "$rel")
         # Remove hash from EXPECTED_HASHES
         local hash=$(md5sum "$abs" | awk '{print $1}')
         EXPECTED_HASHES=$(remove_item_from_list "$EXPECTED_HASHES" "$hash")

@@ -80,6 +80,58 @@ void MessageCmd::sendMessage(const int socket, const std::string &message)
 
 // Section 7: Public/Protected/Private Methods
 
+int RemoteSymlinkCmd::execute(const std::map<std::string, std::string>& args)
+{
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
+    if (bytesReceived < payloadSize) {
+        std::cerr << "Error receiving payload for RemoteSymlinkCmd" << "\r\n";
+        return -1;
+    }
+
+    // Extract source and destination paths
+    std::string srcPath = extractStringFromPayload(kSrcPathSizeIndex, SEEK_SET);
+    std::string destPath = extractStringFromPayload(0, SEEK_CUR);
+
+    // Remove existing destination if it exists
+    if (std::filesystem::exists(destPath)) {
+        std::filesystem::remove(destPath);
+    }
+    std::error_code ec;
+    std::filesystem::create_symlink(srcPath, destPath, ec);
+    if (ec) {
+        std::cerr << "Failed to create symlink from " << destPath << " to " << srcPath << ": " << ec.message() << "\r\n";
+        return -1;
+    }
+    std::cout << "Created symlink: " << destPath << " -> " << srcPath << "\r\n";
+    return 0;
+}
+
+int RemoteMoveCmd::execute(const std::map<std::string, std::string>& args)
+{
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
+    if (bytesReceived < payloadSize) {
+        std::cerr << "Error receiving payload for RemoteMoveCmd" << "\r\n";
+        return -1;
+    }
+
+    // Extract source and destination paths
+    std::string srcPath = extractStringFromPayload(kSrcPathSizeIndex, SEEK_SET);
+    std::string destPath = extractStringFromPayload(0, SEEK_CUR);
+
+    std::error_code ec;
+    std::filesystem::rename(srcPath, destPath, ec);
+    if (ec) {
+        std::cerr << "Failed to move " << srcPath << " to " << destPath << ": " << ec.message() << "\r\n";
+        return -1;
+    }
+    std::cout << "Moved file: " << srcPath << " -> " << destPath << "\r\n";
+    return 0;
+}
+
 int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
 {
     unblock_receive();
@@ -423,7 +475,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     }
 
     // Execute commands if not dry_run mode
-    if ((answer.starts_with('y') || answer.starts_with('Y')) && !dry_run)
+    if ((answer.starts_with('y') || answer.starts_with('Y')) && !(dry_run && !auto_sync))
     {
         for (auto &command : syncCommands)
         {

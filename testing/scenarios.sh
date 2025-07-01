@@ -176,6 +176,10 @@ scenario_09() {
     if [ "$VERBOSE" == "1" ]; then
         echo "CLIENT FILE HASH IS $(hash_file "$CLIENT_ROOT" "./file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
     fi
+
+    # Scenario 9 creates a conflict, both versions of file1.txt need to be kept
+    EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "./file1.txt.server")
+    EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "./file1.txt.client")
 }
 
 scenario_10() {
@@ -341,6 +345,9 @@ scenario_17() {
     if [ "$VERBOSE" == "1" ]; then
         echo "CLIENT FILE HASH IS $(hash_file "$CLIENT_ROOT" "./file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
     fi
+    # Scenario 17 creates a conflict, both versions of file1.txt need to be kept
+    EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "./file1.txt.server")
+    EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "./file1.txt.client")
 }
 
 scenario_18() {

@@ -12,6 +12,7 @@
 #include <list>
 #include <string>
 #include <unistd.h>
+#include "termcolor.hpp"
 
 // Section 3: Defines and Macros
 
@@ -364,6 +365,43 @@ void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, Direct
     }
 }
 
+void DirectoryIndexer::handleFileConflict(com::fileindexer::File* remoteFile, com::fileindexer::File* localFile, 
+                                       const std::string& remoteFilePath, const std::string& localFilePath, 
+                                       SyncCommands &syncCommands, bool isRemote)
+{
+    // Both files exist but have different hashes
+    // New approach: Each side keeps their version (renamed) and also gets the other side's version,
+    // then creates a symlink from the original path to their own version
+    
+    // Extract the filename without the path for creating the new filenames
+    const std::string baseFileName = std::filesystem::path(remoteFilePath).filename().string();
+    const std::string serverBasePath = std::filesystem::path(remoteFilePath).parent_path().string();
+    const std::string clientBasePath = std::filesystem::path(localFilePath).parent_path().string();
+
+    // Generate unique filenames by adding device identifiers
+    // Using .client and .server as suffixes
+    const std::string localServerFilename = clientBasePath + "/" + baseFileName + ".server";
+    const std::string localClientFilename = clientBasePath + "/" + baseFileName + ".client";
+
+    std::cout << termcolor::red << "CONFLICT: File content differs between " << localFilePath << " and " << remoteFilePath << "\r\n";
+    std::cout << termcolor::yellow << "  Each side will keep their version and receive the other side's version\r\n";
+    std::cout << "  Client modified time: " << localFile->modifiedtime() << "\r\n";
+    std::cout << "  Server modified time: " << remoteFile->modifiedtime() << "\r\n" << termcolor::reset;
+    
+    // Step 1: Send copy of file to the other computer
+    syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath,
+                                isRemote ? localClientFilename : localServerFilename, isRemote);
+    
+    // Step 2: Rename both original files to include their origin identifier
+    syncCommands.emplace_back("mv", localFilePath, 
+                              isRemote ? localServerFilename : localClientFilename, isRemote);
+
+    // Step 3: Create symlinks from the original locations to their respective local copies
+    syncCommands.emplace_back("symlink", isRemote ? localServerFilename : localClientFilename, localFilePath, isRemote);
+    
+    // No need to update hashes as we're preserving both versions
+}
+
 void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote)
 {
     if (remoteFile.hash() != localFile->hash())
@@ -451,7 +489,25 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
         {
             if (verbose)
                 std::cout << "file exists! " << localFilePath << "\r\n";
-            handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+
+            auto *localPastFile = past == nullptr ? nullptr : static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
+            auto *remotePastFile = remotePast == nullptr ? nullptr : static_cast<com::fileindexer::File *>(remotePast->extract(nullptr, remoteFilePath, FILE));
+            bool isLocalPastFile = (localPastFile != nullptr);
+            bool isRemotePastFile = (remotePastFile != nullptr);
+
+            if ((!isRemotePastFile && !isLocalPastFile) || ( !(isRemotePastFile && isLocalPastFile)) || (remotePastFile->hash() != localPastFile->hash()) )
+            {
+                // Neither has a past version, we can compare them
+                if (remoteFile.hash() != localFile->hash())
+                {
+                    std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                    handleFileConflict(&remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+                }
+            }
+            else
+            {
+                handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+            }
         }
         else
         {

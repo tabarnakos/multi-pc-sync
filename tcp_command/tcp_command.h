@@ -38,6 +38,8 @@ public:
         CMD_ID_RMDIR_REQUEST,
         CMD_ID_SYNC_COMPLETE,
         CMD_ID_SYNC_DONE,
+        CMD_ID_REMOTE_SYMLINK,
+        CMD_ID_REMOTE_MOVE,
     };
 
     /* Public Static Constants */
@@ -368,6 +370,34 @@ class SyncDoneCmd : public TcpCommand {
 public:
     SyncDoneCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~SyncDoneCmd() override;
+    virtual int execute(const std::map<std::string, std::string>& args) override;
+};
+// New derived command classes
+class RemoteSymlinkCmd : public TcpCommand {
+public:
+    static constexpr size_t kSrcPathSizeIndex = kPayloadIndex;
+    static constexpr size_t kSrcPathSizeSize = sizeof(size_t);
+    static constexpr size_t kSrcPathIndex = INDEX_AFTER(kSrcPathSizeIndex, kSrcPathSizeSize);
+    static constexpr size_t kDestPathSizeIndex = INDEX_AFTER(kSrcPathIndex, 0); // Adjust dynamically
+    static constexpr size_t kDestPathSizeSize = sizeof(size_t);
+    static constexpr size_t kDestPathIndex = INDEX_AFTER(kDestPathSizeIndex, kDestPathSizeSize);
+
+    RemoteSymlinkCmd(GrowingBuffer& data) : TcpCommand(data) {}
+    virtual ~RemoteSymlinkCmd() override {}
+    virtual int execute(const std::map<std::string, std::string>& args) override;
+};
+
+class RemoteMoveCmd : public TcpCommand {
+public:
+    static constexpr size_t kSrcPathSizeIndex = kPayloadIndex;
+    static constexpr size_t kSrcPathSizeSize = sizeof(size_t);
+    static constexpr size_t kSrcPathIndex = INDEX_AFTER(kSrcPathSizeIndex, kSrcPathSizeSize);
+    static constexpr size_t kDestPathSizeIndex = INDEX_AFTER(kSrcPathIndex, 0); // Adjust dynamically
+    static constexpr size_t kDestPathSizeSize = sizeof(size_t);
+    static constexpr size_t kDestPathIndex = INDEX_AFTER(kDestPathSizeIndex, kDestPathSizeSize);
+
+    RemoteMoveCmd(GrowingBuffer& data) : TcpCommand(data) {}
+    virtual ~RemoteMoveCmd() override {}
     virtual int execute(const std::map<std::string, std::string>& args) override;
 };
 
