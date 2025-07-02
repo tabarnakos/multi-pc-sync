@@ -495,13 +495,36 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
             bool isLocalPastFile = (localPastFile != nullptr);
             bool isRemotePastFile = (remotePastFile != nullptr);
 
-            if ((!isRemotePastFile && !isLocalPastFile) || ( !(isRemotePastFile && isLocalPastFile)) || (remotePastFile->hash() != localPastFile->hash()) )
+            if (remoteFile.hash() != localFile->hash())
             {
-                // Neither has a past version, we can compare them
-                if (remoteFile.hash() != localFile->hash())
+                std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                
+                if ((!isRemotePastFile && !isLocalPastFile) || ( !(isRemotePastFile && isLocalPastFile)) || (remotePastFile->hash() != localPastFile->hash()) )
                 {
+                    // Neither has a past version, This is a file creation conflict case
                     std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
                     handleFileConflict(&remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+                } else if ( (isRemotePastFile && isLocalPastFile) && (remoteFile.hash() != localFile->hash()) )
+                {
+                    if ( remotePastFile->hash() == localPastFile->hash() )
+                    {
+                        const std::string previousHash = remotePastFile->hash();
+
+                        if ( (previousHash == remoteFile.hash()) || (previousHash == localFile->hash()) )
+                        {
+                            std::cout << "File was modified by one side, sync newer copy" << "\r\n";
+                            handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+                        } else
+                        {
+                            // Both have a past version, this is a file modification conflict case
+                            std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                            handleFileConflict(&remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
+                        }
+                    }
+                } else
+                {
+                    // One of them has a past version, this is an out-of-sync error
+                    std::cout << "Out-of-sync error detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
                 }
             }
             else
