@@ -20,6 +20,7 @@
 #include "growing_buffer.h"
 #include "network_thread.h"
 #include "tcp_command.h"
+#include <termcolor/termcolor.hpp>
 
 // Section 2: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
@@ -49,18 +50,18 @@ void ClientThread::runclient(context &ctx)
 
     if (connect(serverSocket, serverSocketAddr, sizeof(serverAddress)) < 0)
     {
-        std::cout << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\r\n";
+        std::cout << termcolor::red << "Unable to connect to server at " << ctx.opts.ip << ":" << ctx.opts.port << termcolor::reset << "\r\n";
         exit(0);
     }
 
-    std::cout << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << "\r\n";
+    std::cout << termcolor::green << "Connected to server at " << ctx.opts.ip << ":" << ctx.opts.port << termcolor::reset << "\r\n";
 
     ctx.con_opened = true;
 
     // Request index from the server
     if (requestIndexFromServer(options) < 0)
     {
-        std::cout << "Error requesting index from server" << "\r\n";
+        std::cout << termcolor::red << "Error requesting index from server" << termcolor::reset << "\r\n";
         close(serverSocket);
         return;
     }
@@ -71,7 +72,7 @@ void ClientThread::runclient(context &ctx)
         TcpCommand *receivedCommand = TcpCommand::receiveHeader(serverSocket);
         if (receivedCommand == nullptr)
         {
-            std::cout << "Error receiving command from server" << "\r\n";
+            std::cout << termcolor::red << "Error receiving command from server" << termcolor::reset << "\r\n";
             break;
         }
         const std::string cmdName = receivedCommand->commandName();
@@ -102,23 +103,23 @@ void ClientThread::runclient(context &ctx)
                     break;
                 }
             default:
-                std::cout << "Unknown command received: " << "\r\n";
+                std::cout << termcolor::yellow << "Unknown command received: " << termcolor::reset << "\r\n";
                 receivedCommand->dump(std::cout);
                 delete receivedCommand;
                 break;
         }
         if (err < 0)
         {
-            std::cout << "Error executing command: " << cmdName << "\r\n";
+            std::cout << termcolor::red << "Error executing command: " << cmdName << termcolor::reset << "\r\n";
             ctx.con_opened = false;
         }
         else if (err > 0)
         {
-            std::cout << "Finished " << "\r\n";
+            std::cout << termcolor::green << "Finished " << termcolor::reset << "\r\n";
             ctx.con_opened = false;
         }
         else
-            std::cout << "Executed command: " << cmdName << "\r\n";
+            std::cout << termcolor::cyan << "Executed command: " << cmdName << termcolor::reset << "\r\n";
     }
 
     ctx.active = false;

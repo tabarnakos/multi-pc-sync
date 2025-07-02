@@ -16,6 +16,7 @@
 // Project Includes
 #include "network_thread.h"
 #include "tcp_command.h"
+#include <termcolor/termcolor.hpp>
 
 // Section 2: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB
@@ -52,18 +53,18 @@ void ServerThread::runserver(context &ctx)
 
     if (bind(serverSocket, serverSocketAddr, sizeof(serverAddress)) != 0)
     {
-        std::cout << "Unable to bind to port " << ntohs(serverAddress.sin_port) << "\r\n";
+        std::cout << termcolor::red << "Unable to bind to port " << ntohs(serverAddress.sin_port) << "\r\n" << termcolor::reset;
         exit(0);
     }
     if (listen(serverSocket, SERVER_LISTEN_BACKLOG) != 0)
     {
-        std::cout << "Unable to listen on socket" << "\r\n";
+        std::cout << termcolor::red << "Unable to listen on socket" << "\r\n" << termcolor::reset;
         exit(0);
     }
 
     while (!ctx.quit.load())
     {
-        std::cout << "Waiting for incoming connections on port " << ctx.opts.port << "\r\n";
+        std::cout << termcolor::green << "Waiting for incoming connections on port " << ctx.opts.port << "\r\n" << termcolor::reset;
 
         sockaddr_in clientAddress;
         sockaddr* clientSocketAddr = reinterpret_cast<sockaddr*>(&clientAddress);
@@ -71,12 +72,12 @@ void ServerThread::runserver(context &ctx)
         int clientSocket = accept(serverSocket, clientSocketAddr, &clientAddressLen);
         if (clientSocket < 0)
         {
-            std::cout << "Error accepting connection" << "\r\n";
+            std::cout << termcolor::red << "Error accepting connection" << "\r\n" << termcolor::reset;
             break;
         }
         options["txsocket"] = std::to_string(clientSocket);
         options["ip"] = inet_ntoa(clientAddress.sin_addr);
-        std::cout << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << "\r\n";
+        std::cout << termcolor::cyan << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << "\r\n" << termcolor::reset;
         ctx.con_opened = true;
 
         while ((!ctx.quit.load()) && ctx.con_opened)
@@ -84,7 +85,7 @@ void ServerThread::runserver(context &ctx)
             TcpCommand *receivedCommand = TcpCommand::receiveHeader(clientSocket);
             if (receivedCommand == nullptr)
             {
-                std::cout << "Error receiving command from client" << "\r\n";
+                std::cout << termcolor::red << "Error receiving command from client" << "\r\n" << termcolor::reset;
                 ctx.con_opened = false;
                 break;
             }
@@ -92,15 +93,15 @@ void ServerThread::runserver(context &ctx)
             int err = receivedCommand->execute(options);
             if (err < 0)
             {
-                std::cout << "Error executing command: " << receivedCommand->commandName() << "\r\n";
+                std::cout << termcolor::red << "Error executing command: " << receivedCommand->commandName() << "\r\n" << termcolor::reset;
                 ctx.con_opened = false;
             } else if (err > 0)
             {
-                std::cout << "Finished" << "\r\n";
+                std::cout << termcolor::green << "Finished" << "\r\n" << termcolor::reset;
                 ctx.con_opened = false;
             } else
             {
-                std::cout << "Executed command: " << receivedCommand->commandName() << "\r\n";
+                std::cout << termcolor::cyan << "Executed command: " << receivedCommand->commandName() << "\r\n" << termcolor::reset;
             }
             delete receivedCommand;
         }
@@ -109,5 +110,5 @@ void ServerThread::runserver(context &ctx)
     ctx.active = false;
     ctx.active.notify_all();
     close(serverSocket);
-    std::cout << "Server thread exiting" << "\r\n";
+    std::cout << termcolor::blue << "Server thread exiting" << "\r\n" << termcolor::reset;
 }

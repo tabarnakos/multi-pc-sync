@@ -8,6 +8,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 // (none)
@@ -116,7 +117,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(destPathStripped.c_str(), pathSize);
     } else
     {
-        std::cerr << "Unknown command: " << mCmd << "\r\n";
+        std::cerr << termcolor::red << "Unknown command: " << mCmd << "\r\n" << termcolor::reset;
         return nullptr;
     }
     return TcpCommand::create(commandbuf);
@@ -125,7 +126,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
 int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &args) {
     TcpCommand *cmd = createTcpCommand();
     if (cmd == nullptr) {
-        std::cerr << "Failed to create TCP command for: " << string() << "\r\n";
+        std::cerr << termcolor::red << "Failed to create TCP command for: " << string() << "\r\n" << termcolor::reset;
         return -1;
     }
     if ( cmd->command() == TcpCommand::CMD_ID_FETCH_FILE_REQUEST )
@@ -158,14 +159,14 @@ int SyncCommand::executeTcpCommand(const std::map<std::string, std::string> &arg
 }
 
 void SyncCommand::print() const{
-    std::cout << string() << "\r\n";
+    std::cout << termcolor::blue << string() << "\r\n" << termcolor::reset;
 }
 
 int SyncCommand::execute(const std::map<std::string, std::string> &args, bool verbose) {
     if (verbose) {
         print();
         std::string confirm;
-        std::cout << "Execute? (y/n): ";
+        std::cout << termcolor::magenta << "Execute? (y/n): " << termcolor::reset;
         std::cin >> confirm;
         if (confirm != "y" && confirm != "Y") {
             return 0;
@@ -185,18 +186,18 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
         std::error_code ec;
         std::filesystem::create_symlink(mSrcPath, mDestPath, ec);
         if (ec) {
-            std::cerr << "Failed to create symlink from " << mDestPath << " to " << mSrcPath << ": " << ec.message() << "\r\n";
+            std::cerr << termcolor::red << "Failed to create symlink from " << mDestPath << " to " << mSrcPath << ": " << ec.message() << "\r\n" << termcolor::reset;
             return -1;
         }
-        std::cout << "Created symlink: " << mDestPath << " -> " << mSrcPath << "\r\n";
+        std::cout << termcolor::cyan << "Created symlink: " << mDestPath << " -> " << mSrcPath << "\r\n" << termcolor::reset;
         return 0;
     }
 
-    std::cout << "Executing command: " << string() << "\r\n";
+    std::cout << termcolor::cyan << "Executing command: " << string() << "\r\n" << termcolor::reset;
 
     int err = system(string().c_str());
     if (verbose) {
-        std::cout << "Command returned " << err << "\r\n";
+        std::cout << termcolor::blue << "Command returned " << err << "\r\n" << termcolor::reset;
     }
     return err;
 }
@@ -218,7 +219,7 @@ int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) 
     if (!file.is_open()) return -1;
     for (const auto &cmd : *this) {
         file << cmd.string() << "\r\n";
-        if (verbose) std::cout << "Exported: " << cmd.string() << "\r\n";
+        if (verbose) std::cout << termcolor::blue << "Exported: " << cmd.string() << "\r\n" << termcolor::reset;
     }
     file.close();
     return 0;

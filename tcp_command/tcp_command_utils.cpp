@@ -25,6 +25,7 @@
 
 // Project Includes
 #include "human_readable.h"
+#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 constexpr float MICROSECONDS_PER_SECOND = 1000000.0F;
@@ -137,10 +138,10 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
         ssize_t num = send(socket, buf + chunk_sent, len - chunk_sent, 0);
         if (num <= 0) {
             if (num == 0) {
-                std::cerr << "Connection closed by peer after sending "
-                          << HumanReadable(chunk_sent) << "\r\n";
+                std::cerr << termcolor::red << "Connection closed by peer after sending "
+                          << termcolor::magenta << HumanReadable(chunk_sent) << termcolor::reset << "\r\n";
             } else {
-                std::cerr << "Send error at " << HumanReadable(chunk_sent)
+                std::cerr << termcolor::red << "Send error at " << termcolor::magenta << HumanReadable(chunk_sent) << termcolor::reset
                           << ": " << strerror(errno) << "\r\n";
             }
             return -1;
@@ -160,12 +161,12 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
         ssize_t num = recv(socket, static_cast<uint8_t*>(buffer) + chunk_received, len - chunk_received, 0);
         if (num <= 0) {
             if (num == 0) {
-                std::cerr << "Connection closed by peer after receiving "
-                            << chunk_received << " bytes" << "\r\n";
+                std::cerr << termcolor::red << "Connection closed by peer after receiving " << termcolor::magenta
+                            << chunk_received << " bytes" << termcolor::reset << "\r\n";
                 return -1;
             }
-            std::cerr << "Receive error at " << chunk_received 
-                            << " bytes: " << strerror(errno) << "\r\n";
+            std::cerr << termcolor::red << "Receive error at " << termcolor::magenta << chunk_received
+                            << " bytes: " << strerror(errno) << termcolor::reset << "\r\n";
             return -1;
         }
 

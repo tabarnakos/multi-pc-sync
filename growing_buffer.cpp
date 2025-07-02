@@ -12,6 +12,7 @@
 #include <ostream>
 #include <print>
 #include <vector>
+#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 constexpr int DUMP_PREVIEW_BYTES = 8;
@@ -73,15 +74,15 @@ size_t GrowingBuffer::write(const void *buf, const size_t size) {
 void GrowingBuffer::dumpToFile(FILE *file, uintmax_t size) {
     size_t total_left = mSize - (mBufferIndex * mBufferSizes[0] + mIndex);
     size = std::min(size, total_left); // Clamp to available data
-    std::cout << "dump " << size << " bytes to file" << "\r\n";
-    std::cout << "mBufferIndex = " << mBufferIndex << "\r\n";
-    std::cout << "mBufferSizes[mBufferIndex] = " << mBufferSizes[mBufferIndex] << "\r\n";
-    std::cout << "mIndex = " << mIndex << "\r\n";
-    std::cout << "data = ";
+    std::cout << termcolor::cyan << "dump " << size << " bytes to file" << "\r\n" << termcolor::reset;
+    std::cout << termcolor::cyan << "\tmBufferIndex = " << mBufferIndex << "\r\n" << termcolor::reset;
+    std::cout << termcolor::cyan << "\tmBufferSizes[mBufferIndex] = " << mBufferSizes[mBufferIndex] << "\r\n" << termcolor::reset;
+    std::cout << termcolor::cyan << "\tmIndex = " << mIndex << "\r\n" << termcolor::reset;
+    std::cout << termcolor::cyan << "\tdata = ";
     for (int i = 0; i < DUMP_PREVIEW_BYTES && (mIndex + i) < mBufferSizes[mBufferIndex]; ++i) {
         std::print("{:02x} ", *(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex + i));
     }
-    std::cout << "\r\n";
+    std::cout << "\r\n" << termcolor::reset;
     while (size > 0) {
         size_t chunk = std::min(mBufferSizes[mBufferIndex] - mIndex, (size_t)size);
         auto w_size = fwrite(static_cast<uint8_t *>(mBuffers[mBufferIndex]) + mIndex, 1, chunk, file);

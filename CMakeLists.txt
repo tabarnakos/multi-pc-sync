@@ -48,7 +48,7 @@ add_executable( multi_pc_sync ${multi_pc_sync_src} ${multi_pc_sync_hdr} )
 target_compile_options(multi_pc_sync PRIVATE -Wall -Wextra -Wno-sign-compare -Wpedantic $<$<CONFIG:Debug>:-O0> $<$<CONFIG:Release>:-O3>)
 target_compile_definitions(multi_pc_sync PRIVATE $<$<CONFIG:Debug>:DEBUG> $<$<CONFIG:Release>:RELEASE>)
 
-target_include_directories(multi_pc_sync PRIVATE ${CMAKE_SOURCE_DIR}/third-party/termcolor/include/termcolor)
+target_include_directories(multi_pc_sync PRIVATE ${CMAKE_SOURCE_DIR}/third-party/termcolor/include)
 
 protobuf_generate(TARGET multi_pc_sync PROTOC_OUT_DIR "..")
 

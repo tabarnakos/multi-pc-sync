@@ -12,7 +12,7 @@
 #include <list>
 #include <string>
 #include <unistd.h>
-#include "termcolor.hpp"
+#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 
@@ -53,14 +53,14 @@ DirectoryIndexer::DirectoryIndexer(const std::filesystem::path &path, bool topLe
         /* import existing index from file */
         if ( std::filesystem::exists( indexpath ) )
         {
-            std::cout << "Loading index from file... ";
+            std::cout << termcolor::white << "Loading index from file... " << termcolor::reset;
             
             mUpdateIndexFile = false;
             mIndexfile.open( indexpath, std::ios::in );
-            std:: cout << mFolderIndex.ParseFromIstream( &mIndexfile );
+            mFolderIndex.ParseFromIstream( &mIndexfile );
             mIndexfile.close();
 
-            std::cout << " done" << "\r\n";
+            std::cout << termcolor::green << " done" << termcolor::reset << "\r\n";
         }
         
         if ( mFolderIndex.name().empty() )
@@ -96,21 +96,21 @@ void DirectoryIndexer::printIndex( com::fileindexer::Folder *folderIndex, int re
     }
     for ( auto folder : *folderIndex->mutable_folders() )
     {
-        std::cout << tabs << *folder.mutable_name();
-        std::cout << "\t" << folder.permissions();
-        std::cout << "\t" << folder.type();
-        std::cout << "\t" << *folder.mutable_modifiedtime();
-        std::cout << "\r\n";
+        std::cout << termcolor::magenta << tabs << *folder.mutable_name() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << folder.permissions() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << folder.type() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << *folder.mutable_modifiedtime() << termcolor::reset;
+        std::cout << termcolor::cyan << "\r\n" << termcolor::reset;
         printIndex( &folder, recursionlevel + 1 );
     }
     for ( auto file : *folderIndex->mutable_files() )
     {
-        std::cout << tabs << *file.mutable_name();
-        std::cout << "\t" << file.permissions();
-        std::cout << "\t" << file.type();
-        std::cout << "\t" << *file.mutable_modifiedtime();
-        std::cout << "\t" << *file.mutable_hash();
-        std::cout << "\r\n";
+        std::cout << termcolor::magenta << tabs << *file.mutable_name() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << file.permissions() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << file.type() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << *file.mutable_modifiedtime() << termcolor::reset;
+        std::cout << termcolor::cyan << "\t" << *file.mutable_hash() << termcolor::reset;
+        std::cout << termcolor::cyan << "\r\n" << termcolor::reset;
     }
 
 }
@@ -337,18 +337,18 @@ void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, Direct
         auto remoteFolderPath = remoteFolder.name();
         auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length() + 1);
         if (verbose)
-            std::cout << "Entering " << remoteFolderPath << "\r\n";
+            std::cout << termcolor::cyan << "Entering " << remoteFolderPath << termcolor::reset << "\r\n";
 
         if (nullptr != extract(nullptr, localFolderPath, FOLDER))
         {
             if (verbose)
-                std::cout << "folder exists! " << localFolderPath << "\r\n";
+                std::cout << termcolor::cyan << "folder exists! " << localFolderPath << termcolor::reset << "\r\n";
             sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
         }
         else
         {
             if (verbose)
-                std::cout << "folder missing! " << localFolderPath << "\r\n";
+                std::cout << termcolor::cyan << "folder missing! " << localFolderPath << termcolor::reset << "\r\n";
 
             if (forcePull || (past->extract(nullptr, localFolderPath, FOLDER) == nullptr))
             {
@@ -409,11 +409,11 @@ void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com:
         FILE_TIME_COMP_RESULT compResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
         if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
         {
-            std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << "\r\n";
+            std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << termcolor::reset << "\r\n";
         }
         else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
         {
-            std::cout << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << "\r\n";
+            std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << termcolor::reset << "\r\n";
         }
         else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
         {
@@ -482,13 +482,13 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
         auto remoteFilePath = remoteFile.name();
         auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length() + 1);
         if (verbose)
-            std::cout << "checking " << remoteFilePath << "\r\n";
+            std::cout << termcolor::cyan << "checking " << remoteFilePath << termcolor::reset << "\r\n";
 
         auto *localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
         if (localFile != nullptr)
         {
             if (verbose)
-                std::cout << "file exists! " << localFilePath << "\r\n";
+                std::cout << termcolor::cyan << "file exists! " << localFilePath << termcolor::reset << "\r\n";
 
             auto *localPastFile = past == nullptr ? nullptr : static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
             auto *remotePastFile = remotePast == nullptr ? nullptr : static_cast<com::fileindexer::File *>(remotePast->extract(nullptr, remoteFilePath, FILE));
@@ -497,12 +497,12 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
 
             if (remoteFile.hash() != localFile->hash())
             {
-                std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                std::cout << termcolor::magenta << "Conflict detected between " << localFilePath << " and " << remoteFilePath << termcolor::reset << "\r\n";
                 
                 if ((!isRemotePastFile && !isLocalPastFile) || ( !(isRemotePastFile && isLocalPastFile)) || (remotePastFile->hash() != localPastFile->hash()) )
                 {
                     // Neither has a past version, This is a file creation conflict case
-                    std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                    std::cout << termcolor::magenta << "Conflict detected between " << localFilePath << " and " << remoteFilePath << termcolor::reset << "\r\n";
                     handleFileConflict(&remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
                 } else if ( (isRemotePastFile && isLocalPastFile) && (remoteFile.hash() != localFile->hash()) )
                 {
@@ -512,19 +512,19 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
 
                         if ( (previousHash == remoteFile.hash()) || (previousHash == localFile->hash()) )
                         {
-                            std::cout << "File was modified by one side, sync newer copy" << "\r\n";
+                            std::cout << termcolor::white << "File was modified by one side, sync newer copy" << termcolor::reset << "\r\n";
                             handleFileExists(remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
                         } else
                         {
                             // Both have a past version, this is a file modification conflict case
-                            std::cout << "Conflict detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                            std::cout << termcolor::magenta << "Conflict detected between " << localFilePath << " and " << remoteFilePath << termcolor::reset << "\r\n";
                             handleFileConflict(&remoteFile, localFile, remoteFilePath, localFilePath, syncCommands, isRemote);
                         }
                     }
                 } else
                 {
                     // One of them has a past version, this is an out-of-sync error
-                    std::cout << "Out-of-sync error detected between " << localFilePath << " and " << remoteFilePath << "\r\n";
+                    std::cout << termcolor::red << "Out-of-sync error detected between " << localFilePath << " and " << remoteFilePath << termcolor::reset << "\r\n";
                 }
             }
             else
@@ -535,7 +535,7 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
         else
         {
             if (verbose)
-                std::cout << "file missing! " << localFilePath << "\r\n";
+                std::cout << termcolor::white << "file missing! " << localFilePath << termcolor::reset << "\r\n";
             handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, syncCommands, isRemote, forcePull, verbose);
         }
     }
@@ -557,7 +557,7 @@ void DirectoryIndexer::postProcessSyncCommands(SyncCommands &syncCommands, Direc
             {
                 if (!remote->removePath(nullptr, it->path1(), type))
                 {
-                    std::cout << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES. Ignore if you moved the file." << "\r\n";
+                    std::cout << termcolor::yellow << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES. Ignore if you moved the file." << termcolor::reset << "\r\n";
                 }
             }
         }
@@ -733,7 +733,7 @@ std::list<std::string> DirectoryIndexer::__extractPathComponents( const std::fil
     {
         pathComponents.push_front( pathcopy.filename() );
         if ( verbose )
-            std::cout << pathcopy.filename() << "\r\n";
+            std::cout << termcolor::white << pathcopy.filename() << termcolor::reset << "\r\n";
         pathcopy = pathcopy.parent_path();
     } while ( pathcopy != "/" );
     return pathComponents;
@@ -838,10 +838,10 @@ void DirectoryIndexer::copyTo( com::fileindexer::Folder * folderIndex, ::google:
         if ( folderIndex == nullptr )
             folderIndex = &mFolderIndex;
         /* error out */
-        std::cout << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << "\r\n";
-        std::cout << "Maybe this info can help:" << "\r\n";
-        std::cout << "    path = " << path << "\r\n";
-        std::cout << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << "\r\n";
+        std::cout << termcolor::red << "Error: Couldn't locate " << insertPath << " inside " << folderIndex->name() << termcolor::reset << "\r\n";
+        std::cout << termcolor::cyan << "Maybe this info can help:" << termcolor::reset << "\r\n";
+        std::cout << termcolor::cyan << "    path = " << path << termcolor::reset << "\r\n";
+        std::cout << termcolor::cyan << "    type = " << ((type == FOLDER) ? "FOLDER" : "FILE") << termcolor::reset << "\r\n";
         exit(1);
     }
 

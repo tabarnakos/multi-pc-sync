@@ -21,6 +21,7 @@
 #include "network_thread.h"
 #include "program_options.h"
 #include "tcp_command.h"
+#include <termcolor/termcolor.hpp>
 
 // Section 2: Main Function
 constexpr int SLEEP_DURATION_MS = 10;
@@ -32,7 +33,7 @@ int main(int argc, char *argv[])
 
     if (opts.ip.empty() && opts.mode == ProgramOptions::MODE_CLIENT)
     {
-        std::cout << "Invalid client configuration. Please specify the server IP and set mode to client." << "\r\n";
+        std::cout << termcolor::red << "Invalid client configuration. Please specify the server IP and set mode to client." << "\r\n" << termcolor::reset;
         return -1;
     }
 
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
         auto *server = new ServerThread(opts);
         if (server == nullptr)
         {
-            std::cout << "Error creating server thread" << "\r\n";
+            std::cout << termcolor::red << "Error creating server thread" << "\r\n" << termcolor::reset;
             return -1;
         }
 
@@ -50,26 +51,26 @@ int main(int argc, char *argv[])
         while (!server->isActive())
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
 
-        std::cout << "Server is active and waiting for connections..." << "\r\n";
+        std::cout << termcolor::green << "Server is active and waiting for connections..." << "\r\n" << termcolor::reset;
 
         while (server->isActive())
         {
             static bool connected = false;
             if (server->isConnected() && !connected)
             {
-                std::cout << "Client connected." << "\r\n";
+                std::cout << termcolor::green << "Client connected." << "\r\n" << termcolor::reset;
                 connected = true;
             }
             else if (!server->isConnected() && connected)
             {
-                std::cout << "Client disconnected." << "\r\n";
+                std::cout << termcolor::cyan << "Client disconnected." << "\r\n" << termcolor::reset;
                 connected = false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
         }
 
         delete server;
-        std::cout << "Server thread finished" << "\r\n";
+        std::cout << termcolor::green << "Server thread finished" << "\r\n" << termcolor::reset;
     }
     else if (opts.mode == ProgramOptions::MODE_CLIENT)
     {
@@ -77,14 +78,14 @@ int main(int argc, char *argv[])
         auto *client = new ClientThread(opts);
         if (client == nullptr)
         {
-            std::cout << "Error creating client thread" << "\r\n";
+            std::cout << termcolor::red << "Error creating client thread" << "\r\n" << termcolor::reset;
             return -1;
         }
 
         client->start();
         if ( !client->waitForActive() )
         {
-            std::cout << "Client thread failed to start" << "\r\n";
+            std::cout << termcolor::red << "Client thread failed to start" << "\r\n" << termcolor::reset;
             delete client;
             return -1;
         }
@@ -95,6 +96,6 @@ int main(int argc, char *argv[])
         }
 
         delete client;
-        std::cout << "Client thread finished" << "\r\n";
+        std::cout << termcolor::green << "Client thread finished" << "\r\n" << termcolor::reset;
     }
 }

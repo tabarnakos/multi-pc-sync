@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <array>
 #include <utility> // for std::pair
+#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 // (none)
@@ -28,16 +29,16 @@ ProgramOptions::ProgramOptions(int argc, char *argv[])
 // Section 7: Public/Protected/Private Methods
 void printusage()
 {
-	std::cout << "Usage:" << "\r\n";
-	std::cout << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--cfg=<cfgfile>] [--dry-run] [--print-before-sync] [--exit-after-sync] <path>" << "\r\n";
-	std::cout << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << "\r\n";
-	std::cout << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << "\r\n";
-	std::cout << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << "\r\n";
-	std::cout << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << "\r\n";
-    std::cout << "\t" << "--print-before-sync" << "\t" << "print commands before executing them (equivalent to --dry-run -y)" << "\r\n";
-	std::cout << "\t" << "--cfg=<cfgfile>" << "\t" << "path to configuration file for additional options" << "\r\n";
-	std::cout << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << "\r\n";
-	std::cout << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << "\r\n";
+	std::cout << termcolor::white << "Usage:" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "multi-pc-sync [-s <serverip:port> | -d <port>] [-r rate] [-y] [--cfg=<cfgfile>] [--dry-run] [--print-before-sync] [--exit-after-sync] <path>" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "-s" << "\t" << "connect to <serverip:port>, indexes the path and synchronizes folders" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "-d" << "\t" << "start a synchronization daemon on <port> for <path>" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "-r" << "\t" << "limit TCP command rate (Hz), 0 means unlimited (default: 0)" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "-y" << "\t" << "skip Y/N prompt and automatically sync" << "\r\n" << termcolor::reset;
+    std::cout << termcolor::white << "\t" << "--print-before-sync" << "\t" << "print commands before executing them (equivalent to --dry-run -y)" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "--cfg=<cfgfile>" << "\t" << "path to configuration file for additional options" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "--dry-run" << "\t" << "print commands but don't execute them" << "\r\n" << termcolor::reset;
+	std::cout << termcolor::white << "\t" << "--exit-after-sync" << "\t" << "exit server after sending SyncDoneCmd (for unit testing)" << "\r\n" << termcolor::reset;
 	exit(0);
 }
 
@@ -53,11 +54,13 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     
     if ( !std::filesystem::is_directory( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid directory" << "\r\n";
+        std::cout << termcolor::red << opts.path << " is not a valid directory" << "\r\n" << termcolor::reset;
         exit(0);
     } else if ( opts.path != std::filesystem::canonical( opts.path ) )
     {
-        std::cout << opts.path << " is not a valid path" << "\r\n";
+        std::cout << termcolor::red << opts.path << " is not a valid path" << "\r\n" << termcolor::reset;
+        std::cout << termcolor::cyan << "Did you mean: " << std::filesystem::canonical(opts.path) << "\r\n" << termcolor::reset;
+        std::cout << termcolor::cyan << "Only absolute paths are supported" << "\r\n" << termcolor::reset;
         exit(0);
     }
 
@@ -101,7 +104,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         case 'r':
             opts.rate_limit = std::stof(optarg);
             if (opts.rate_limit < 0) {
-                std::cout << "Rate limit must be non-negative" << "\r\n";
+                std::cout << termcolor::red << "Rate limit must be non-negative" << "\r\n" << termcolor::reset;
                 exit(0);
             }
             break;
@@ -117,7 +120,7 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
         case kConfigFileOption:
             opts.config_file = std::filesystem::path(optarg);
             if (!std::filesystem::exists(*opts.config_file) || !std::filesystem::is_regular_file(*opts.config_file)) {
-                std::cout << "Config file not found or not a regular file: " << optarg << "\r\n";
+                std::cout << termcolor::red << "Config file not found or not a regular file: " << optarg << "\r\n" << termcolor::reset;
                 exit(0);
             }
             break;
@@ -157,7 +160,7 @@ ProgramOptions::ConflictPriority ProgramOptions::parseConflictPriority(const std
         return PRIORITY_OLDEST;
     }
     
-    std::cerr << "Invalid value '" << value << "' for " << option_name << "\r\n";
+    std::cerr << termcolor::red << "Invalid value '" << value << "' for " << option_name << "\r\n" << termcolor::reset;
     return PRIORITY_CLIENT; // Default to client
 }
 
@@ -170,7 +173,7 @@ ProgramOptions::ConflictBehavior ProgramOptions::parseConflictBehavior(const std
         return BEHAVIOR_RENAME;
     }
     
-    std::cerr << "Invalid value '" << value << "' for " << option_name << "\r\n";
+    std::cerr << termcolor::red << "Invalid value '" << value << "' for " << option_name << "\r\n" << termcolor::reset;
     return BEHAVIOR_OVERWRITE; // Default to overwrite
 }
 
@@ -183,7 +186,7 @@ ProgramOptions::DeletedModifiedBehavior ProgramOptions::parseDeletedModifiedBeha
         return DELETED_MODIFIED_KEEP;
     }
     
-    std::cerr << "Invalid value '" << value << "' for CONFLICT_ON_DELETED_AND_MODIFIED\r\n";
+    std::cerr << termcolor::red << "Invalid value '" << value << "' for CONFLICT_ON_DELETED_AND_MODIFIED\r\n" << termcolor::reset;
     return DELETED_MODIFIED_DELETE; // Default to delete
 }
 
@@ -200,7 +203,7 @@ ProgramOptions::DoubleMoveStrategy ProgramOptions::parseDoubleMoveStrategy(const
         return DOUBLE_MOVE_SERVER;
     }
     
-    std::cerr << "Invalid value '" << value << "' for CONFLICT_ON_DOUBLE_MOVE\r\n";
+    std::cerr << termcolor::red << "Invalid value '" << value << "' for CONFLICT_ON_DOUBLE_MOVE\r\n" << termcolor::reset;
     return DOUBLE_MOVE_KEEP_BOTH; // Default to keep both
 }
 
@@ -229,7 +232,7 @@ void ProgramOptions::parseConfigFile() {
     
     std::ifstream file(*config_file);
     if (!file.is_open()) {
-        std::cerr << "Failed to open config file: " << *config_file << "\r\n";
+        std::cerr << termcolor::red << "Failed to open config file: " << *config_file << "\r\n" << termcolor::reset;
         return;
     }
     

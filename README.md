@@ -157,7 +157,6 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] File created on source only
 - [✅] File created on destination only
 - [✅] File created on both sides with identical content
-- [✅] File created on both sides with different content (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
 - [✅] File deleted on source only
 - [✅] File deleted on destination only
 - [✅] File deleted on both sides
@@ -165,7 +164,6 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 ## 2. File Modification
 - [✅] File modified on source only
 - [✅] File modified on destination only
-- [❗] File modified differently on both sides (conflict) (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
 
 ## 3. File Renaming and Moving
 - [✅] File renamed on source only
@@ -190,7 +188,8 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [❗] Circular rename (A→B, B→A across sides)  (This use-case is not yet supported, and difficult to detect)
 
 ## 6. Conflict Scenarios
-- [❗] Same file modified on both sides without sync (currently, the client-side wins over and overwrites the server side. I plan to make this a configurable option in the future)
+- [✅] File created on both sides with different content (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
+- [✅] File modified differently on both sides (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
 - [❗] File deleted on the server, modified on the client (currently causes data loss)
 - [❗] File deleted on the client, modified on the server (currently causes data loss)
 - [❗] File moved on the server, renamed on the client    (currently causes data loss)
