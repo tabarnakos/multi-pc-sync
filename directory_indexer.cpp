@@ -454,10 +454,29 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
         auto *localPastFile = static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
         if (localPastFile != nullptr)
         {
-            // We have a past version of the file, but no current version
-            // This is a file deleting case
-            // Remove it from the remote
-            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);     //TODO: Confirm if isRemote is inverted here
+            // We have a past version of the file, but no current version on the local side
+            // Check if the remote file was modified compared to the past version
+            if (remoteFile.hash() != localPastFile->hash())
+            {
+                // The file was modified on the remote side, so it should be preserved
+                // Fetch the modified version to the local side
+                auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
+                if (fileList.empty())
+                {
+                    syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
+                }
+                else
+                {
+                    syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
+                }
+                copyTo(nullptr, &remoteFile, localFilePath, FILE);
+            }
+            else
+            {
+                // The file wasn't modified, this is a genuine deletion case
+                // Remove it from the remote
+                syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);
+            }
         }
         else
         {
@@ -553,12 +572,36 @@ void DirectoryIndexer::postProcessSyncCommands(SyncCommands &syncCommands, Direc
             else
                 type = FILE;
 
-            if (!removePath(nullptr, it->path1(), type))
+            // Extract the clean path without quotes
+            std::string cleanPath = it->path1();
+            if (cleanPath.front() == '"' && cleanPath.back() == '"')
             {
-                if (!remote->removePath(nullptr, it->path1(), type))
-                {
-                    std::cout << termcolor::yellow << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES. Ignore if you moved the file." << termcolor::reset << "\r\n";
-                }
+                cleanPath = cleanPath.substr(1, cleanPath.length() - 2);
+            }
+            
+            // Check if the path exists in local or remote index before trying to remove
+            void* localPath = extract(nullptr, cleanPath, type);
+            void* remotePath = remote->extract(nullptr, cleanPath, type);
+            
+            if (localPath != nullptr && remotePath != nullptr)
+            {
+                // File exists in both indexes, remove from both
+                removePath(nullptr, cleanPath, type);
+                remote->removePath(nullptr, cleanPath, type);
+            }
+            else if (localPath != nullptr)
+            {
+                // File exists only in local index, remove from local
+                removePath(nullptr, cleanPath, type);
+            }
+            else if (remotePath != nullptr)
+            {
+                // File exists only in remote index, remove from remote
+                remote->removePath(nullptr, cleanPath, type);
+            }
+            else
+            {
+                std::cout << termcolor::yellow << "ERROR: PATH " << it->path1() << " NOT FOUND IN EITHER INDEXES. Ignore if you moved the file." << termcolor::reset << "\r\n";
             }
         }
     }
