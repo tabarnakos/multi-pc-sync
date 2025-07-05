@@ -34,9 +34,9 @@ set_scenario_29_name() { scenario_name="Re-sync: File moved on the client, renam
 set_scenario_30_name() { scenario_name="Re-sync: Filename case changes"; }
 set_scenario_31_name() { scenario_name="Very large file (10GB)"; }
 set_scenario_32_name() { scenario_name="File with 0 bytes"; }
-set_scenario_33_name() { scenario_name="Custom scenario 33"; }
-set_scenario_34_name() { scenario_name="Custom scenario 34"; }
-set_scenario_35_name() { scenario_name="Custom scenario 35"; }
+set_scenario_33_name() { scenario_name="File with special characters in the name"; }
+set_scenario_34_name() { scenario_name="Long path names"; }
+set_scenario_35_name() { scenario_name="Long file names"; }
 
 # This scenario is for building a large and complex file system for testing, not yet supported
 set_scenario_99_name() { scenario_name="Large and complex file system"; }
@@ -467,17 +467,23 @@ scenario_25() {
     set_scenario_25_name # Re-sync: Circular rename (A→B, B→A across sides).
     create_file "$SERVER_ROOT" "./fileA.txt" 1
     create_file "$SERVER_ROOT" "./fileB.txt" 1
-    create_file "$CLIENT_ROOT" "./fileA.txt" 1
-    create_file "$CLIENT_ROOT" "./fileB.txt" 1
     echo "Running initial sync to ensure both sides have fileA.txt and fileB.txt."
     $SERVER_CMD_LINE &
     wait_for_server_start
     $CLIENT_CMD_LINE &
     wait
+
+    if [ "$VERBOSE" == "1" ]; then
+        echo "FileA FILE HASH IS $(hash_file "$SERVER_ROOT" "./fileA.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+    if [ "$VERBOSE" == "1" ]; then
+        echo "FileB FILE HASH IS $(hash_file "$CLIENT_ROOT" "./fileB.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+
     echo "Renaming fileA.txt to fileB.txt on server (should overwrite/replace)."
-    move_path "$SERVER_ROOT" "./fileA.txt" "./fileB.txt"
-    echo "Renaming fileB.txt to fileA.txt on client (should overwrite/replace)."
-    move_path "$CLIENT_ROOT" "./fileB.txt" "./fileA.txt"
+
+    mv "$SERVER_ROOT/fileA.txt" "$SERVER_ROOT/fileB.txt"
+    mv "$CLIENT_ROOT/fileB.txt" "$CLIENT_ROOT/fileA.txt"
 }
 
 scenario_26() {
@@ -515,6 +521,7 @@ scenario_28() {
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file28 on server, renaming on client..."
+    create_folder "$SERVER_ROOT" "./folder_move"
     move_path "$SERVER_ROOT" "./file28.txt" "./folder_move/file28.txt"
     move_path "$CLIENT_ROOT" "./file28.txt" "./file28_renamed.txt"
     EXPECTED_FILES="$EXPECTED_FILES ./file28_renamed.txt"
@@ -529,6 +536,7 @@ scenario_29() {
     $CLIENT_CMD_LINE &
     wait
     echo "Moving file29 on client, renaming on server..."
+    create_folder "$CLIENT_ROOT" "./folder_move"
     move_path "$CLIENT_ROOT" "./file29.txt" "./folder_move/file29.txt"
     move_path "$SERVER_ROOT" "./file29.txt" "./file29_renamed.txt"
     EXPECTED_FILES="$EXPECTED_FILES ./file29_renamed.txt"
@@ -560,22 +568,186 @@ scenario_32() {
     echo "Running sync for 0-byte file..."
 }
 
+# Helper function to create a file with a path of exact specified length using nested folders
+create_long_path() {
+    local base_path="$1"  # SERVER_ROOT or CLIENT_ROOT
+    local target_length="$2"
+
+    if [ -z "$target_length" ] || [ -z "$base_path" ]; then
+        echo "Error: create_long_path requires base_path and target_length arguments"
+        return 1
+    fi
+    
+    local root_path_length=${#base_path}
+    local filename="file.txt"
+    local filename_length=${#filename}
+    
+    # We need to create: ${base_path}/target_length/folder2/.../foldern/file.txt = target_length
+    # Available length for folder structure: target_length - root_path_length - 1 (/) - filename_length
+    local available_length=$((target_length - root_path_length - 1 - filename_length))
+    
+    if [ $available_length -le 0 ]; then
+        echo "Error: Target path length ($target_length) is too short for base path ($root_path_length chars) and filename '$filename'"
+        return 1
+    fi
+    
+    # First folder is named with the target length for easy analysis
+    local first_folder="$target_length"
+    local first_folder_length=${#first_folder}
+    
+    # Build nested folder structure starting with the target length folder
+    local folder_path="/${first_folder}"
+    local remaining_length=$((available_length - first_folder_length - 1))  # -1 for the slash
+    local folder_num=2
+    
+    while [ $remaining_length -gt 0 ]; do
+        # Use longer folder names (up to 100 chars) to reduce nesting levels
+        local max_folder_length=100
+        local base_name="folder_${folder_num}_"
+        local base_length=${#base_name}
+        
+        # Calculate how much padding we can add (up to max_folder_length total)
+        local max_padding=$((max_folder_length - base_length))
+        local available_for_folder=$((remaining_length - 1))  # -1 for the slash
+        
+        if [ $available_for_folder -le 0 ]; then
+            break
+        fi
+        
+        # Use the smaller of: available space or max folder length
+        local folder_content_length=$available_for_folder
+        if [ $folder_content_length -gt $max_folder_length ]; then
+            folder_content_length=$max_folder_length
+        fi
+        
+        # Calculate padding needed
+        local padding_length=$((folder_content_length - base_length))
+        if [ $padding_length -lt 0 ]; then
+            padding_length=0
+        fi
+        
+        # Generate folder name with padding
+        local padding=""
+        if [ $padding_length -gt 0 ]; then
+            padding=$(printf "%.${padding_length}s" "$(yes 'x' | head -n ${padding_length} | tr -d '\n')")
+        fi
+        
+        local folder_name="${base_name}${padding}"
+        local actual_folder_length=${#folder_name}
+        
+        folder_path="${folder_path}/${folder_name}"
+        remaining_length=$((remaining_length - actual_folder_length - 1))  # -1 for the slash
+        folder_num=$((folder_num + 1))
+        
+        # Safety check to prevent infinite loop
+        if [ $actual_folder_length -eq 0 ]; then
+            break
+        fi
+    done
+    
+    # Calculate actual final path length for verification
+    local final_path="${base_path}${folder_path}/${filename}"
+    local actual_length=${#final_path}
+    
+    if [ $actual_length -ne $target_length ]; then
+        echo "Warning: Actual length ($actual_length) differs from target ($target_length)"
+    fi
+    
+    # Create the nested folder structure step by step to properly track in EXPECTED_FILES
+    local current_path=""
+    IFS='/' read -ra folders <<< "${folder_path#/}"  # Remove leading slash and split
+    for folder in "${folders[@]}"; do
+        current_path="${current_path}/${folder}"
+        local rel_current_path=".${current_path}"
+        create_folder "$base_path" "$rel_current_path"
+    done
+    
+    # Create the file
+    local rel_folder_path=".${folder_path}"
+    create_file "$base_path" "${rel_folder_path}/${filename}" 1
+    
+    return 0
+}
+
+# Helper function to create a file with a filename of exact specified length
+create_long_filename() {
+    local base_path="$1"  # SERVER_ROOT or CLIENT_ROOT
+    local target_length="$2"
+
+    if [ -z "$target_length" ] || [ -z "$base_path" ]; then
+        echo "Error: create_long_filename requires base_path and target_length arguments"
+        return 1
+    fi
+    
+    # Create filename: ${target_length}_<padding>.txt
+    local prefix="${target_length}_"
+    local suffix=".txt"
+    local prefix_length=${#prefix}
+    local suffix_length=${#suffix}
+    
+    # Calculate padding needed
+    local padding_length=$((target_length - prefix_length - suffix_length))
+    
+    if [ $padding_length -lt 0 ]; then
+        echo "Error: Target filename length ($target_length) is too short for prefix '$prefix' and suffix '$suffix'"
+        return 1
+    fi
+    
+    # Generate padding
+    local padding=""
+    if [ $padding_length -gt 0 ]; then
+        padding=$(printf "%.${padding_length}s" "$(yes 'a' | head -n ${padding_length} | tr -d '\n')")
+    fi
+    
+    local filename="${prefix}${padding}${suffix}"
+    local actual_length=${#filename}
+    
+    if [ $actual_length -ne $target_length ]; then
+        echo "Warning: Actual filename length ($actual_length) differs from target ($target_length)"
+    fi
+    
+    # Create the file in the root directory
+    create_file "$base_path" "./${filename}" 1
+    
+    return 0
+}
+
 scenario_33() {
-    set_scenario_33_name # Custom scenario 33
-    echo "This is a placeholder for scenario 33."
-    # Add logic for scenario 33 here
+    set_scenario_33_name # File with special characters in the name
+    echo "Creating a file with special characters in the name on server..."
+    create_file "$SERVER_ROOT" "./file_with_special_#@!\"%❤.txt" 1
+    echo "Running sync for file with special characters in the name..."
 }
 
 scenario_34() {
-    set_scenario_34_name # Custom scenario 34
-    echo "This is a placeholder for scenario 34."
-    # Add logic for scenario 34 here
+    set_scenario_34_name # Long path names
+    echo "Creating files with long path names on server..."
+
+    local lengths=(127 128 255 256 511 512 1023 1024 2047 2048 4095)
+
+    for length in "${lengths[@]}"; do
+        echo "Creating path with length $length"
+        create_long_path "$SERVER_ROOT" "$length"
+    done
+    
+    echo "Running sync for long path names..."
 }
 
 scenario_35() {
-    set_scenario_35_name # Custom scenario 35
-    echo "This is a placeholder for scenario 35."
-    # Add logic for scenario 35 here
+    set_scenario_35_name # Long file names
+    echo "Creating files with long file names on server..."
+
+    # Test common filename length limits and powers of 2
+    # 255 is the typical filesystem filename limit
+    # Also test some powers of 2 around that limit
+    local lengths=(127 128 254 255)
+    
+    for length in "${lengths[@]}"; do
+        echo "Creating filename with length $length"
+        create_long_filename "$SERVER_ROOT" "$length"
+    done
+    
+    echo "Running sync for long file names..."
 }
 
 scenario_99() {

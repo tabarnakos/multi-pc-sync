@@ -185,15 +185,15 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] Multiple operations on same file - modify then rename
 - [✅] Operations on files within renamed directories
 - [✅] Operations on files within moved directories
-- [❗] Circular rename (A→B, B→A across sides)  (This use-case is not yet supported, and difficult to detect)
+- [✅] Circular rename (A→B, B→A across sides)  
 
 ## 6. Conflict Scenarios
 - [✅] File created on both sides with different content (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
 - [✅] File modified differently on both sides (in case of conflict, original files are renamed and the file location is replaced by a symlink that points to your own copy of the file)
-- [❗] File deleted on the server, modified on the client (currently causes data loss)
-- [❗] File deleted on the client, modified on the server (currently causes data loss)
-- [❗] File moved on the server, renamed on the client    (currently causes data loss)
-- [❗] File moved on the client, renamed on the server    (currently causes data loss)
+- [✅] File deleted on the server, modified on the client
+- [✅] File deleted on the client, modified on the server
+- [✅] File moved on the server, renamed on the client    (currently causes data loss)
+- [✅] File moved on the client, renamed on the server    (currently causes data loss)
 
 ## 7. Permissions and Metadata (if applicable)
 - [ ] Permissions changed on one side
@@ -201,13 +201,13 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [ ] Ownership or extended attributes changed
 
 ## 8. Edge Cases
-- [ ] File with special characters in the name
+- [✅] File with special characters in the name
 - [✅] Very large file (10GB)
 - [✅] File with 0 bytes
 - [✅] Filename case changes (case sensitivity issues)
-- [ ] Long path names
+- [✅] Long path names (4095 characters is the limit set by Ubuntu 24.04 used in test)
+- [✅] Long file names (255 characters is the limit for the EXT4 filesystem used in test)
 - [ ] Files with identical hashes but different content
-- [ ] Clock skew between source and destination
 
 ## 9. Repeatability and Idempotency
 - [✅] Running sync twice with no changes (should be a no-op)

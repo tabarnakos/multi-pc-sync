@@ -280,7 +280,7 @@ create_file() {
     local exp="$2"     # expected path to add or empty string to skip
     local size_mb="$3" # file size in megabytes; 0 for empty file
 
-    local fullpath="$root/$relpath"
+    local fullpath="$root/${relpath#./}"
     # ensure directory exists
     mkdir -p "$(dirname "$fullpath")"
 
@@ -303,7 +303,7 @@ create_folder() {
     local relpath="$2" # relative path inside root
     local exp="$2"     # expected path to add or empty string to skip
 
-    local fullpath="$root/$relpath"
+    local fullpath="$root/${relpath#./}"
     # ensure directory exists
     mkdir -p "$fullpath"
 
