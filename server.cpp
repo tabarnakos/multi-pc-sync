@@ -16,7 +16,9 @@
 // Project Includes
 #include "network_thread.h"
 #include "tcp_command.h"
-#include <termcolor/termcolor.hpp>
+
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
 
 // Section 2: Defines and Macros
 #define ALLOCATION_SIZE  (1024 * 1024)  // 1MiB

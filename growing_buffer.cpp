@@ -12,7 +12,9 @@
 #include <ostream>
 #include <print>
 #include <vector>
-#include <termcolor/termcolor.hpp>
+
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
 
 // Section 3: Defines and Macros
 constexpr int DUMP_PREVIEW_BYTES = 8;

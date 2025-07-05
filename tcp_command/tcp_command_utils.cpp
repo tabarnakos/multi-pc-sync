@@ -20,12 +20,14 @@
 #include <string>
 #include <thread>
 
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
+
 // System Includes
 #include <sys/socket.h>
 
 // Project Includes
 #include "human_readable.h"
-#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 constexpr float MICROSECONDS_PER_SECOND = 1000000.0F;

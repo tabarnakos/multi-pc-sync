@@ -11,6 +11,9 @@
 #include <iostream>
 #include <thread>
 
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
+
 // System Includes
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -21,7 +24,6 @@
 #include "network_thread.h"
 #include "program_options.h"
 #include "tcp_command.h"
-#include <termcolor/termcolor.hpp>
 
 // Section 2: Main Function
 constexpr int SLEEP_DURATION_MS = 10;

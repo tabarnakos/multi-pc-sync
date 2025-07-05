@@ -20,12 +20,14 @@
 #include <iostream>
 #include <string>
 
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
+
 // System Includes
 #include <sys/socket.h>
 
 // Project Includes
 #include "human_readable.h"
-#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms

@@ -8,7 +8,9 @@
 #include <iostream>
 #include <map>
 #include <string>
-#include <termcolor/termcolor.hpp>
+
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
 
 // Section 3: Defines and Macros
 // (none)

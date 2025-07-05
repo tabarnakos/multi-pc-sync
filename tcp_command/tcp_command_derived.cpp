@@ -20,10 +20,12 @@
 // System Includes
 #include <sys/socket.h>
 
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
+
 // Project Includes
 #include "directory_indexer.h"
 #include "sync_command.h"
-#include <termcolor/termcolor.hpp>
 
 // Section 3: Defines and Macros
 #if defined(DEBUG) || defined(_DEBUG)

@@ -12,7 +12,9 @@
 #include <list>
 #include <string>
 #include <unistd.h>
-#include <termcolor/termcolor.hpp>
+
+// Third-Party Includes
+#include "termcolor/termcolor.hpp"
 
 // Section 3: Defines and Macros
 
