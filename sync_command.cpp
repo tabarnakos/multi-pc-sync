@@ -32,9 +32,10 @@ SyncCommand::SyncCommand(std::string cmd, std::string srcPath, std::string destP
 // (none)
 
 // Section 7: Public/Protected/Private Methods
-void SyncCommand::stripQuotes(std::string &path) {
+std::string & SyncCommand::stripQuotes(std::string &path) {
     if (!path.empty() && path.front() == '"') path = path.substr(1);
     if (!path.empty() && path.back() == '"') path = path.substr(0, path.length() - 1);
+    return path;
 }
 
 TcpCommand* SyncCommand::createTcpCommand() {
@@ -213,8 +214,8 @@ bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
 bool SyncCommand::isFileMove() const { return mCmd == "mv"; }
 bool SyncCommand::isCopy() const { return mCmd == "cp" || mCmd == "push" || mCmd == "fetch"; }
 bool SyncCommand::isSymlink() const { return mCmd == "symlink"; }
-std::string SyncCommand::path1() const { return mSrcPath; }
-std::string SyncCommand::path2() const { return mDestPath; }
+std::string & SyncCommand::path1() { return mSrcPath; }
+std::string & SyncCommand::path2() { return mDestPath; }
 
 int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) {
     std::ofstream file(path);

@@ -483,6 +483,18 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
         for (auto &command : syncCommands)
         {
             command.execute(args,false);
+
+            if (!command.isRemote() && command.isRemoval())
+            {
+                // If the command is a removal, we need to remove it from the local indexer
+                // This is necessary to keep the local indexer in sync with the remote indexer
+                std::cout << termcolor::cyan << "Removing path from local index: " << command.path1() << "\r\n" << termcolor::reset;
+
+                DirectoryIndexer::PATH_TYPE pathType = std::filesystem::is_directory(SyncCommand::stripQuotes(command.path1())) ? DirectoryIndexer::PATH_TYPE::FOLDER : DirectoryIndexer::PATH_TYPE::FILE;
+
+                localIndexer.removePath(nullptr, SyncCommand::stripQuotes(command.path1()), pathType);
+            }
+
         }
     }
 
@@ -500,7 +512,8 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
 
     // Finally, re-index the local directory to ensure it is up-to-date
     std::cout << termcolor::cyan << "Re-indexing local directory after sync" << "\r\n" << termcolor::reset;
-    localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+    //localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+    localIndexer.dumpIndexToFile({});
 
     // Send SYNC_COMPLETE command to server to indicate client is done
     GrowingBuffer commandbuf;

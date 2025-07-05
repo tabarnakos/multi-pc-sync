@@ -133,6 +133,15 @@ public:
      */
     void setPath(const std::string &path);
 
+    /**
+     * Removes a file/folder from the index
+     * @param folderIndex Folder index to remove from
+     * @param path Path of the file to remove
+     * @param type Type of path (FILE or FOLDER)
+     * @return true if removed successfully, false otherwise
+     */
+    bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
+
 protected:
     // (none)
 
@@ -148,7 +157,6 @@ private:
     static std::list<std::string> __extractPathComponents(const std::filesystem::path &filepath,
                                                          bool verbose = false);
     void *extract(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
-    bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
     void copyTo(com::fileindexer::Folder *folderIndex, ::google::protobuf::Message *element,
                 const std::string &path, PATH_TYPE type);
 	static FILE_TIME_COMP_RESULT compareFileTime(const std::string& timeA, const std::string& timeB);

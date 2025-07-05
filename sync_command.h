@@ -85,13 +85,20 @@ public:
      * Gets the first path (usually source)
      * @return First path string
      */
-    [[nodiscard]] std::string path1() const;
+    [[nodiscard]] std::string & path1();
 
     /**
      * Gets the second path (usually destination)
      * @return Second path string
      */
-    [[nodiscard]] std::string path2() const;
+    [[nodiscard]] std::string & path2();
+    
+    /**
+     * Removes quotes from path string
+     * @param path Path string to process
+     * @return Reference to the modified path string
+     */
+    static std::string & stripQuotes(std::string &path);
 
 private:
     std::string mCmd;      ///< Command type
@@ -111,12 +118,6 @@ private:
      * @return Pointer to created TCP command
      */
     TcpCommand* createTcpCommand();
-
-    /**
-     * Removes quotes from path string
-     * @param path Path string to process
-     */
-    static void stripQuotes(std::string &path);
 };
 
 class SyncCommands : public std::list<SyncCommand> {
