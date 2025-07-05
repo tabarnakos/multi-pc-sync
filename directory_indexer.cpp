@@ -5,6 +5,7 @@
 #include "file.pb.h"
 #include "folder.pb.h"
 #include "md5_wrapper.h"
+#include "program_options.h"
 #include "sync_command.h"
 #include <cstdio>
 #include <filesystem>
@@ -303,62 +304,108 @@ size_t DirectoryIndexer::count( com::fileindexer::Folder *folderIndex, int recur
     return result;
 }
 
-void DirectoryIndexer::sync( com::fileindexer::Folder * folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer* remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote )
+void DirectoryIndexer::sync( com::fileindexer::Folder * remoteTopFolder, DirectoryIndexer *localPastIndex, 
+                             DirectoryIndexer *remoteIndex, DirectoryIndexer* remotePastIndex, 
+                             SyncCommands &syncCommands, const std::map<std::string,std::string> &options, 
+                             bool verbose, bool isRemote )
 {
-    if (remote == nullptr)
+    if (remoteIndex == nullptr)
         return;
 
-    const bool topLevel = folderIndex == nullptr;
-    const bool forcePull = (past == nullptr);
-    const DirectoryIndexer *local = this;
+    const bool topLevel = remoteTopFolder == nullptr;
+    const bool forcePull = (localPastIndex == nullptr);
+    DirectoryIndexer *localIndex = this;
 
     if (topLevel)
-        folderIndex = &remote->mFolderIndex;
+        remoteTopFolder = &remoteIndex->mFolderIndex;
 
-    syncFolders(folderIndex, past, remote, remotePast, syncCommands, verbose, isRemote, local, forcePull);
-    syncFiles(folderIndex, past, remote, remotePast, syncCommands, verbose, isRemote, local, forcePull);
+    syncFolders(remoteTopFolder, localIndex, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote, forcePull);
+    syncFiles(remoteTopFolder, localIndex, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote, forcePull);
 
     if (topLevel)
     {
         if (verbose)
             std::cout << "\r\n" << "Exporting sync commands from local to remote" << "\r\n";
         
-        remote->sync(&mFolderIndex, remotePast, this, past, syncCommands, verbose, true);
+        remoteIndex->sync(&mFolderIndex, remotePastIndex, this, localPastIndex, syncCommands, options, verbose, true);
         
-        postProcessSyncCommands(syncCommands, remote);
+        postProcessSyncCommands(syncCommands, remoteIndex);
     }
 }
 
-void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+void DirectoryIndexer::syncFolders(com::fileindexer::Folder *remoteTopFolder, DirectoryIndexer *localIndex, 
+                                    DirectoryIndexer *localPastIndex, DirectoryIndexer *remoteIndex, 
+                                    DirectoryIndexer *remotePastIndex, SyncCommands &syncCommands, 
+                                    const std::map<std::string,std::string> &options, bool verbose, 
+                                    bool isRemote, bool forcePull)
 {
-    for (auto &remoteFolder : *folderIndex->mutable_folders())
+    for (auto &remoteFolder : *remoteTopFolder->mutable_folders())
     {
         auto remoteFolderPath = remoteFolder.name();
-        auto localFolderPath = local->mDir.path().string() + "/" + remoteFolderPath.substr(remote->mDir.path().string().length() + 1);
+        auto localFolderPath = localIndex->mDir.path().string() + "/" + remoteFolderPath.substr(remoteIndex->mDir.path().string().length() + 1);
         if (verbose)
             std::cout << "Entering " << remoteFolderPath << "\r\n";
 
-        if (nullptr != extract(nullptr, localFolderPath, FOLDER))
+        const bool hasLocalCurrentVersion = (localIndex->extract(nullptr, localFolderPath, FOLDER) != nullptr);
+        //const bool hasRemoteCurrentVersion = true; // remoteFolderPath is always valid here
+
+        if (hasLocalCurrentVersion)
         {
             if (verbose)
                 std::cout << "folder exists! " << localFolderPath << "\r\n";
-            sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
+            /* folder exists, simply recurse into it */
+            sync(&remoteFolder, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote);
         }
-        else
+        else // !hasLocalCurrentVersion
         {
             if (verbose)
                 std::cout << "folder missing! " << localFolderPath << "\r\n";
 
-            if (forcePull || (past->extract(nullptr, localFolderPath, FOLDER) == nullptr))
+            /* folder is missing locally, but present on the remote */
+            /* let's verify if we have a past version of it */
+            const bool hasLocalPastVersion = (localPastIndex != nullptr && localPastIndex->extract(nullptr, localFolderPath, FOLDER) != nullptr);
+            const bool hasRemotePastVersion = (remotePastIndex != nullptr && remotePastIndex->extract(nullptr, remoteFolderPath, FOLDER) != nullptr);
+
+            if (forcePull || (hasLocalPastVersion && hasRemotePastVersion))
             {
+                // the folder existed in the last sync, but has been moved or deleted on one side, no conflict here just delete it
+                if (verbose)
+                    std::cout << "folder has been moved or deleted " << (isRemote ? "on the server" : "on the client") << " but exists " << (isRemote ? "on the client" : "on the server") << ": " << localFolderPath << "\r\n";
+
+                sync(&remoteFolder, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote);
+                syncCommands.emplace_back("rmdir", remoteFolderPath, "", !isRemote);
+            }
+            else if (!hasLocalPastVersion && !hasRemotePastVersion)
+            {
+                // the folder has been created on the one side only, no conflict here just create it
+                if (verbose)
+                    std::cout << "folder has never existed before! " << localFolderPath << "\r\n";
+
                 syncCommands.emplace_back("mkdir", localFolderPath, "", isRemote);
                 copyTo(nullptr, &remoteFolder, localFolderPath, FOLDER);
-                sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
+                sync(&remoteFolder, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote);
             }
-            else
+            else if (hasLocalPastVersion && !hasRemotePastVersion)
             {
-                sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
-                syncCommands.emplace_back("rmdir", remoteFolderPath, "", !isRemote);
+                // the path existed in the past locally, but not on the other side.
+                // now it exists on the other side, but not locally.
+                // bring the folder back
+                if (verbose)
+                    std::cout << "folder has been deleted " << (isRemote ? "on the server" : "on the client") << " but exists " << (isRemote ? "on the client" : "on the server") << ": " << localFolderPath << "\r\n";
+                syncCommands.emplace_back("mkdir", localFolderPath, "", isRemote);
+                copyTo(nullptr, &remoteFolder, localFolderPath, FOLDER);
+                sync(&remoteFolder, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote);
+            }
+            else if (!hasLocalPastVersion && hasRemotePastVersion)
+            {
+                // the path existed in the past on the other side, but not locally.
+                // now it exists locally, but not on the other side.
+                // bring the folder back
+                if (verbose)
+                    std::cout << "folder has been deleted " << (isRemote ? "on the client" : "on the server") << " but exists " << (isRemote ? "on the server" : "on the client") << ": " << localFolderPath << "\r\n";
+                syncCommands.emplace_back("mkdir", localFolderPath, "", isRemote);
+                copyTo(nullptr, &remoteFolder, localFolderPath, FOLDER);
+                sync(&remoteFolder, localPastIndex, remoteIndex, remotePastIndex, syncCommands, options, verbose, isRemote);
             }
         }
     }
@@ -437,16 +484,209 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
     }
 }
 
-void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull)
+void DirectoryIndexer::syncFiles( com::fileindexer::Folder *remoteTopFolder, DirectoryIndexer *localIndex, 
+                                  DirectoryIndexer *localPastIndex, DirectoryIndexer *remoteIndex, 
+                                  DirectoryIndexer *remotePastIndex, SyncCommands &syncCommands, 
+                                  const std::map<std::string,std::string> &options, bool verbose, 
+                                  bool isRemote, bool forcePull)
 {
-    for (auto &remoteFile : *folderIndex->mutable_files())
+    for (auto &remoteFile : *remoteTopFolder->mutable_files())
     {
         auto remoteFilePath = remoteFile.name();
-        auto localFilePath = local->mDir.path().string() + "/" + remoteFilePath.substr(remote->mDir.path().string().length() + 1);
+        auto localFilePath = localIndex->mDir.path().string() + "/" + remoteFilePath.substr(remoteIndex->mDir.path().string().length() + 1);
         if (verbose)
             std::cout << "checking " << remoteFilePath << "\r\n";
 
-        auto *localFile = static_cast<com::fileindexer::File *>(extract(nullptr, localFilePath, FILE));
+        // Check if the local file exists in the same location first
+        auto *localFile = static_cast<com::fileindexer::File *>(extractFile(remoteTopFolder, localFilePath));
+        if (localFile == nullptr)
+        {
+            // If not found, check if it exists in the local index
+            localFile = static_cast<com::fileindexer::File *>(localIndex->extract(nullptr, localFilePath, FILE));
+        }
+        const bool localFileExists = (localFile != nullptr);
+
+        // check if it exists in the past indexes
+        const bool localPastFileExists = (localPastIndex != nullptr && localPastIndex->extract(nullptr, localFilePath, FILE) != nullptr);
+        const bool remotePastFileExists = (remotePastIndex != nullptr && remotePastIndex->extract(nullptr, remoteFilePath, FILE) != nullptr);
+
+        
+        if ( localFileExists && !localPastFileExists && !remotePastFileExists )
+        {
+            // The file exists in the current local index and remote indexes, but not in the past indexes
+            // This is a dual creation conflict case, need to handle it with care
+            if (verbose)
+                std::cout << "new file exists on both sides, but not in the past: " << localFilePath << "\r\n";
+            
+            // we will handle it according to the options
+            const bool overwrite = (options.at("conflict_file_creation_behavior") == std::to_string(ProgramOptions::BEHAVIOR_OVERWRITE));
+            const bool rename = (options.at("conflict_file_creation_behavior") == std::to_string(ProgramOptions::BEHAVIOR_RENAME));
+            
+            enum : std::uint8_t {
+                PUSH,
+                RENAME_AND_PUSH,
+                FETCH,
+                RENAME_AND_FETCH,
+                NONE
+            } conflictResolution = NONE;
+
+            bool localFileIsWinner = false;
+            //determine newest file
+            FILE_TIME_COMP_RESULT compResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
+            if ( options.at("conflict_file_creation_priority") == std::to_string(ProgramOptions::PRIORITY_CLIENT))
+            {
+                if (overwrite)
+                {
+                    conflictResolution = !isRemote ? PUSH : FETCH;
+                    localFileIsWinner = !isRemote;
+                }
+                else if (rename)
+                {
+                    conflictResolution = !isRemote ? RENAME_AND_PUSH : RENAME_AND_FETCH;
+                    localFileIsWinner = !isRemote;
+                }
+            }
+            else if ( options.at("conflict_file_creation_priority") == std::to_string(ProgramOptions::PRIORITY_SERVER))
+            {
+                if (overwrite)
+                {
+                    conflictResolution = isRemote ? PUSH : FETCH;
+                    localFileIsWinner = isRemote;
+                }
+                else if (rename)
+                {
+                    conflictResolution = isRemote ? RENAME_AND_PUSH : RENAME_AND_FETCH;
+                    localFileIsWinner = isRemote;
+                }
+            }
+            else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
+            {
+                std::cout << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << "\r\n";
+            }
+            else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
+            {
+                //TODO: Handle case where both files have the same modified time
+                //Verify the hashes to make sure they are different, otherwise no conflict
+                if (remoteFile.hash() != localFile->hash())
+                {
+                    if (verbose)
+                        std::cout << "files have the same modified time, but different hashes: " << localFilePath << "\r\n";
+                    
+                    if (overwrite)
+                    {
+                        conflictResolution = PUSH;
+                    }
+                    else if (rename)
+                    {
+                        conflictResolution = RENAME_AND_PUSH;
+                    }
+                }
+            }
+            else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
+            {
+                // remote file is younger
+                if (verbose)
+                    std::cout << "remote file is younger, remote file is winner: " << localFilePath << "\r\n";
+                if (overwrite)
+                {
+                    conflictResolution = isRemote ? PUSH : FETCH;
+                    localFileIsWinner = isRemote;
+                }
+                else if (rename)
+                {
+                    conflictResolution = isRemote ? RENAME_AND_PUSH : RENAME_AND_FETCH;
+                    localFileIsWinner = isRemote;
+                }
+
+                //invert the localFileIsWinner if the priority is set to OLDEST
+                localFileIsWinner ^= static_cast<int>(options.at("conflict_file_creation_priority") == std::to_string(ProgramOptions::PRIORITY_OLDEST));
+            }
+            else
+            {
+                // local file is younger
+                if (verbose)
+                    std::cout << "local file is younger, local file is winner: " << localFilePath << "\r\n";
+                if (overwrite)
+                {
+                    conflictResolution = !isRemote ? FETCH : PUSH;
+                    localFileIsWinner = !isRemote;
+                }
+                else if (rename)
+                {
+                    conflictResolution = !isRemote ? RENAME_AND_FETCH : RENAME_AND_PUSH;
+                    localFileIsWinner = !isRemote;
+                }
+                
+                //invert the localFileIsWinner if the priority is set to OLDEST
+                localFileIsWinner ^= static_cast<int>(options.at("conflict_file_creation_priority") == std::to_string(ProgramOptions::PRIORITY_OLDEST));
+            }
+            
+            
+            auto *winnerFile = localFileIsWinner ? localFile : &remoteFile;
+            auto *loserFile = localFileIsWinner ? &remoteFile : localFile;
+            auto winnerFilePath = localFileIsWinner ? localFilePath : remoteFilePath;
+            auto loserFilePath = localFileIsWinner ? remoteFilePath : localFilePath;
+
+            if (conflictResolution == PUSH)
+            {
+                if (verbose)
+                    std::cout << "pushing local file: " << localFilePath << "\r\n";
+                syncCommands.emplace_back("push", winnerFilePath, loserFilePath, !isRemote);
+                copyTo(nullptr, winnerFile, loserFilePath, FILE);
+            }
+            else if (conflictResolution == RENAME_AND_PUSH)
+            {
+                if (verbose)
+                    std::cout << "renaming and pushing local file: " << localFilePath << "\r\n";
+
+                // Rename the loser file to avoid conflict
+                std::string loserNewName = loserFilePath + ".conflict";
+                std::string winnerNewName = winnerFilePath + ".conflict";
+                syncCommands.emplace_back("mv", loserFilePath, loserNewName, !localFileIsWinner);
+                syncCommands.emplace_back("push", winnerFilePath, loserFilePath, !isRemote);
+                syncCommands.emplace_back("fetch", loserNewName, winnerNewName, !isRemote);
+                copyTo(nullptr, winnerFile, loserFilePath, FILE);
+                copyTo(nullptr, loserFile, winnerNewName, FILE);
+            }
+            else if (conflictResolution == FETCH)
+            {
+                if (verbose)
+                    std::cout << "fetching remote file: " << remoteFilePath << "\r\n";
+                syncCommands.emplace_back("fetch", winnerFilePath, loserFilePath, !isRemote);
+                copyTo(nullptr, winnerFile, loserFilePath, FILE);
+            }
+            else if (conflictResolution == RENAME_AND_FETCH)
+            {
+                if (verbose)
+                    std::cout << "renaming and fetching remote file: " << remoteFilePath << "\r\n";
+                // Rename the loser file to avoid conflict
+                std::string loserNewName = loserFilePath + ".conflict";
+                std::string winnerNewName = winnerFilePath + ".conflict";
+                syncCommands.emplace_back("mv", loserFilePath, loserNewName, !localFileIsWinner);
+                syncCommands.emplace_back("fetch", winnerFilePath, loserFilePath, !isRemote);
+                syncCommands.emplace_back("push", loserNewName, winnerNewName, !isRemote);
+                copyTo(nullptr, winnerFile, loserFilePath, FILE);
+                copyTo(nullptr, loserFile, winnerNewName, FILE);
+            }
+            
+        }
+        else if (forcePull && !localFileExists)
+        {
+            // The file is missing locally, but we want to force pull it
+            if (verbose)
+                std::cout << "file missing, force pull: " << localFilePath << "\r\n";
+            syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
+            copyTo(nullptr, &remoteFile, localFilePath, FILE);
+        }
+        else
+
+
+
+
+
+
+
+
         if (localFile != nullptr)
         {
             if (verbose)
@@ -457,7 +697,7 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
         {
             if (verbose)
                 std::cout << "file missing! " << localFilePath << "\r\n";
-            handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, syncCommands, isRemote, forcePull, verbose);
+            handleFileMissing(remoteFile, remoteFilePath, localFilePath, localPastIndex, syncCommands, isRemote, forcePull, verbose);
         }
     }
 }

@@ -37,6 +37,12 @@ void ClientThread::runclient(context &ctx)
     options["port"] = std::to_string(ctx.opts.port);
     options["auto_sync"] = ctx.opts.auto_sync ? "true" : "false";
     options["dry_run"] = ctx.opts.dry_run ? "true" : "false";
+    options["conflict_file_creation_priority"] = std::to_string(ctx.opts.conflict_file_creation_priority);
+    options["conflict_file_creation_behavior"] = std::to_string(ctx.opts.conflict_file_creation_behavior);
+    options["conflict_file_modification_priority"] = std::to_string(ctx.opts.conflict_file_modification_priority);
+    options["conflict_file_modification_behavior"] = std::to_string(ctx.opts.conflict_file_modification_behavior);
+    options["conflict_deleted_modified"] = std::to_string(ctx.opts.conflict_deleted_modified);
+    options["conflict_double_move"] = std::to_string(ctx.opts.conflict_double_move);
     
     const int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     options["txsocket"] = std::to_string(serverSocket);
@@ -45,7 +51,7 @@ void ClientThread::runclient(context &ctx)
                                         .sin_port = htons(ctx.opts.port),
                                         .sin_addr = { .s_addr = inet_addr(ctx.opts.ip.c_str()) },
                                         .sin_zero = {0} };
-    const sockaddr* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
+    const auto* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
 
     if (connect(serverSocket, serverSocketAddr, sizeof(serverAddress)) < 0)
     {
@@ -136,7 +142,7 @@ int ClientThread::requestIndexFromServer(const std::map<std::string, std::string
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
 
     TcpCommand *command = TcpCommand::create(commandbuf);
-    if (!command)
+    if (command == nullptr)
         return -1;
 
     // Transmit the command

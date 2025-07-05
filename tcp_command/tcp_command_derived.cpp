@@ -293,7 +293,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     std::cout << "Exporting Sync commands." << "\r\n";
 
     SyncCommands syncCommands;
-    localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, true, false);
+    localIndexer.sync(nullptr, lastRunIndexer, &remoteIndexer, lastRunRemoteIndexer, syncCommands, args, true, false);
 
     if (syncCommands.empty())
     {

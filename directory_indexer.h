@@ -102,8 +102,10 @@ public:
      * @param verbose Whether to print verbose output
      * @param isRemote Whether syncing remote to local
      */
-    void sync(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote,
-              DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote);
+    void sync( com::fileindexer::Folder * remoteTopFolder, DirectoryIndexer *localPastIndex, 
+               DirectoryIndexer *remoteIndex, DirectoryIndexer* remotePastIndex, 
+               SyncCommands &syncCommands, const std::map<std::string,std::string> &options, 
+               bool verbose, bool isRemote );
 
     /**
      * Counts entries in the index
@@ -155,8 +157,12 @@ private:
     void addNewEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, std::filesystem::file_type type);
     void updateFileEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found);
     void updateFolderEntry(const std::filesystem::directory_entry& file, com::fileindexer::File& protobufFile, bool verbose, bool& found);
-    void syncFolders(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull);
-    void syncFiles(com::fileindexer::Folder *folderIndex, DirectoryIndexer *past, DirectoryIndexer *remote, DirectoryIndexer *remotePast, SyncCommands &syncCommands, bool verbose, bool isRemote, const DirectoryIndexer *local, bool forcePull);
+    void syncFolders(com::fileindexer::Folder *remoteTopFolder, DirectoryIndexer *localIndex, DirectoryIndexer *localPastIndex, DirectoryIndexer *remoteIndex, DirectoryIndexer *remotePastIndex, SyncCommands &syncCommands, const std::map<std::string,std::string> &options, bool verbose, bool isRemote, bool forcePull);
+    void syncFiles( com::fileindexer::Folder *remoteTopFolder, DirectoryIndexer *localIndex, 
+                                  DirectoryIndexer *localPastIndex, DirectoryIndexer *remoteIndex, 
+                                  DirectoryIndexer *remotePastIndex, SyncCommands &syncCommands, 
+                                  const std::map<std::string,std::string> &options, bool verbose, 
+                                  bool isRemote, bool forcePull);
     void postProcessSyncCommands(SyncCommands &syncCommands, DirectoryIndexer *remote);
     void handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, SyncCommands &syncCommands, bool isRemote, bool forcePull, bool verbose);
     static void handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote);
