@@ -686,7 +686,7 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     // Re-index the local directory after sync completion
     std::cout << termcolor::cyan << "Re-indexing local directory after sync completion" << "\r\n" << termcolor::reset;
     DirectoryIndexer localIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
-    localIndexer.indexonprotobuf(false);
+    localIndexer.indexonprotobuf(false);    //TODO: this is a hack, the real solution is to update the local indexer with the local changes
 
     std::cout << termcolor::green << "Sync complete for " << args.at("path") << "\r\n" << termcolor::reset;
     // Check if we should exit after sync (for unit testing)

@@ -86,11 +86,19 @@ public:
     void printIndex(com::fileindexer::Folder *folderIndex = nullptr, int recursionlevel = 0);
 
     /**
-     * Indexes the directory structure into protobuf format
+     * Indexes the directory structure into protobuf format and dumps to file
      * @param verbose Whether to print verbose output
      * @return 0 on success, negative on error
      */
     int indexonprotobuf(bool verbose = false);
+
+
+    /**
+     * Dumps the index to file
+     * @param path Name of the file to dump the index to
+     * @return 0 on success, negative on error
+     */
+    int dumpIndexToFile(const std::optional<std::filesystem::path> &path);
 
     /**
      * Synchronizes directory contents with a remote directory

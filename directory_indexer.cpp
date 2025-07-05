@@ -187,15 +187,26 @@ int DirectoryIndexer::indexonprotobuf( bool verbose )
 
     /* output to file */
     if ( mUpdateIndexFile && mTopLevel )
-    {
-        std::filesystem::path indexpath = mDir.path();
-        indexpath /= ".folderindex";
+        return dumpIndexToFile({});    //default path is .folderindex in the directory being indexed
 
-        mIndexfile.open( indexpath, std::ios::out );
-        mFolderIndex.SerializeToOstream( &mIndexfile );
-        mIndexfile.close();
+    return 0;
+}
+
+int DirectoryIndexer::dumpIndexToFile(const std::optional<std::filesystem::path> &path) {
+    
+    auto indexPath = path ? *path : (mDir.path() / ".folderindex");
+    if (std::filesystem::exists(indexPath))
+        std::filesystem::remove(indexPath);
+
+    std::ofstream outFile( indexPath, std::ios::out );
+    if (!outFile) {
+        std::cout << termcolor::red << "Failed to open index file for writing: " << indexPath << termcolor::reset << "\r\n";
+        std::cerr << "Error: " << strerror(errno) << "\r\n";
+        outFile.close();
+        return -1;
     }
-
+    mFolderIndex.SerializeToOstream(&outFile);
+    outFile.close();
     return 0;
 }
 
