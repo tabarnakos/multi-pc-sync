@@ -246,16 +246,17 @@ protected:
 
 /* Derived Command Classes */
 class IndexFolderCmd : public TcpCommand {
+    friend class TcpCommand; // Allow TcpCommand to access private members
 public:
     IndexFolderCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~IndexFolderCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class IndexPayloadCmd : public TcpCommand {
 public:
     IndexPayloadCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~IndexPayloadCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class MkdirCmd : public TcpCommand {
 public:
@@ -265,7 +266,7 @@ public:
 
     MkdirCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~MkdirCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class RmCmd : public TcpCommand {
 public:
@@ -275,7 +276,7 @@ public:
 
     RmCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RmCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class FileFetchCmd : public TcpCommand {
 public:
@@ -285,7 +286,7 @@ public:
 
     FileFetchCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~FileFetchCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class FilePushCmd : public TcpCommand {
 public:
@@ -295,7 +296,7 @@ public:
 
     FilePushCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~FilePushCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class RemoteLocalCopyCmd : public TcpCommand {
 public:
@@ -308,7 +309,7 @@ public:
 
     RemoteLocalCopyCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RemoteLocalCopyCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 
 class MessageCmd : public TcpCommand {
@@ -339,7 +340,7 @@ public:
      * @param args Map containing "ip" for the sender's IP address and "txsocket" for the socket
      * @return 0 on success, negative value on error
      */
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 
     /**
      * Static helper to send a message over a socket
@@ -357,20 +358,20 @@ public:
 
     RmdirCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RmdirCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 
 class SyncCompleteCmd : public TcpCommand {
 public:
     SyncCompleteCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~SyncCompleteCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 class SyncDoneCmd : public TcpCommand {
 public:
     SyncDoneCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~SyncDoneCmd() override;
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 // New derived command classes
 class RemoteSymlinkCmd : public TcpCommand {
@@ -384,7 +385,7 @@ public:
 
     RemoteSymlinkCmd(GrowingBuffer& data) : TcpCommand(data) {}
     virtual ~RemoteSymlinkCmd() override {}
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 
 class RemoteMoveCmd : public TcpCommand {
@@ -398,7 +399,7 @@ public:
 
     RemoteMoveCmd(GrowingBuffer& data) : TcpCommand(data) {}
     virtual ~RemoteMoveCmd() override {}
-    virtual int execute(const std::map<std::string, std::string>& args) override;
+    int execute(const std::map<std::string, std::string>& args) override;
 };
 
 #endif  //_TCP_COMMAND_H_
