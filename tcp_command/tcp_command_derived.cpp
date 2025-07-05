@@ -479,7 +479,7 @@ int IndexPayloadCmd::execute(std::map<std::string, std::string> &args)
     }
 
     // Execute commands if not dry_run mode
-    if ((answer.starts_with('y') || answer.starts_with('Y')) && (!dry_run && auto_sync))
+    if ((answer.starts_with('y') || answer.starts_with('Y')) && (!dry_run || auto_sync))
     {
         for (auto &command : syncCommands)
         {
