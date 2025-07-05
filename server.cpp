@@ -41,7 +41,7 @@ void ServerThread::runserver(context &ctx)
                                         .sin_port = htons(ctx.opts.port),
                                         .sin_addr = { .s_addr = INADDR_ANY },
                                         .sin_zero = {0} };
-    const sockaddr* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
+    const auto* serverSocketAddr = reinterpret_cast<const sockaddr*>(&serverAddress);
 
     int yes = 1;
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
@@ -69,7 +69,7 @@ void ServerThread::runserver(context &ctx)
         std::cout << termcolor::green << "Waiting for incoming connections on port " << ctx.opts.port << "\r\n" << termcolor::reset;
 
         sockaddr_in clientAddress;
-        sockaddr* clientSocketAddr = reinterpret_cast<sockaddr*>(&clientAddress);
+        auto* clientSocketAddr = reinterpret_cast<sockaddr*>(&clientAddress);
         socklen_t clientAddressLen = sizeof(clientAddress);
         int clientSocket = accept(serverSocket, clientSocketAddr, &clientAddressLen);
         if (clientSocket < 0)
