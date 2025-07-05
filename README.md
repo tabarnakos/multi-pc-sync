@@ -2,6 +2,190 @@
 
 Multi-pc-sync is a file synchronization utility that is optimized to be used over a high-latency link, such as the internet. The single binary has 2 modes: server and client. The drastic speed benefit of this application over rsync, is that the remote folder is never traversed, which creates a long series of short blocking messages to list the directories. No, instead the remote folder file attributes, including MD5 Sum, are fully indexed and serialized using protocol buffers. Since hash computation is CPU-intensive, the index from a previous run of the sync is loaded first and only new files are hashed.
 
+## Installation Instructions
+
+### Prerequisites
+
+Multi-pc-sync requires the following dependencies:
+
+- **C++ Compiler**: Supporting C++23 standard (GCC 12+ or Clang 15+)
+- **Protocol Buffers**: Version 29.2 or newer
+- **CMake**: Version 3.22 or newer
+- **Ninja Build System**: For faster compilation
+- **Git**: For cloning the repository and managing submodules
+
+### Step 1: Verify Current Versions
+
+Check if you already have the required tools installed:
+
+```bash
+# Check C++ compiler version
+g++ --version
+# or
+clang++ --version
+
+# Check Protocol Buffers version
+protoc --version
+
+# Check CMake version
+cmake --version
+
+# Check Ninja build system
+ninja --version
+
+# Check Git version
+git --version
+```
+
+### Step 2: Install Prerequisites
+
+#### On Ubuntu/Debian:
+
+```bash
+# Update package list
+sudo apt update
+
+# Install essential build tools and C++23 capable compiler
+sudo apt install build-essential gcc-12 g++-12
+
+# Install Protocol Buffers
+sudo apt install protobuf-compiler libprotobuf-dev
+
+# Install CMake and Ninja
+sudo apt install cmake ninja-build
+
+# Install Git
+sudo apt install git
+
+# Set GCC 12 as default (if multiple versions installed)
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 60
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 60
+```
+
+#### On Red Hat/CentOS/Fedora:
+
+```bash
+# Install development tools
+sudo dnf groupinstall "Development Tools"
+sudo dnf install gcc-c++
+
+# Install Protocol Buffers
+sudo dnf install protobuf-compiler protobuf-devel
+
+# Install CMake and Ninja
+sudo dnf install cmake ninja-build
+
+# Install Git
+sudo dnf install git
+```
+
+#### On macOS:
+
+```bash
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install prerequisites
+brew install gcc protobuf cmake ninja git
+
+# Ensure you're using a modern GCC
+export CC=gcc-13
+export CXX=g++-13
+```
+
+### Step 3: Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/tabarnakos/multi-pc-sync.git
+cd multi-pc-sync
+
+# Initialize and update git submodules (for termcolor dependency)
+git submodule update --init --recursive
+```
+
+### Step 4: Compilation
+
+```bash
+# Create and enter build directory
+mkdir build
+cd build
+
+# Configure the project with CMake
+cmake -G Ninja ..
+
+# Build the project
+ninja
+
+# Alternative: Build with make (if Ninja is not available)
+# cmake ..
+# make -j$(nproc)
+```
+
+The compiled binary will be located at `build/multi_pc_sync`.
+
+### Step 5: Running the Program
+
+#### Test the Installation
+
+```bash
+# From the build directory, test the help output
+./multi_pc_sync --help
+```
+
+#### Basic Usage Examples
+
+```bash
+# Start server on port 9000 for directory /srv/shared
+./multi_pc_sync -d 9000 /srv/shared
+
+# Connect client to synchronize local directory /home/user/docs
+./multi_pc_sync -s 192.168.1.10:9000 /home/user/docs
+```
+
+### Step 6: Installation (System-wide)
+
+To install the binary system-wide:
+
+```bash
+# From the build directory
+sudo ninja install
+
+# Alternative: Manual installation
+sudo cp multi_pc_sync /usr/local/bin/
+sudo chmod +x /usr/local/bin/multi_pc_sync
+```
+
+After installation, you can run `multi_pc_sync` from anywhere:
+
+```bash
+# Test system-wide installation
+multi_pc_sync --help
+```
+
+### Troubleshooting
+
+#### Common Issues:
+
+1. **C++23 Support**: If you get compiler errors, ensure you have GCC 12+ or Clang 15+
+2. **Protocol Buffers**: If protobuf is not found, install development headers (`libprotobuf-dev` on Ubuntu)
+3. **CMake Version**: If CMake version is too old, consider installing from the official CMake website
+4. **Missing Submodules**: If compilation fails with termcolor errors, run `git submodule update --init --recursive`
+
+#### Manual Protocol Buffers Installation (if package version is too old):
+
+```bash
+# Download and compile Protocol Buffers from source
+wget https://github.com/protocolbuffers/protobuf/releases/download/v29.2/protobuf-29.2.tar.gz
+tar -xzf protobuf-29.2.tar.gz
+cd protobuf-29.2
+mkdir build && cd build
+cmake -G Ninja ..
+ninja
+sudo ninja install
+sudo ldconfig  # Update library cache
+```
+
 ## Server mode
 
 In server mode, the application launches with a path argument and starts a server thread that processes messages received via TCP on what to do. Most commands handle file or folder copy, move, save, read, and remove, however one special command kicks off the indexing of the folder.
