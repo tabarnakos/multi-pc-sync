@@ -500,3 +500,8 @@ TcpCommand* TcpCommand::create(cmd_id_t cmd, std::map<std::string, std::string>&
 
     return command;
 }
+
+std::shared_ptr<DirectoryIndexer> TcpCommand::getLocalIndexer() {
+    auto *command = dynamic_cast<IndexFolderCmd*>(this);
+    return (command != nullptr) ? command->localIndexer : nullptr;
+}

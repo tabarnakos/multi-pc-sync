@@ -38,8 +38,8 @@ constexpr float MICROSECONDS_PER_SECOND = 1000000.0F;
 
 // Section 6: Static Methods
 
-void TcpCommand::executeInDetachedThread(TcpCommand* command, const std::map<std::string, std::string>& args) {
-    std::thread([command, args]() {
+void TcpCommand::executeInDetachedThread(TcpCommand* command, std::map<std::string, std::string>& args) {
+    std::thread([command, args]() mutable {
         command->execute(args);
         delete command;
     }).detach();

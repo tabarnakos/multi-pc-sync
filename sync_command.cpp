@@ -186,10 +186,10 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
         if (std::filesystem::exists(mDestPath)) {
             std::filesystem::remove(mDestPath);
         }
-        std::error_code ec;
-        std::filesystem::create_symlink(mSrcPath, mDestPath, ec);
-        if (ec) {
-            std::cerr << termcolor::red << "Failed to create symlink from " << mDestPath << " to " << mSrcPath << ": " << ec.message() << "\r\n" << termcolor::reset;
+        std::error_code errorCode;
+        std::filesystem::create_symlink(mSrcPath, mDestPath, errorCode);
+        if (errorCode) {
+            std::cerr << termcolor::red << "Failed to create symlink from " << mDestPath << " to " << mSrcPath << ": " << errorCode.message() << "\r\n" << termcolor::reset;
             return -1;
         }
         std::cout << termcolor::cyan << "Created symlink: " << mDestPath << " -> " << mSrcPath << "\r\n" << termcolor::reset;

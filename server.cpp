@@ -5,6 +5,7 @@
 // Section 1: Includes
 // C++ Standard Library
 #include <iostream>
+#include <memory>
 #include <string>
 #include <map>
 
@@ -16,6 +17,7 @@
 // Project Includes
 #include "network_thread.h"
 #include "tcp_command.h"
+#include "directory_indexer.h"
 
 // Third-Party Includes
 #include "termcolor/termcolor.hpp"
@@ -64,6 +66,8 @@ void ServerThread::runserver(context &ctx)
         exit(0);
     }
 
+    std::shared_ptr<DirectoryIndexer> localIndexer = nullptr;
+
     while (!ctx.quit.load())
     {
         std::cout << termcolor::green << "Waiting for incoming connections on port " << ctx.opts.port << "\r\n" << termcolor::reset;
@@ -104,6 +108,25 @@ void ServerThread::runserver(context &ctx)
             } else
             {
                 std::cout << termcolor::cyan << "Executed command: " << receivedCommand->commandName() << "\r\n" << termcolor::reset;
+
+                // Handle command-specific logic here
+                if (receivedCommand->command() == TcpCommand::CMD_ID_INDEX_FOLDER)
+                {
+                    localIndexer = receivedCommand->getLocalIndexer();
+                }
+                else if (receivedCommand->command() == TcpCommand::CMD_ID_RM_REQUEST ||
+                         receivedCommand->command() == TcpCommand::CMD_ID_RMDIR_REQUEST)
+                {
+                    //update the index
+                    // If the command is a removal, we need to remove it from the local indexer
+                    // This is necessary to keep the local indexer in sync with the remote indexer
+                    std::cout << termcolor::cyan << "Removing path from local index: " << options["removed_path"] << "\r\n" << termcolor::reset;
+
+                    DirectoryIndexer::PATH_TYPE pathType = std::filesystem::is_directory(options["removed_path"]) ? DirectoryIndexer::PATH_TYPE::FOLDER : DirectoryIndexer::PATH_TYPE::FILE;
+
+                    localIndexer->removePath(nullptr, options["removed_path"], pathType);
+                    options.erase("removed_path");
+                }
             }
             delete receivedCommand;
         }

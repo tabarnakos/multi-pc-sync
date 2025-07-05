@@ -83,7 +83,7 @@ void MessageCmd::sendMessage(const int socket, const std::string &message)
 
 // Section 7: Public/Protected/Private Methods
 
-int RemoteSymlinkCmd::execute(const std::map<std::string, std::string>& args)
+int RemoteSymlinkCmd::execute(std::map<std::string, std::string>& args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -101,17 +101,17 @@ int RemoteSymlinkCmd::execute(const std::map<std::string, std::string>& args)
     if (std::filesystem::exists(destPath)) {
         std::filesystem::remove(destPath);
     }
-    std::error_code ec;
-    std::filesystem::create_symlink(srcPath, destPath, ec);
-    if (ec) {
-        std::cerr << termcolor::red << "Failed to create symlink from " << destPath << " to " << srcPath << ": " << ec.message() << "\r\n" << termcolor::reset;
+    std::error_code errorCode;
+    std::filesystem::create_symlink(srcPath, destPath, errorCode);
+    if (errorCode) {
+        std::cerr << termcolor::red << "Failed to create symlink from " << destPath << " to " << srcPath << ": " << errorCode.message() << "\r\n" << termcolor::reset;
         return -1;
     }
     std::cout << termcolor::cyan << "Created symlink: " << destPath << " -> " << srcPath << "\r\n" << termcolor::reset;
     return 0;
 }
 
-int RemoteMoveCmd::execute(const std::map<std::string, std::string>& args)
+int RemoteMoveCmd::execute(std::map<std::string, std::string>& args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -125,17 +125,17 @@ int RemoteMoveCmd::execute(const std::map<std::string, std::string>& args)
     std::string srcPath = extractStringFromPayload(kSrcPathSizeIndex, SEEK_SET);
     std::string destPath = extractStringFromPayload(0, SEEK_CUR);
 
-    std::error_code ec;
-    std::filesystem::rename(srcPath, destPath, ec);
-    if (ec) {
-        std::cerr << termcolor::red << "Failed to move " << srcPath << " to " << destPath << ": " << ec.message() << "\r\n" << termcolor::reset;
+    std::error_code errorCode;
+    std::filesystem::rename(srcPath, destPath, errorCode);
+    if (errorCode) {
+        std::cerr << termcolor::red << "Failed to move " << srcPath << " to " << destPath << ": " << errorCode.message() << "\r\n" << termcolor::reset;
         return -1;
     }
     std::cout << termcolor::green << "Moved file: " << srcPath << " -> " << destPath << "\r\n" << termcolor::reset;
     return 0;
 }
 
-int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
+int IndexFolderCmd::execute(std::map<std::string,std::string> &args)
 {
     unblock_receive();
     const std::string indexfilename = std::filesystem::path(args.at("path")) / ".folderindex";
@@ -156,13 +156,14 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     
     /* kick off the indexing */
     std::cout << termcolor::cyan << "starting to index " << args.at("path") << "\r\n" << termcolor::reset;
-    DirectoryIndexer indexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
+    
+    localIndexer = std::make_shared<DirectoryIndexer>(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
     DirectoryIndexer *lastindexer = nullptr;
     if ( lastrunIndexPresent )
     {
         lastindexer = new DirectoryIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL_LAST_RUN);
     }
-    indexer.indexonprotobuf(false);
+    localIndexer->indexonprotobuf(false);
 
     const size_t path_length = args.at("path").length();
 
@@ -188,7 +189,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     commandbuf.write(args.at("path").data(), path_length);
     // --- Insert deletion log into commandbuf ---
     // You must implement getDeletions() in DirectoryIndexer to return a std::vector<std::string>
-    std::vector<std::string> deletions = indexer.getDeletions(lastindexer);
+    std::vector<std::string> deletions = localIndexer->getDeletions(lastindexer);
     appendDeletionLogToBuffer(commandbuf, deletions);
     // --- End insertion ---
 
@@ -260,7 +261,7 @@ int IndexFolderCmd::execute(const std::map<std::string,std::string> &args)
     return 0;
 }
 
-int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
+int IndexPayloadCmd::execute(std::map<std::string, std::string> &args)
 {
     // Keep receive mutex locked until we've received everything
     size_t payloadSize = cmdSize() - kPayloadIndex;
@@ -478,7 +479,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     }
 
     // Execute commands if not dry_run mode
-    if ((answer.starts_with('y') || answer.starts_with('Y')) && !(dry_run && !auto_sync))
+    if ((answer.starts_with('y') || answer.starts_with('Y')) && (!dry_run && auto_sync))
     {
         for (auto &command : syncCommands)
         {
@@ -537,7 +538,7 @@ int IndexPayloadCmd::execute(const std::map<std::string, std::string> &args)
     return 0;
 }
 
-int MkdirCmd::execute(const std::map<std::string,std::string> &args)
+int MkdirCmd::execute(std::map<std::string,std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), 0);
@@ -551,7 +552,7 @@ int MkdirCmd::execute(const std::map<std::string,std::string> &args)
     return std::filesystem::create_directory(path) ? 0 : -1;
 }
 
-int RmCmd::execute(const std::map<std::string,std::string> &args)
+int RmCmd::execute(std::map<std::string,std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -562,10 +563,16 @@ int RmCmd::execute(const std::map<std::string,std::string> &args)
     }
 
     std::string path = extractStringFromPayload(kPathSizeIndex);
-    return std::filesystem::exists(path) && std::filesystem::remove(path) ? 0 : -1;
+    if ( std::filesystem::exists(path) && std::filesystem::remove(path) )
+    {
+        args["removed_path"] = path;
+        // Notify the server about the removed path
+        return 0;
+    }
+    return -1;
 }
 
-int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
+int FileFetchCmd::execute(std::map<std::string,std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -597,7 +604,7 @@ int FileFetchCmd::execute(const std::map<std::string,std::string> &args)
     return 0;
 }
 
-int FilePushCmd::execute(const std::map<std::string,std::string> &args)
+int FilePushCmd::execute(std::map<std::string,std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -617,7 +624,7 @@ int FilePushCmd::execute(const std::map<std::string,std::string> &args)
     return ret;
 }
 
-int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
+int RemoteLocalCopyCmd::execute(std::map<std::string, std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -643,7 +650,7 @@ int RemoteLocalCopyCmd::execute(const std::map<std::string, std::string> &args)
     }
 }
 
-int MessageCmd::execute(const std::map<std::string, std::string> &args)
+int MessageCmd::execute(std::map<std::string, std::string> &args)
 {
     receivePayload(std::stoi(args.at("txsocket")), 0);
     unblock_receive();
@@ -662,7 +669,7 @@ int MessageCmd::execute(const std::map<std::string, std::string> &args)
     return 0;
 }
 
-int RmdirCmd::execute(const std::map<std::string,std::string> &args)
+int RmdirCmd::execute(std::map<std::string,std::string> &args)
 {
     size_t payloadSize = cmdSize() - kPayloadIndex;
     size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
@@ -673,10 +680,15 @@ int RmdirCmd::execute(const std::map<std::string,std::string> &args)
     }
 
     std::string path = extractStringFromPayload(kPathSizeIndex);
-    return std::filesystem::remove_all(path) > 0 ? 0 : -1;
+    if ( std::filesystem::remove_all(path) > 0 )
+    {
+        args["removed_path"] = path;
+        return 0;
+    }
+    return -1;
 }
 
-int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
+int SyncCompleteCmd::execute(std::map<std::string, std::string> &args)
 {
     unblock_receive();
 
@@ -699,7 +711,8 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     // Re-index the local directory after sync completion
     std::cout << termcolor::cyan << "Re-indexing local directory after sync completion" << "\r\n" << termcolor::reset;
     DirectoryIndexer localIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
-    localIndexer.indexonprotobuf(false);    //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+    //localIndexer.indexonprotobuf(false);    //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+    localIndexer.dumpIndexToFile({});
 
     std::cout << termcolor::green << "Sync complete for " << args.at("path") << "\r\n" << termcolor::reset;
     // Check if we should exit after sync (for unit testing)
@@ -710,7 +723,7 @@ int SyncCompleteCmd::execute(const std::map<std::string, std::string> &args)
     return 1;
 }
 
-int SyncDoneCmd::execute(const std::map<std::string, std::string> &args)
+int SyncDoneCmd::execute(std::map<std::string, std::string> &args)
 {
     unblock_receive();
     

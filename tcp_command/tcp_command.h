@@ -13,6 +13,7 @@
 // C++ Standard Library
 #include <chrono>
 #include <map>
+#include <memory>
 #include <string>
 #include <semaphore>
 
@@ -21,6 +22,10 @@
 
 /* Section 3: Defines and Macros */
 #define INDEX_AFTER(prevIdx,prevIdxSiz)    ((prevIdx)+(prevIdxSiz))
+
+
+//forward declarations
+class DirectoryIndexer;
 
 /* Section 4: Classes */
 class TcpCommand {
@@ -100,7 +105,7 @@ public:
      * @param command The command to execute
      * @param args Map of arguments for command execution
      */
-    static void executeInDetachedThread(TcpCommand* command, const std::map<std::string, std::string>& args);
+    static void executeInDetachedThread(TcpCommand* command, std::map<std::string, std::string>& args);
 
     /**
      * Sets the rate limit for transmissions
@@ -218,7 +223,13 @@ public:
      * @param args Map of arguments for command execution
      * @return 0 on success, negative value on error, 1 for completion signals
      */
-    virtual int execute(const std::map<std::string, std::string>& args) = 0;
+    virtual int execute(std::map<std::string, std::string>& args) = 0;
+
+    /**
+     * Gets the local directory indexer instance
+     * @return A shared pointer to the local DirectoryIndexer
+     */
+    std::shared_ptr<DirectoryIndexer> getLocalIndexer();
 
 protected:
     static std::binary_semaphore TCPSendSemaphore;
@@ -250,13 +261,15 @@ class IndexFolderCmd : public TcpCommand {
 public:
     IndexFolderCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~IndexFolderCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
+private:
+    std::shared_ptr<DirectoryIndexer> localIndexer;
 };
 class IndexPayloadCmd : public TcpCommand {
 public:
     IndexPayloadCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~IndexPayloadCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class MkdirCmd : public TcpCommand {
 public:
@@ -266,7 +279,7 @@ public:
 
     MkdirCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~MkdirCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class RmCmd : public TcpCommand {
 public:
@@ -276,7 +289,7 @@ public:
 
     RmCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RmCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class FileFetchCmd : public TcpCommand {
 public:
@@ -286,7 +299,7 @@ public:
 
     FileFetchCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~FileFetchCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class FilePushCmd : public TcpCommand {
 public:
@@ -296,7 +309,7 @@ public:
 
     FilePushCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~FilePushCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class RemoteLocalCopyCmd : public TcpCommand {
 public:
@@ -309,7 +322,7 @@ public:
 
     RemoteLocalCopyCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RemoteLocalCopyCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 
 class MessageCmd : public TcpCommand {
@@ -340,7 +353,7 @@ public:
      * @param args Map containing "ip" for the sender's IP address and "txsocket" for the socket
      * @return 0 on success, negative value on error
      */
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 
     /**
      * Static helper to send a message over a socket
@@ -358,20 +371,20 @@ public:
 
     RmdirCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~RmdirCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 
 class SyncCompleteCmd : public TcpCommand {
 public:
     SyncCompleteCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~SyncCompleteCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 class SyncDoneCmd : public TcpCommand {
 public:
     SyncDoneCmd(GrowingBuffer& data) :  TcpCommand(data) {}
     virtual ~SyncDoneCmd() override;
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 // New derived command classes
 class RemoteSymlinkCmd : public TcpCommand {
@@ -385,7 +398,7 @@ public:
 
     RemoteSymlinkCmd(GrowingBuffer& data) : TcpCommand(data) {}
     virtual ~RemoteSymlinkCmd() override {}
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 
 class RemoteMoveCmd : public TcpCommand {
@@ -399,7 +412,7 @@ public:
 
     RemoteMoveCmd(GrowingBuffer& data) : TcpCommand(data) {}
     virtual ~RemoteMoveCmd() override {}
-    int execute(const std::map<std::string, std::string>& args) override;
+    int execute(std::map<std::string, std::string>& args) override;
 };
 
 #endif  //_TCP_COMMAND_H_

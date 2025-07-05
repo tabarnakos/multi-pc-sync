@@ -139,7 +139,7 @@ int ClientThread::requestIndexFromServer(const std::map<std::string, std::string
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
 
     TcpCommand *command = TcpCommand::create(commandbuf);
-    if (!command)
+    if (command == nullptr)
         return -1;
 
     // Transmit the command
