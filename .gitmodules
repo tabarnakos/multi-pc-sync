@@ -1,3 +1,6 @@
 [submodule "third-party/termcolor"]
 	path = third-party/termcolor
 	url = https://github.com/ikalnytskyi/termcolor.git
+[submodule "third-party/virtual-filesystem"]
+	path = third-party/virtual-filesystem
+	url = https://github.com/tabarnakos/virtual-filesystem.git
