@@ -273,29 +273,67 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
     
-    // Now send the file contents in chunks
-    auto* buffer = new uint8_t[ALLOCATION_SIZE];
+    // Now send the file contents in chunks with optimal buffering
+    auto* buffer = new uint8_t[ALLOCATION_SIZE + MAX_TCP_PAYLOAD_SIZE]; // Extra space for buffering
     size_t total_bytes_sent = 0;
+    size_t buffer_offset = 0; // Tracks unsent data from previous read
+    size_t total_bytes_read = 0;
 
-    while (total_bytes_sent < file_size) {
-        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - total_bytes_sent);
+    while (total_bytes_read < file_size) {
+        // Calculate how much to read, accounting for buffered data
+        size_t available_space = ALLOCATION_SIZE - buffer_offset;
+        size_t bytes_to_read = std::min<size_t>(available_space, file_size - total_bytes_read);
         
-        // Read chunk from file
-        if (!file.read(reinterpret_cast<char*>(buffer), bytes_to_read)) {
-            std::cerr << termcolor::red << "Failed to read from file after " << HumanReadable(total_bytes_sent) << " bytes" << "\r\n" << termcolor::reset;
+        // Read chunk from file into buffer after any existing buffered data
+        if (!file.read(reinterpret_cast<char*>(buffer + buffer_offset), bytes_to_read)) {
+            std::cerr << termcolor::red << "Failed to read from file after " << HumanReadable(total_bytes_read) << " bytes" << "\r\n" << termcolor::reset;
             delete[] buffer;
             return -1;
         }
-
-        size_t chunk_sent = sendChunk(socket, buffer, bytes_to_read);
-        if (chunk_sent < bytes_to_read) {
-            std::cerr << termcolor::red << "Failed to send file chunk after " << HumanReadable(total_bytes_sent) << " bytes" << "\r\n" << termcolor::reset;
-            delete[] buffer;
-            return -1;
+        total_bytes_read += bytes_to_read;
+        
+        // Total data available to send (buffered + newly read)
+        size_t total_available = buffer_offset + bytes_to_read;
+        size_t bytes_sent_from_buffer = 0;
+        
+        // Send complete MAX_TCP_PAYLOAD_SIZE packets
+        while (bytes_sent_from_buffer + MAX_TCP_PAYLOAD_SIZE <= total_available) {
+            size_t chunk_sent = sendChunk(socket, buffer + bytes_sent_from_buffer, MAX_TCP_PAYLOAD_SIZE);
+            if (chunk_sent < MAX_TCP_PAYLOAD_SIZE) {
+                std::cerr << termcolor::red << "Failed to send file chunk after " << HumanReadable(total_bytes_sent + bytes_sent_from_buffer) << " bytes" << "\r\n" << termcolor::reset;
+                delete[] buffer;
+                return -1;
+            }
+            bytes_sent_from_buffer += chunk_sent;
         }
-        total_bytes_sent += chunk_sent;
-        //std::cout << "DEBUG: Sent chunk of " << chunk_sent 
-        //          << " bytes (total sent: " << HumanReadable(total_bytes_sent) 
+        
+        // Handle remaining data
+        size_t remaining_data = total_available - bytes_sent_from_buffer;
+        
+        if (total_bytes_read >= file_size) {
+            // This is the last read - send any remaining data
+            if (remaining_data > 0) {
+                size_t chunk_sent = sendChunk(socket, buffer + bytes_sent_from_buffer, remaining_data);
+                if (chunk_sent < remaining_data) {
+                    std::cerr << termcolor::red << "Failed to send final file chunk after " << HumanReadable(total_bytes_sent + bytes_sent_from_buffer) << " bytes" << "\r\n" << termcolor::reset;
+                    delete[] buffer;
+                    return -1;
+                }
+                bytes_sent_from_buffer += chunk_sent;
+            }
+            buffer_offset = 0;
+        } else {
+            // Move remaining incomplete packet data to beginning of buffer for next iteration
+            if (remaining_data > 0) {
+                memmove(buffer, buffer + bytes_sent_from_buffer, remaining_data);
+            }
+            buffer_offset = remaining_data;
+        }
+        
+        total_bytes_sent += bytes_sent_from_buffer;
+        //std::cout << "DEBUG: Sent " << bytes_sent_from_buffer 
+        //          << " bytes, buffered " << buffer_offset << " for next iteration"
+        //          << " (total sent: " << HumanReadable(total_bytes_sent) 
         //          << "/" << HumanReadable(file_size) << ")" << "\r\n";
         // Force flush output to ensure logs appear in real-time
         std::cout << termcolor::cyan << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 

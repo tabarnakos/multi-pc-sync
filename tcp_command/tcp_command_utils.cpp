@@ -137,7 +137,8 @@ size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
     size_t chunk_sent = 0;
     const auto* buf = static_cast<const uint8_t*>(buffer);
     while (chunk_sent < len) {
-        ssize_t num = send(socket, buf + chunk_sent, len - chunk_sent, 0);
+        auto packet_bytes = std::min<size_t>(len - chunk_sent, MAX_TCP_PAYLOAD_SIZE);
+        ssize_t num = send(socket, buf + chunk_sent, packet_bytes, 0);
         if (num <= 0) {
             if (num == 0) {
                 std::cerr << termcolor::red << "Connection closed by peer after sending "
