@@ -177,6 +177,7 @@ private:
     void handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, SyncCommands &syncCommands, bool isRemote, bool forcePull, bool verbose);
     static void handleFileConflict(com::fileindexer::File* remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote);
     static void handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote);
+    static void checkPathLengthWarnings(const std::string& path, const std::string& operation);
 
 
     std::filesystem::directory_entry mDir;

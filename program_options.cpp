@@ -144,70 +144,6 @@ ProgramOptions ProgramOptions::parseArgs(int argc, char *argv[])
     return opts;
 }
 
-// Helper methods for parseConfigFile to reduce complexity
-ProgramOptions::ConflictPriority ProgramOptions::parseConflictPriority(const std::string& value, const std::string& option_name) {
-    if (value == "client") {
-        return PRIORITY_CLIENT;
-    }
-    
-    if (value == "server") {
-        return PRIORITY_SERVER;
-    }
-    
-    if (value == "newest") {
-        return PRIORITY_NEWEST;
-    }
-    
-    if (value == "oldest") {
-        return PRIORITY_OLDEST;
-    }
-    
-    std::cerr << termcolor::red << "Invalid value '" << value << "' for " << option_name << "\r\n" << termcolor::reset;
-    return PRIORITY_CLIENT; // Default to client
-}
-
-ProgramOptions::ConflictBehavior ProgramOptions::parseConflictBehavior(const std::string& value, const std::string& option_name) {
-    if (value == "overwrite") {
-        return BEHAVIOR_OVERWRITE;
-    }
-    
-    if (value == "rename") {
-        return BEHAVIOR_RENAME;
-    }
-    
-    std::cerr << termcolor::red << "Invalid value '" << value << "' for " << option_name << "\r\n" << termcolor::reset;
-    return BEHAVIOR_OVERWRITE; // Default to overwrite
-}
-
-ProgramOptions::DeletedModifiedBehavior ProgramOptions::parseDeletedModifiedBehavior(const std::string& value) {
-    if (value == "delete") {
-        return DELETED_MODIFIED_DELETE;
-    }
-    
-    if (value == "keep") {
-        return DELETED_MODIFIED_KEEP;
-    }
-    
-    std::cerr << termcolor::red << "Invalid value '" << value << "' for CONFLICT_ON_DELETED_AND_MODIFIED\r\n" << termcolor::reset;
-    return DELETED_MODIFIED_DELETE; // Default to delete
-}
-
-ProgramOptions::DoubleMoveStrategy ProgramOptions::parseDoubleMoveStrategy(const std::string& value) {
-    if (value == "keep") {
-        return DOUBLE_MOVE_KEEP_BOTH;
-    }
-    
-    if (value == "client") {
-        return DOUBLE_MOVE_CLIENT;
-    }
-    
-    if (value == "server") {
-        return DOUBLE_MOVE_SERVER;
-    }
-    
-    std::cerr << termcolor::red << "Invalid value '" << value << "' for CONFLICT_ON_DOUBLE_MOVE\r\n" << termcolor::reset;
-    return DOUBLE_MOVE_KEEP_BOTH; // Default to keep both
-}
 
 std::pair<std::string, std::string> ProgramOptions::parseConfigLine(const std::string& line) {
     // Find key-value delimiter
@@ -252,23 +188,8 @@ void ProgramOptions::parseConfigFile() {
         }
         
         // Parse the values based on keys
-        if (key == "CONFLICT_ON_FILE_CREATION_PRIORITY") {
-            conflict_file_creation_priority = parseConflictPriority(value, key);
-        } 
-        else if (key == "CONFLICT_ON_FILE_CREATION_BEHAVIOR") {
-            conflict_file_creation_behavior = parseConflictBehavior(value, key);
-        }
-        else if (key == "CONFLICT_ON_FILE_MODIFICATION_PRIORITY") {
-            conflict_file_modification_priority = parseConflictPriority(value, key);
-        }
-        else if (key == "CONFLICT_ON_FILE_MODIFICATION_BEHAVIOR") {
-            conflict_file_modification_behavior = parseConflictBehavior(value, key);
-        }
-        else if (key == "CONFLICT_ON_DELETED_AND_MODIFIED") {
-            conflict_deleted_modified = parseDeletedModifiedBehavior(value);
-        }
-        else if (key == "CONFLICT_ON_DOUBLE_MOVE") {
-            conflict_double_move = parseDoubleMoveStrategy(value);
+        if (key == "MAX_FILE_SIZE_BYTES") {
+            max_file_size_bytes = std::stoull(value);
         }
         // Add other config options here as needed
     }

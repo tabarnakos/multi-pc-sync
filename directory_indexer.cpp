@@ -6,6 +6,7 @@
 #include "folder.pb.h"
 #include "md5_wrapper.h"
 #include "sync_command.h"
+#include "tcp_command.h"
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
@@ -294,6 +295,24 @@ void DirectoryIndexer::indexpath(const std::filesystem::path &path, bool verbose
     protobufFile.set_type((::com::fileindexer::File_FileType)type);
     protobufFile.set_modifiedtime(std::format("{0:%F}_{0:%R}.{0:%S}", filetime));
 
+    // Check for path and filename length warnings
+    std::string fullPath = file.path().string();
+    std::string filename = file.path().filename().string();
+    
+    if (fullPath.length() > TcpCommand::MAX_PATH_WARNING_LENGTH) {
+        std::cout << termcolor::yellow << "Warning: Path length (" << termcolor::magenta << fullPath.length() 
+                  << termcolor::yellow << " characters) exceeds recommended limit (" << termcolor::magenta
+                  << TcpCommand::MAX_PATH_WARNING_LENGTH << termcolor::yellow << " characters): " << fullPath 
+                  << termcolor::reset << "\r\n";
+    }
+    
+    if (filename.length() > TcpCommand::MAX_FILENAME_WARNING_LENGTH) {
+        std::cout << termcolor::yellow << "Warning: Filename length (" << termcolor::magenta << filename.length() 
+                  << termcolor::yellow << " characters) exceeds recommended limit (" << termcolor::magenta 
+                  << TcpCommand::MAX_FILENAME_WARNING_LENGTH << termcolor::yellow << " characters): " << filename 
+                  << termcolor::reset << "\r\n";
+    }
+
     bool found = false;
     if (type != std::filesystem::file_type::directory) {
         updateFileEntry(file, protobufFile, verbose, found);
@@ -365,6 +384,7 @@ void DirectoryIndexer::syncFolders(com::fileindexer::Folder *folderIndex, Direct
 
             if (forcePull || (past->extract(nullptr, localFolderPath, FOLDER) == nullptr))
             {
+                checkPathLengthWarnings(localFolderPath, "mkdir");
                 syncCommands.emplace_back("mkdir", localFolderPath, "", isRemote);
                 copyTo(nullptr, &remoteFolder, localFolderPath, FOLDER);
                 sync(&remoteFolder, past, remote, remotePast, syncCommands, verbose, isRemote);
@@ -402,12 +422,14 @@ void DirectoryIndexer::handleFileConflict(com::fileindexer::File* remoteFile, co
     std::cout << "  Server modified time: " << remoteFile->modifiedtime() << "\r\n" << termcolor::reset;
     
     // Step 1: Send copy of file to the other computer
-    syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath,
-                                isRemote ? localClientFilename : localServerFilename, isRemote);
+    const std::string targetFilename = isRemote ? localClientFilename : localServerFilename;
+    checkPathLengthWarnings(targetFilename, "conflict resolution fetch/push");
+    syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, targetFilename, isRemote);
     
     // Step 2: Rename both original files to include their origin identifier
-    syncCommands.emplace_back("mv", localFilePath, 
-                              isRemote ? localServerFilename : localClientFilename, isRemote);
+    const std::string renameTarget = isRemote ? localServerFilename : localClientFilename;
+    checkPathLengthWarnings(renameTarget, "conflict resolution move");
+    syncCommands.emplace_back("mv", localFilePath, renameTarget, isRemote);
 
     // Step 3: Create symlinks from the original locations to their respective local copies
     syncCommands.emplace_back("symlink", isRemote ? localServerFilename : localClientFilename, localFilePath, isRemote);
@@ -454,10 +476,12 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
         auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
         if (fileList.empty())
         {
+            checkPathLengthWarnings(localFilePath, "fetch/push missing file");
             syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
         }
         else
         {
+            checkPathLengthWarnings(localFilePath, "copy missing file");
             syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
         }
         copyTo(nullptr, &remoteFile, localFilePath, FILE);
@@ -476,10 +500,12 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
                 auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
                 if (fileList.empty())
                 {
+                    checkPathLengthWarnings(localFilePath, "fetch/push modified file");
                     syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
                 }
                 else
                 {
+                    checkPathLengthWarnings(localFilePath, "copy modified file");
                     syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
                 }
                 copyTo(nullptr, &remoteFile, localFilePath, FILE);
@@ -496,10 +522,12 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
             auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
             if (fileList.empty())
             {
+                checkPathLengthWarnings(localFilePath, "fetch/push new file");
                 syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
             }
             else
             {
+                checkPathLengthWarnings(localFilePath, "copy new file");
                 syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
             }
             copyTo(nullptr, &remoteFile, localFilePath, FILE);
@@ -936,6 +964,24 @@ DirectoryIndexer::FILE_TIME_COMP_RESULT DirectoryIndexer::compareFileTime(const 
             return FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER;
     }
     return FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL;
+}
+
+void DirectoryIndexer::checkPathLengthWarnings(const std::string& path, const std::string& operation) {
+    std::string filename = std::filesystem::path(path).filename().string();
+    
+    if (path.length() > TcpCommand::MAX_PATH_WARNING_LENGTH) {
+        std::cout << termcolor::yellow << "Warning: " << operation << " path length (" << termcolor::magenta 
+                  << path.length() << termcolor::yellow << " characters) exceeds recommended limit (" 
+                  << termcolor::magenta << TcpCommand::MAX_PATH_WARNING_LENGTH << termcolor::yellow 
+                  << " characters): " << path << termcolor::reset << "\r\n";
+    }
+    
+    if (filename.length() > TcpCommand::MAX_FILENAME_WARNING_LENGTH) {
+        std::cout << termcolor::yellow << "Warning: " << operation << " filename length (" << termcolor::magenta 
+                  << filename.length() << termcolor::yellow << " characters) exceeds recommended limit (" 
+                  << termcolor::magenta << TcpCommand::MAX_FILENAME_WARNING_LENGTH << termcolor::yellow 
+                  << " characters): " << filename << termcolor::reset << "\r\n";
+    }
 }
 
 void DirectoryIndexer::setPath( const std::string &path ) 

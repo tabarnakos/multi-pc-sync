@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
 {
     const auto opts = ProgramOptions::parseArgs(argc, argv);
     TcpCommand::setRateLimit(opts.rate_limit);  // Set global rate limit
+    TcpCommand::setMaxFileSize(opts.max_file_size_bytes);  // Set configurable max file size
 
     if (opts.ip.empty() && opts.mode == ProgramOptions::MODE_CLIENT)
     {

@@ -285,7 +285,28 @@ create_file() {
     mkdir -p "$(dirname "$fullpath")"
 
     if [ "$size_mb" -gt 0 ]; then
-        dd if=/dev/urandom of="$fullpath" bs=${size_mb}M count=1 status=none
+        # Use the largest possible block size up to 2GB for better performance
+        local max_block_size_gb=2
+        local max_block_size_mb=$((max_block_size_gb * 1024))
+        
+        if [ "$size_mb" -le "$max_block_size_mb" ]; then
+            # File size is within 2GB limit, use the full size as block size
+            dd if=/dev/urandom of="$fullpath" bs="${size_mb}M" count=1 status=none
+        else
+            # File size exceeds 2GB, use 2GB blocks and remaining smaller block
+            local full_blocks=$((size_mb / max_block_size_mb))
+            local remainder_mb=$((size_mb % max_block_size_mb))
+            
+            # Write full 2GB blocks
+            if [ "$full_blocks" -gt 0 ]; then
+                dd if=/dev/urandom of="$fullpath" bs="${max_block_size_mb}M" count="$full_blocks" status=none
+            fi
+            
+            # Write remainder if any
+            if [ "$remainder_mb" -gt 0 ]; then
+                dd if=/dev/urandom of="$fullpath" bs="${remainder_mb}M" count=1 oflag=append conv=notrunc status=none
+            fi
+        fi
     else
         > "$fullpath"
     fi
@@ -295,6 +316,24 @@ create_file() {
         EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "$exp")
         EXPECTED_HASHES=$(add_item_to_list "$EXPECTED_HASHES" "$(hash_file "$root" "$relpath")")
     fi
+}
+# get_virtual_zero_hash <size-in-GB>
+# Calculates the MD5 hash for a file of the specified size filled with zeros
+get_virtual_zero_hash() {
+    local size_gb="$1"
+    
+    # Use known hashes for common sizes to avoid recalculation
+    case "$size_gb" in
+        1)   echo "cd573cfaace07e7949bc0c46028904ff" ;;  # 1GB of zeros
+        2)   echo "a981130cf2b7e09f4686dc273cf7187e" ;;  # 2GB of zeros
+        10)  echo "2dd26c4d4799ebd29fa31e48d49e8e53" ;;  # 10GB of zeros
+        50)  echo "e7f4706922e1edfdb43cd89eb1af606d" ;;  # 50GB of zeros
+        100) echo "25c94031714c109c0592b90fcb468232" ;; # 100GB of zeros
+        *)  echo "Calculating hash for $size_gb GB of zeros..."
+            # For other sizes, calculate on demand
+            dd if=/dev/zero bs=1G count="$size_gb" 2>/dev/null | md5sum | cut -d' ' -f1
+            ;;
+    esac
 }
 
 # create_folder <root> <relative-path> <expected-relpath-or-empty>

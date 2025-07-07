@@ -54,10 +54,19 @@ public:
     static constexpr size_t kCmdSize = sizeof(cmd_id_t);
     static constexpr size_t kPayloadIndex = INDEX_AFTER(kCmdIndex, kCmdSize);
 
-    static constexpr size_t ALLOCATION_SIZE = (1024 * 1024);  // 1MiB
-    static constexpr size_t MAX_PAYLOAD_SIZE = (64 * ALLOCATION_SIZE);  // 64MiB
-    static constexpr size_t MAX_STRING_SIZE = (256 * 1024);  // 256KiB
-    static constexpr size_t MAX_FILE_SIZE = (64ULL * 1024ULL * 1024ULL * 1024ULL);  // 64GiB
+    static constexpr size_t ALLOCATION_SIZE = 1024 * 1024;  // 1MiB
+    static constexpr size_t MAX_TCP_PAYLOAD_SIZE = (64 * 1024) - 1;  // 64KiB
+    static constexpr size_t MAX_PATH_LENGTH = 4095;  // 4095 characters, see Readme for details
+    static constexpr size_t MAX_FILENAME_LENGTH = 255;  // 255 characters, see Readme for details
+    static constexpr size_t MAX_PATH_WARNING_LENGTH = MAX_PATH_LENGTH - MAX_FILENAME_LENGTH;  // 255 characters margin
+    static constexpr size_t MAX_FILENAME_WARNING_LENGTH = MAX_FILENAME_LENGTH - 50;  // 50 characters margin
+
+    /* Static Configuration */
+    static uint64_t configurable_max_file_size; // Actual max file size from configuration
+
+    /* Static Configuration Methods */
+    static void setMaxFileSize(uint64_t max_size) { configurable_max_file_size = max_size; }
+    static uint64_t getMaxFileSize() { return configurable_max_file_size; }
 
     /* Constructors/Destructors */
     /**

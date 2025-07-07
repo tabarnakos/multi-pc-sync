@@ -511,9 +511,8 @@ int IndexPayloadCmd::execute(std::map<std::string, std::string> &args)
         lastRunRemoteIndexer = nullptr;
     }
 
-    // Finally, re-index the local directory to ensure it is up-to-date
-    std::cout << termcolor::cyan << "Re-indexing local directory after sync" << "\r\n" << termcolor::reset;
-    //localIndexer.indexonprotobuf(false);        //TODO: this is a hack, the real solution is to update the local indexer with the local changes
+    // Finally, store the local index after sync completion
+    std::cout << termcolor::cyan << "Storing local index after sync" << "\r\n" << termcolor::reset;
     localIndexer.dumpIndexToFile({});
 
     // Send SYNC_COMPLETE command to server to indicate client is done
@@ -707,12 +706,6 @@ int SyncCompleteCmd::execute(std::map<std::string, std::string> &args)
     command->transmit(args, true);
     unblock_transmit();
     delete command;
-
-    // Re-index the local directory after sync completion
-    std::cout << termcolor::cyan << "Re-indexing local directory after sync completion" << "\r\n" << termcolor::reset;
-    DirectoryIndexer localIndexer(args.at("path"), true, DirectoryIndexer::INDEX_TYPE_LOCAL);
-    //localIndexer.indexonprotobuf(false);    //TODO: this is a hack, the real solution is to update the local indexer with the local changes
-    localIndexer.dumpIndexToFile({});
 
     std::cout << termcolor::green << "Sync complete for " << args.at("path") << "\r\n" << termcolor::reset;
     // Check if we should exit after sync (for unit testing)

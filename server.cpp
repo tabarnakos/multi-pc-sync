@@ -130,6 +130,12 @@ void ServerThread::runserver(context &ctx)
             }
             delete receivedCommand;
         }
+        if (localIndexer != nullptr)
+        {
+            // Store the local index after each command execution
+            std::cout << termcolor::cyan << "Storing local index after command execution" << "\r\n" << termcolor::reset;
+            localIndexer->dumpIndexToFile({});
+        }
     }
 
     ctx.active = false;

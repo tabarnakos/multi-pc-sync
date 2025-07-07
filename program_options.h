@@ -9,7 +9,9 @@
 #include <optional>
 
 // Section 3: Defines and Macros
-// (none)
+constexpr uint64_t BYTES_PER_GB = 1ULL << 30; // 1 GiB = 1024^3 bytes
+constexpr uint64_t DEFAULT_MAX_FILE_SIZE_GB = 64ULL;
+constexpr uint64_t DEFAULT_MAX_FILE_SIZE_BYTES = (DEFAULT_MAX_FILE_SIZE_GB * BYTES_PER_GB) - 1;
 
 class ProgramOptions {
 public:
@@ -20,28 +22,6 @@ public:
     };
     
     // Config file options
-    enum ConflictPriority : std::uint8_t {
-        PRIORITY_CLIENT = 0,
-        PRIORITY_SERVER,
-        PRIORITY_NEWEST,
-        PRIORITY_OLDEST
-    };
-    
-    enum ConflictBehavior : std::uint8_t {
-        BEHAVIOR_OVERWRITE = 0,
-        BEHAVIOR_RENAME
-    };
-    
-    enum DeletedModifiedBehavior : std::uint8_t {
-        DELETED_MODIFIED_DELETE = 0,
-        DELETED_MODIFIED_KEEP
-    };
-    
-    enum DoubleMoveStrategy : std::uint8_t {
-        DOUBLE_MOVE_KEEP_BOTH = 0,
-        DOUBLE_MOVE_CLIENT,
-        DOUBLE_MOVE_SERVER
-    };
 
     // Command line options
     const std::filesystem::path path;
@@ -55,12 +35,7 @@ public:
     std::optional<std::filesystem::path> config_file; // Path to configuration file
     
     // Config file options
-    ConflictPriority conflict_file_creation_priority = PRIORITY_CLIENT;
-    ConflictBehavior conflict_file_creation_behavior = BEHAVIOR_OVERWRITE;
-    ConflictPriority conflict_file_modification_priority = PRIORITY_CLIENT;
-    ConflictBehavior conflict_file_modification_behavior = BEHAVIOR_OVERWRITE;
-    DeletedModifiedBehavior conflict_deleted_modified = DELETED_MODIFIED_DELETE;
-    DoubleMoveStrategy conflict_double_move = DOUBLE_MOVE_KEEP_BOTH;
+    uint64_t max_file_size_bytes = DEFAULT_MAX_FILE_SIZE_BYTES; // 64GiB default
 
     static ProgramOptions parseArgs(int argc, char *argv[]);
     void parseConfigFile();
@@ -69,10 +44,7 @@ private:
     ProgramOptions(int argc, char *argv[]);
     
     // Helper methods for config file parsing
-    static ConflictPriority parseConflictPriority(const std::string& value, const std::string& option_name);
-    static ConflictBehavior parseConflictBehavior(const std::string& value, const std::string& option_name);
-    static DeletedModifiedBehavior parseDeletedModifiedBehavior(const std::string& value);
-    static DoubleMoveStrategy parseDoubleMoveStrategy(const std::string& value);
+    static uint64_t parseMaxFileSize(const std::string& value);
     static std::pair<std::string, std::string> parseConfigLine(const std::string& line);
 };
 

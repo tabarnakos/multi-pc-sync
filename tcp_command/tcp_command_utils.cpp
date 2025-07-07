@@ -135,7 +135,7 @@ std::string TcpCommand::extractStringFromPayload(size_t off, int whence) {
 size_t TcpCommand::sendChunk(const int socket, const void* buffer, size_t len)
 {
     size_t chunk_sent = 0;
-    const uint8_t* buf = static_cast<const uint8_t*>(buffer);
+    const auto* buf = static_cast<const uint8_t*>(buffer);
     while (chunk_sent < len) {
         ssize_t num = send(socket, buf + chunk_sent, len - chunk_sent, 0);
         if (num <= 0) {

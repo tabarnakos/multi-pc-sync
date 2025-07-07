@@ -16,12 +16,16 @@
 // C++ Standard Library
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 
 // Third-Party Includes
 #include "termcolor/termcolor.hpp"
+
+// Project Includes
+#include "program_options.h"
 
 // System Includes
 #include <sys/socket.h>
@@ -38,6 +42,7 @@ std::binary_semaphore TcpCommand::TCPSendSemaphore{1};
 std::binary_semaphore TcpCommand::TCPReceiveSemaphore{1};
 std::chrono::steady_clock::time_point TcpCommand::lastTransmitTime = std::chrono::steady_clock::now();
 float TcpCommand::transmitRateLimit = 0.0F;
+uint64_t TcpCommand::configurable_max_file_size = DEFAULT_MAX_FILE_SIZE_BYTES; // Initialize with default value
 
 // Section 5: Constructors/Destructors
 TcpCommand::TcpCommand() = default;
@@ -230,7 +235,7 @@ int TcpCommand::transmit(const std::map<std::string, std::string>& args, bool ca
 
 int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     const std::string& path = args.at("path");
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    std::ifstream file(path, std::ios::binary);
     if (!file) {
         std::cerr << termcolor::red << "Failed to open file for reading: " << path << " - " << strerror(errno) << "\r\n" << termcolor::reset;
         return -1;
@@ -253,11 +258,10 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     }
     //std::cout << "DEBUG: File path sent: " << path << "\r\n";
     // Get the file size
-    std::streamsize file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
+    std::streamsize file_size = std::filesystem::file_size(path); //file.tellg();
     //std::cout << "DEBUG: File size is " << file_size << " bytes" << "\r\n";
-    if (file_size < 0 || file_size > MAX_FILE_SIZE) {
-        std::cerr << termcolor::red << "Invalid file size: " << file_size << " bytes" << "\r\n" << termcolor::reset;
+    if (file_size < 0 || static_cast<uint64_t>(file_size) > getMaxFileSize()) {
+        std::cerr << termcolor::red << "Invalid file size: " << file_size << " bytes (max allowed: " << getMaxFileSize() << ")" << "\r\n" << termcolor::reset;
         return -1;
     }
     // Send the file size
@@ -314,13 +318,13 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
 
     // Now receive the file data in chunks
     size_t path_size;
-    int received_bytes = ReceiveChunk(socket, &path_size, kSizeSize);
+    ssize_t received_bytes = ReceiveChunk(socket, &path_size, kSizeSize);
     if (received_bytes < kSizeSize) {
         std::cerr << termcolor::red << "Failed to receive path size" << "\r\n" << termcolor::reset;
         return -1;
     }
-    if (path_size > MAX_STRING_SIZE) {
-        std::cerr << termcolor::red << "Path size exceeds maximum allowed size: " << path_size << " > " << MAX_STRING_SIZE << "\r\n" << termcolor::reset;
+    if (path_size > MAX_PATH_LENGTH) {
+        std::cerr << termcolor::red << "Path size exceeds maximum allowed size: " << path_size << " > " << MAX_PATH_LENGTH << "\r\n" << termcolor::reset;
         return -1;
     }
     std::string received_path(path_size, '\0');
@@ -337,8 +341,8 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         std::cerr << termcolor::red << "Failed to receive file size" << "\r\n" << termcolor::reset;
         return -1;
     }
-    if (file_size > MAX_FILE_SIZE) {
-        std::cerr << termcolor::red << "File size exceeds maximum allowed size: " << file_size << " > " << MAX_FILE_SIZE << "\r\n" << termcolor::reset;
+    if (file_size > getMaxFileSize()) {
+        std::cerr << termcolor::red << "File size exceeds maximum allowed size: " << file_size << " > " << getMaxFileSize() << "\r\n" << termcolor::reset;
         return -1;
     }
     //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << "\r\n";

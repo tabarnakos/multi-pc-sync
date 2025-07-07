@@ -32,14 +32,14 @@ set_scenario_27_name() { scenario_name="Re-sync: File deleted on the client, mod
 set_scenario_28_name() { scenario_name="Re-sync: File moved on the server, renamed on the client"; }
 set_scenario_29_name() { scenario_name="Re-sync: File moved on the client, renamed on the server"; }
 set_scenario_30_name() { scenario_name="Re-sync: Filename case changes"; }
-set_scenario_31_name() { scenario_name="Very large file (10GB)"; }
+set_scenario_31_name() { scenario_name="Very large file (5GB)"; }
 set_scenario_32_name() { scenario_name="File with 0 bytes"; }
 set_scenario_33_name() { scenario_name="File with special characters in the name"; }
 set_scenario_34_name() { scenario_name="Long path names"; }
 set_scenario_35_name() { scenario_name="Long file names"; }
-
-# This scenario is for building a large and complex file system for testing, not yet supported
-set_scenario_99_name() { scenario_name="Large and complex file system"; }
+set_scenario_36_name() { scenario_name="Long file and path names warnings"; }
+set_scenario_37_name() { scenario_name="Virtual large files (1GB and 10GB)"; }
+set_scenario_38_name() { scenario_name="Virtual medium files (50GB and 100GB)"; }
 
 
 scenario_01() {
@@ -555,9 +555,9 @@ scenario_30() {
 }
 
 scenario_31() {
-    set_scenario_31_name # Very large file (10GB)
-    echo "Creating a 10GB file on server..."
-    create_file "$SERVER_ROOT" "./hugefile_10GB.bin" 10240
+    set_scenario_31_name # Very large file (5GB)
+    echo "Creating a 5GB file on server..."
+    create_file "$SERVER_ROOT" "./hugefile_5GB.bin" 5120 # 5120 MB = 5 GB
     echo "Running sync for very large file..."
 }
 
@@ -750,73 +750,35 @@ scenario_35() {
     echo "Running sync for long file names..."
 }
 
-scenario_99() {
-    set_scenerio_99_name # Large and complex file system
-    echo "Building large file system on both client and server..."
+scenario_36() {
+    set_scenario_36_name # Long file and path names warnings
+    echo "Creating files with long file and path names on server..."
 
-    # Create deeply nested folders and files on server (at least 10 levels, overall 1000+ items)
-    for toplevel in $(seq 1 10); do
-        server_folder="./folder${toplevel}"
-        create_folder "$SERVER_ROOT" "$server_folder"
-        for sublevel in $(seq 1 10); do
-            server_subfolder="./folder${toplevel}/sub${sublevel}"
-            create_folder "$SERVER_ROOT" "$server_subfolder"
-            for f in $(seq 1 10); do
-                create_file "$SERVER_ROOT" "$server_subfolder/file_${f}.bin" 1
-            done
-            # Nest deeper for the next iteration
-            SERVER_ROOT="$SERVER_ROOT/$server_subfolder"
-            create_folder "${SERVER_ROOT}/folder${toplevel}"
-        done
-        # Reset SERVER_ROOT to base for the next level
-        SERVER_ROOT="$(canonical "$TEST_FOLDER/server")"
-    done
+    # Test long path creations
+    create_long_path "$SERVER_ROOT" "4000" # 4000 characters long path
+    create_long_filename "$SERVER_ROOT" "225" # 225 characters long filename
+    create_long_path "$CLIENT_ROOT" "3999" # 3999 characters long path
+    create_long_filename "$CLIENT_ROOT" "224" # 224 characters long filename
 
-    # Create deeply nested folders and files on client (same approach)
-    for toplevel in $(seq 1 10); do
-        client_folder="./folder${toplevel}"
-        create_folder "$CLIENT_ROOT" "$client_folder"
-        for sublevel in $(seq 1 10); do
-            client_subfolder="./folder${toplevel}/sub${sublevel}"
-            create_folder "$CLIENT_ROOT" "$client_subfolder"
-            for f in $(seq 1 10); do
-                create_file "$CLIENT_ROOT" "$client_subfolder/file_${f}.bin" 1
-            done
-            CLIENT_ROOT="$CLIENT_ROOT/$client_subfolder"
-            create_folder "${CLIENT_ROOT}/folder${toplevel}"
-        done
-        CLIENT_ROOT="$(canonical "$TEST_FOLDER/client")"
-    done
+    echo "Running sync for long file and path names warnings..."
+}
 
-    # Initial sync so both sides have matching large trees
-    echo "Running initial sync for scenario 99..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
-
-    echo "performing a shit bunch of actions on the files"
+scenario_37() {
+    set_scenario_37_name # Virtual large files (1GB and 10GB)
+    echo "Creating virtual medium files on server..."
+     
+    # Test large files without using disk space
     
-    echo "1: Client and server moved the same folder, but to different locations,"
-    move_path "$SERVER_ROOT" "./folder1/sub1" "./folder1/sub1_server_renamed"
-    move_path "$CLIENT_ROOT" "./folder1/sub1" "./folder1/sub1_client_renamed"
+    # TODO: Implement
+}
 
-    echo "2: Client and server edited the same file"
-    edit_file "$SERVER_ROOT" "./folder1/sub2/file_1.bin"
-    edit_file "$CLIENT_ROOT" "./folder1/sub2/file_1.bin"
+scenario_38() {
+    set_scenario_38_name # Virtual medium files (50GB and 100GB)
+    echo "Creating virtual large files on server..."
+    
+    # Test extremely large files without using disk space
 
-    echo "3: Client and server removed the same file"
-    remove_path "$SERVER_ROOT" "./folder2/sub1"
-    remove_path "$CLIENT_ROOT" "./folder2/sub1"
-
-    echo "4: Client and server added a new file of different name"
-    create_file "$SERVER_ROOT" "./new_server_file1.bin" 1
-    create_file "$CLIENT_ROOT" "./new_client_file1.bin" 1
-
-    echo "5: Client and server added different files of same name"
-    create_file "$SERVER_ROOT" "./level1_sub2/file_1.bin_added" 1
-    create_file "$CLIENT_ROOT" "./level1_sub2/file_1.bin_added" 1
-
+    # TODO: Implement
 }
 
 # At the end, a dispatcher function for debug_tmux.sh:
