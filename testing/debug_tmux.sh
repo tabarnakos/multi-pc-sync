@@ -80,8 +80,18 @@ if ! command -v tc &> /dev/null; then
     exit 1
 fi
 
-# Trap to clean up tc rules on exit
-trap "if [ $apply_latency -gt 0 ]; then sudo tc qdisc del dev lo root netem 2>/dev/null; verbose_log 'Cleaned up tc qdisc rules.'; fi" EXIT
+# Trap to clean up tc rules and virtual filesystems on exit
+trap "
+    if [ \$apply_latency -gt 0 ]; then 
+        sudo tc qdisc del dev lo root netem 2>/dev/null
+        verbose_log 'Cleaned up tc qdisc rules.'
+    fi
+    # Clean up any mounted virtual filesystems
+    if [ -n '\$SERVER_ROOT' ] && [ -d '\$SERVER_ROOT/virtual' ] && mountpoint -q '\$SERVER_ROOT/virtual' 2>/dev/null; then
+        verbose_log 'Emergency cleanup of virtual filesystems...'
+        unmount_test_virtual_fs '\$SERVER_ROOT' '\$CLIENT_ROOT' 2>/dev/null || true
+    fi
+" EXIT
 
 if [[ -f "$SCRIPT_DIR/test_report.txt" ]]; then
     verbose_log "Removing existing test report file: $SCRIPT_DIR/test_report.txt"
@@ -161,6 +171,9 @@ for scenario in $SCENARIOS; do
         wait
     fi
 
+    echo -e "${YELLOW}--------------------------------------------------------------------------${NC}"
+    echo "Scenario $scenario - $scenario_name completed."
+
     if [ "$apply_latency" -gt 0 ]; then
         verbose_log "Removing latency from loopback interface..."
         sudo tc qdisc del dev lo root netem
@@ -177,9 +190,15 @@ for scenario in $SCENARIOS; do
         echo $(echo "$EXPECTED_HASHES" | tr ' ' '\n') >> "$SCRIPT_DIR/test_report.txt"
     fi
     echo "Comparing files in CLIENT_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
-    compare_files "$CLIENT_ROOT" >> "$SCRIPT_DIR/test_report.txt"
+    compare_files "$CLIENT_ROOT" "$SCRIPT_DIR/test_report.txt"
     echo "Comparing files in SERVER_ROOT with EXPECTED_FILES..." >> "$SCRIPT_DIR/test_report.txt"
-    compare_files "$SERVER_ROOT" >> "$SCRIPT_DIR/test_report.txt"
+    compare_files "$SERVER_ROOT" "$SCRIPT_DIR/test_report.txt"
+
+    # Clean up virtual filesystems if they were mounted for this scenario
+    if [ -d "$SERVER_ROOT/virtual" ] && mountpoint -q "$SERVER_ROOT/virtual" 2>/dev/null; then
+        verbose_log "Cleaning up virtual filesystems for scenario $scenario"
+        unmount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"
+    fi
 
     echo "========== Scenario $scenario - $scenario_name /Test Report ==========" >> "$SCRIPT_DIR/test_report.txt"
 done

@@ -1,3 +1,16 @@
+# Display results with color coding
+if [ -t 1 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[0;33m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    NC=''
+fi
+
 # Helper: remove item from list
 remove_item_from_list() {
     local item_to_remove="$2"
@@ -156,35 +169,48 @@ run_client() {
     fi
 }
 
+log_to_report() {
+    local report_file="$1"
+    local color="$2"
+    local message="$3"
+    echo -e "${color}${message}${NC}" 
+    echo "${message}" >> "$report_file"
+}
+
+
+
 compare_files() {
+    local report_file="$2"
     # List files in folder
-    files_in_directory=$(find "$1" | sed "s|$1/|./|")
+    local files_in_directory=$(find "$1" | sed "s|$1/|./|")
 
     # Combine server and client files into a single list
-    all_files=$(echo -e "$files_in_directory")
-    all_hashes=$(find "$1" -type f -exec md5sum {} + | awk '{print $1}')
-    expected_files=$(echo "$1 $EXPECTED_FILES" | tr ' ' '\n')
-    expected_hashes=$(echo "$EXPECTED_HASHES" | tr ' ' '\n')
+    local all_files=$(echo -e "$files_in_directory")
+    local num_threads=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
+    local all_hashes=$(find "$1" -type f -print0 | xargs -0 -I{} -P $num_threads md5sum {} | awk '{print $1}')
+    local expected_files=$(echo "$1 $EXPECTED_FILES" | tr ' ' '\n')
+    local expected_hashes=$(echo "$EXPECTED_HASHES" | tr ' ' '\n')
 
-    files_to_ignore="./.folderindex ./.folderindex.last_run ./.remote.folderindex ./.remote.folderindex.last_run ./sync_commands.sh"
+    local files_to_ignore="./.folderindex ./.folderindex.last_run ./.remote.folderindex ./.remote.folderindex.last_run ./sync_commands.sh"
 
-    echo "expected $(count_items_in_list "$expected_files") files, $(count_items_in_list "$expected_hashes") hashes"
+    log_to_report $report_file $NC "expected $(count_items_in_list "$expected_files") files, $(count_items_in_list "$expected_hashes") hashes"
 
     # Capture hashes of files to ignore
-    hashes_to_ignore=""
+    local hashes_to_ignore=""
     for file in $files_to_ignore; do
         if [ -f "$1/$file" ]; then
-            hash=$(md5sum "$1/$file" | awk '{print $1}')
+            local hash=$(md5sum "$1/$file" | awk '{print $1}')
             hashes_to_ignore="$hashes_to_ignore $hash"
         fi
     done
 
     # Check for missing or extra files
-    missing_files=""
-    missing_hashes=""
-    extra_files=""
-    extra_hashes=""
+    local missing_files=""
+    local missing_hashes=""
+    local extra_files=""
+    local extra_hashes=""
 
+    echo "searching for missing files..."
     for file in $expected_files; do
         if ! echo "$all_files" | grep -q "^$file$"; then
             if ! echo "$files_to_ignore" | grep -q "^$file$"; then
@@ -193,12 +219,14 @@ compare_files() {
         fi
     done
 
+    echo "searching for missing hashes..."
     for hash in $expected_hashes; do
         if ! echo "$all_hashes" | grep -q "^$hash$"; then
             missing_hashes+="$hash\n"
         fi
     done
 
+    echo "searching for extra files..."
     for file in $all_files; do
         if ! echo "$expected_files" | grep -Fxq "$file"; then
             if ! echo "$files_to_ignore" | grep -q "$file"; then
@@ -207,6 +235,7 @@ compare_files() {
         fi
     done
 
+    echo "searching for extra hashes..."
     for hash in $all_hashes; do
         if ! echo "$expected_hashes" | grep -Fxq "$hash"; then
             if ! echo "$hashes_to_ignore" | grep -q "$hash"; then
@@ -216,40 +245,32 @@ compare_files() {
     done
 
     # Display results with color coding
-    if [ -t 1 ]; then
-        RED='\033[0;31m'
-        GREEN='\033[0;32m'
-        YELLOW='\033[0;33m'
-        NC='\033[0m' # No Color
-    else
-        RED=''
-        GREEN=''
-        YELLOW=''
-        NC=''
-    fi
-
     if [ -n "$missing_files" ]; then
-        echo -e "${RED}Missing files:${NC}" && echo -e "$missing_files"
+        log_to_report $report_file $RED "Missing files:"
+        log_to_report $report_file $NC "$missing_files"
     else
-        echo -e "${GREEN}No missing files.${NC}"
+        log_to_report $report_file $GREEN "No missing files."
     fi
 
     if [ -n "$extra_files" ]; then
-        echo -e "${YELLOW}Extra files:${NC}" && echo -e "$extra_files"
+        log_to_report $report_file $YELLOW "Extra files:"
+        log_to_report $report_file $NC "$extra_files"
     else
-        echo -e "${GREEN}No extra files.${NC}"
+        log_to_report $report_file $GREEN "No extra files."
     fi
 
     if [ -n "$missing_hashes" ]; then
-        echo -e "${RED}Missing hashes:${NC}" && echo -e "$missing_hashes"
+        log_to_report $report_file $RED "Missing hashes:"
+        log_to_report $report_file $NC "$missing_hashes"
     else
-        echo -e "${GREEN}No missing hashes.${NC}"
+        log_to_report $report_file $GREEN "No missing hashes."
     fi
 
     if [ -n "$extra_hashes" ]; then
-        echo -e "${YELLOW}Extra hashes:${NC}" && echo -e "$extra_hashes"
+        log_to_report $report_file $YELLOW "Extra hashes:"
+        log_to_report $report_file $NC "$extra_hashes"
     else
-        echo -e "${GREEN}No extra hashes.${NC}"
+        log_to_report $report_file $GREEN "No extra hashes."
     fi
 }
 
@@ -317,6 +338,30 @@ create_file() {
         EXPECTED_HASHES=$(add_item_to_list "$EXPECTED_HASHES" "$(hash_file "$root" "$relpath")")
     fi
 }
+# create_virtual_file <root> <virtual_filename> <expected-relpath>
+# Creates a virtual file reference by copying from the virtual filesystem mount
+create_virtual_file() {
+    local root="$1"           # base directory (server or client root)
+    local relpath="$2"            # expected relative path (e.g., ".virtual/virtual_1gb.bin")
+    local size_gb="$3"        # size in GB (e.g., 1)
+
+    local dest_path="$root/${relpath#./}"
+
+    # Create the virtual file it doesn't exist
+    dd if=/dev/zero of="$dest_path" bs=1G count="$size_gb" status=none
+    
+    # Register in expected files and get the hash
+    if [ -n "$relpath" ]; then
+        # expected path needs to be relative to root
+
+        EXPECTED_FILES=$(add_item_to_list "$EXPECTED_FILES" "$relpath")
+        
+        local hash=$(get_virtual_zero_hash "$size_gb")
+        
+        EXPECTED_HASHES=$(add_item_to_list "$EXPECTED_HASHES" "$hash")
+    fi
+}
+
 # get_virtual_zero_hash <size-in-GB>
 # Calculates the MD5 hash for a file of the specified size filled with zeros
 get_virtual_zero_hash() {
@@ -430,4 +475,150 @@ wait_for_server_start() {
     while ! sudo ss -tlnp 2>/dev/null | grep -q ":$MULTI_PC_SYNC_PORT.*multi_pc_sync"; do
         sleep 0.01
     done
+}
+
+# Virtual Filesystem Functions
+# ============================
+# These functions enable testing with large virtual files that don't consume disk space.
+# 
+# Usage Example:
+# 1. Mount virtual filesystems for both server and client:
+#    mount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"
+# 
+# 2. Create virtual file references in your scenario:
+#    create_virtual_file "$SERVER_ROOT" "test_1gb.bin" "./my_1gb_file.bin"
+#    create_virtual_file "$SERVER_ROOT" "test_10gb.bin" "./my_10gb_file.bin"
+# 
+# 3. Virtual filesystems are automatically cleaned up at scenario end
+#
+# Available virtual files in the config:
+# - test_1gb.bin, test_10gb.bin, test_50gb.bin, test_100gb.bin (zeros pattern)
+# - random_1gb.bin (random pattern), sequence_1gb.bin (sequence pattern)
+
+# mount_virtual_fs <mount_point> <config_file>
+# Mounts a virtual filesystem at the specified mount point using the given config
+mount_virtual_fs() {
+    local mount_point="$1"
+    local vfs_binary="../third-party/virtual-filesystem/build/virtual-fs-mount"
+    
+    # Convert mount point to absolute path (FUSE requires absolute paths)
+    mount_point="$(canonical "$mount_point")"
+    
+    if [ ! -f "$vfs_binary" ]; then
+        echo "Error: Virtual filesystem binary not found at $vfs_binary" >&2
+        echo "Please build the virtual filesystem first: cd ../third-party/virtual-filesystem && mkdir -p build && cd build && cmake .. && make" >&2
+        return 1
+    fi
+    
+    # Create mount point if it doesn't exist
+    mkdir -p "$mount_point"
+    
+    # Check if already mounted
+    if mountpoint -q "$mount_point" 2>/dev/null; then
+        echo "Warning: $mount_point is already mounted, unmounting first..."
+        unmount_virtual_fs "$mount_point"
+    fi
+
+    echo "Mounting virtual filesystem at $mount_point..."
+
+    # Mount the virtual filesystem in background
+    sudo "$vfs_binary" "$mount_point"
+    
+    echo "Virtual filesystem mounted successfully at $mount_point"
+    return 0
+}
+
+# unmount_virtual_fs <mount_point>
+# Unmounts the virtual filesystem at the specified mount point
+unmount_virtual_fs() {
+    local mount_point="$1"
+    
+    # Convert mount point to absolute path for consistency
+    mount_point="$(canonical "$mount_point")"
+    
+    if [ ! -d "$mount_point" ]; then
+        echo "Warning: Mount point $mount_point does not exist"
+        return 0
+    fi
+    
+    echo "Unmounting virtual filesystem at $mount_point..."
+    
+    # Try to unmount using fusermount
+    if command -v fusermount3 >/dev/null 2>&1; then
+        sudo fusermount3 -u "$mount_point" 2>/dev/null || true
+    elif command -v fusermount >/dev/null 2>&1; then
+        sudo fusermount -u "$mount_point" 2>/dev/null || true
+    else
+        echo "Warning: fusermount not found, trying umount..."
+        sudo umount "$mount_point" 2>/dev/null || true
+    fi
+    
+    # Kill the VFS process if PID file exists
+    if [ -f "$mount_point/.vfs.pid" ]; then
+        local vfs_pid
+        vfs_pid=$(cat "$mount_point/.vfs.pid")
+        if [ -n "$vfs_pid" ]; then
+            kill "$vfs_pid" 2>/dev/null || true
+            # Give it a moment to clean up
+            sleep 1
+            # Force kill if still running
+            kill -9 "$vfs_pid" 2>/dev/null || true
+        fi
+        rm -f "$mount_point/.vfs.pid"
+    fi
+    
+    # Verify unmount was successful
+    if mountpoint -q "$mount_point" 2>/dev/null; then
+        echo "Warning: Failed to unmount $mount_point, may require manual cleanup"
+        return 1
+    fi
+    
+    echo "Virtual filesystem unmounted successfully from $mount_point"
+    return 0
+}
+
+# mount_test_virtual_fs <server_root> <client_root>
+# Mounts virtual filesystems for both server and client test environments
+mount_test_virtual_fs() {
+    local server_root="$1"
+    local client_root="$2"
+    
+    echo "Setting up virtual filesystems for testing..."
+    
+    # Create virtual subdirectories
+    local server_vfs_dir="$server_root/virtual"
+    local client_vfs_dir="$client_root/virtual"
+    
+    # Mount virtual filesystem for server
+    create_folder "$server_root" "./virtual"
+    mount_virtual_fs "$server_vfs_dir"
+    
+    # Mount virtual filesystem for client
+    mkdir -p "$client_root/virtual" # ./virtual is already in EXPECTED_FILES
+    mount_virtual_fs "$client_vfs_dir"
+    
+    # Add virtual files to expected files list with their known hashes
+    echo "Registering virtual files in expected lists..."
+    
+    echo "Virtual filesystems mounted and registered successfully"
+    return 0
+}
+
+# unmount_test_virtual_fs <server_root> <client_root>
+# Unmounts virtual filesystems for both server and client test environments
+unmount_test_virtual_fs() {
+    local server_root="$1"
+    local client_root="$2"
+    
+    echo "Cleaning up virtual filesystems..."
+    
+    # Unmount both virtual filesystems
+    unmount_virtual_fs "$server_root/virtual"
+    unmount_virtual_fs "$client_root/virtual"
+    
+    # Remove virtual directories if empty
+    rmdir "$server_root/virtual" 2>/dev/null || true
+    rmdir "$client_root/virtual" 2>/dev/null || true
+    
+    echo "Virtual filesystem cleanup completed"
 }

@@ -765,20 +765,44 @@ scenario_36() {
 
 scenario_37() {
     set_scenario_37_name # Virtual large files (1GB and 10GB)
-    echo "Creating virtual medium files on server..."
+    echo "Setting up virtual filesystem for large files (1GB and 10GB)..."
      
-    # Test large files without using disk space
+    # Mount virtual filesystems for both server and client
+    if ! mount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"; then
+        echo "Error: Failed to mount virtual filesystems" >&2
+        return 1
+    fi
     
-    # TODO: Implement
+    # Create virtual file references on server
+    echo "Creating 1GB virtual file on server..."
+    create_virtual_file "$SERVER_ROOT" "./virtual/virtual_test_1gb.bin" 1
+
+    echo "Creating 10GB virtual file on server..."
+    create_virtual_file "$SERVER_ROOT" "./virtual/virtual_test_10gb.bin" 10
+
+    # Note: Virtual filesystems will be automatically unmounted by cleanup functions
+    echo "Virtual large files scenario setup complete"
 }
 
 scenario_38() {
     set_scenario_38_name # Virtual medium files (50GB and 100GB)
-    echo "Creating virtual large files on server..."
+    echo "Setting up virtual filesystem for extremely large files (50GB and 100GB)..."
     
-    # Test extremely large files without using disk space
+    # Mount virtual filesystems for both server and client
+    if ! mount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"; then
+        echo "Error: Failed to mount virtual filesystems" >&2
+        return 1
+    fi
+    
+    # Create virtual file references on server
+    echo "Creating 50GB virtual file on server..."
+    create_virtual_file "$SERVER_ROOT" "./virtual/virtual_test_50gb.bin" 50
+    
+    echo "Creating 100GB virtual file on server..."
+    create_virtual_file "$SERVER_ROOT" "./virtual/virtual_test_100gb.bin" 100
 
-    # TODO: Implement
+    # Note: Virtual filesystems will be automatically unmounted by cleanup functions
+    echo "Virtual extremely large files scenario setup complete"
 }
 
 # At the end, a dispatcher function for debug_tmux.sh:
