@@ -24,7 +24,7 @@ public:
     MD5Calculator(const std::string &path, bool verbose);
     virtual ~MD5Calculator() {}
 
-    typedef struct _MD5Digest
+    using MD5Digest = struct _MD5Digest
     {
         union
         {
@@ -33,9 +33,9 @@ public:
         };
         std::string to_string();
         bool operator==(_MD5Digest& other);
-    } MD5Digest;
+    };
 
-    inline MD5Digest &getDigest() { return mDigest; }
+    MD5Digest &getDigest() { return mDigest; }
 
 private:
     MD5Digest mDigest;

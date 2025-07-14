@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
+#include <fstream>  // IWYU pragma: keep
 #include <system_error>
 #include <string>
 #include <sstream>
@@ -34,18 +34,18 @@ MD5Calculator::MD5Calculator(const char *path, bool verbose)
     if ( verbose )
         std::cout <<  filepath << "\r\n";
 
-    std::error_code ec;
-    uintmax_t filesize = std::filesystem::file_size(filepath, ec);
+    std::error_code errorCode;
+    uintmax_t filesize = std::filesystem::file_size(filepath, errorCode);
 
-    if ( ec.value() != 0 )
+    if ( errorCode.value() != 0 )
     {
-        std::cerr << ec.message() << "\r\n";
+        std::cerr << errorCode.message() << "\r\n";
         return;
     }
 
     std::filebuf filebuf;
 
-    if ( !filebuf.open(path, std::ios::binary | std::ios::in) )
+    if ( filebuf.open(path, std::ios::binary | std::ios::in) == nullptr )
     {
         std::cout << "Open file " << path << " for read failed\n";
         return;
@@ -53,8 +53,8 @@ MD5Calculator::MD5Calculator(const char *path, bool verbose)
     
     MD5_CTX ctx;
     MD5Init(&ctx);
-    uint8_t * buffer = new uint8_t[MAX_MD5SUM_BUFFERSIZE];
-    while ( filesize )
+    auto * buffer = new uint8_t[MAX_MD5SUM_BUFFERSIZE];
+    while ( filesize != 0 )
     {
         //read the content into memory in max 256MiB chunks
         size_t buffersize = std::min<long>(filesize, MAX_MD5SUM_BUFFERSIZE);
@@ -76,13 +76,13 @@ MD5Calculator(path.c_str(), verbose)
 }
 
 std::string MD5Calculator::MD5Digest::to_string() {
-    std::stringstream ss;
-    ss << std::hex << std::setw(sizeof(uint64_t)) << std::setfill('0');
-    for (uint64_t i = 0; i < MD5_DIGEST_LENGHT_NATIVE; ++i)
+    std::stringstream md5Stream;
+    md5Stream << std::hex << std::setw(sizeof(uint64_t)) << std::setfill('0');
+    for (unsigned long word : digest_native)
     {
-        ss << __bswap_64(digest_native[i]);
+        md5Stream << __bswap_64(word);
     }
-    return ss.str();
+    return md5Stream.str();
 }
 
 bool MD5Calculator::MD5Digest::operator==(MD5Calculator::MD5Digest& other)

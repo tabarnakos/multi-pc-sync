@@ -36,6 +36,8 @@
 // Section 3: Defines and Macros
 constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms
 constexpr int PERCENTAGE_FACTOR = 100;
+constexpr unsigned long NANOSECONDS_PER_SECOND = 1000000000L;
+constexpr unsigned long FILE_TRANSFER_UPDATE_INTERVAL_MS = 200L; // 200ms = 5 Hz
 
 // Section 4: Static Variables
 std::binary_semaphore TcpCommand::TCPSendSemaphore{1};
@@ -279,10 +281,12 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     size_t buffer_offset = 0; // Tracks unsent data from previous read
     size_t total_bytes_read = 0;
 
+    auto start_time = std::chrono::steady_clock::now();
+    auto last_report_time = start_time;
+
     while (total_bytes_read < file_size) {
-        // Calculate how much to read, accounting for buffered data
-        size_t available_space = ALLOCATION_SIZE - buffer_offset;
-        size_t bytes_to_read = std::min<size_t>(available_space, file_size - total_bytes_read);
+        // Calculate how much to read - always try to read ALLOCATION_SIZE worth of new data
+        size_t bytes_to_read = std::min<size_t>(ALLOCATION_SIZE, file_size - total_bytes_read);
         
         // Read chunk from file into buffer after any existing buffered data
         if (!file.read(reinterpret_cast<char*>(buffer + buffer_offset), bytes_to_read)) {
@@ -325,7 +329,7 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         } else {
             // Move remaining incomplete packet data to beginning of buffer for next iteration
             if (remaining_data > 0) {
-                memmove(buffer, buffer + bytes_sent_from_buffer, remaining_data);
+                std::memmove(buffer, buffer + bytes_sent_from_buffer, remaining_data);
             }
             buffer_offset = remaining_data;
         }
@@ -336,9 +340,19 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         //          << " (total sent: " << HumanReadable(total_bytes_sent) 
         //          << "/" << HumanReadable(file_size) << ")" << "\r\n";
         // Force flush output to ensure logs appear in real-time
+        if ( std::chrono::steady_clock::now() - last_report_time > std::chrono::milliseconds(FILE_TRANSFER_UPDATE_INTERVAL_MS) ) {
+            last_report_time = std::chrono::steady_clock::now();
         std::cout << termcolor::cyan << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
                   << " (" << (total_bytes_sent * PERCENTAGE_FACTOR / file_size) << "%)" << termcolor::reset << "\r\n";
     }
+    }
+
+
+    auto duration = std::chrono::steady_clock::now() - start_time;
+    std::cout << termcolor::yellow << "ALLOCATION_SIZE = " << HumanReadable(ALLOCATION_SIZE) << termcolor::reset << "\r\n";
+    std::cout << termcolor::yellow << "Average send rate: " << termcolor::bright_magenta
+              << HumanReadable(total_bytes_sent / (std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / NANOSECONDS_PER_SECOND)) 
+              << "ps" << termcolor::reset << "\r\n";
 
     //std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
     //          << " of " << HumanReadable(file_size) << " expected" << "\r\n";
@@ -395,6 +409,8 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             return -1;
         }
 
+        auto start_time = std::chrono::steady_clock::now();
+        auto last_report_time = start_time;
         auto* buffer = new uint8_t[ALLOCATION_SIZE];
         received_bytes = 0;
 
@@ -424,9 +440,11 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             }
             received_bytes += chunk_received;
             
-            // Force flush output to ensure logs appear in real-time
+            if ( std::chrono::steady_clock::now() - last_report_time > std::chrono::milliseconds(FILE_TRANSFER_UPDATE_INTERVAL_MS) ) {
+                last_report_time = std::chrono::steady_clock::now();
             std::cout << termcolor::cyan << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size)
                       << " (" << (received_bytes * 100. / file_size) << "%)" << termcolor::reset << "\r\n";
+            }
         }
         //std::cout << "DEBUG: File receive complete. Wrote: " << HumanReadable(received_bytes)
         //        << " of " << HumanReadable(file_size) << " to disk" << "\r\n";  

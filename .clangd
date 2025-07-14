@@ -1,12 +1,9 @@
 CompileFlags:
   Add:
-    - -std=c++20
+    - -std=c++23
     - -I/home/harvey/multi-pc-sync
     - -I/home/harvey/multi-pc-sync/hash
     - -I/home/harvey/multi-pc-sync/tcp_command
-    
-
-
   Remove:
     - -std=c++*
 

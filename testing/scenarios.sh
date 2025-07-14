@@ -38,8 +38,8 @@ set_scenario_33_name() { scenario_name="File with special characters in the name
 set_scenario_34_name() { scenario_name="Long path names"; }
 set_scenario_35_name() { scenario_name="Long file names"; }
 set_scenario_36_name() { scenario_name="Long file and path names warnings"; }
-set_scenario_37_name() { scenario_name="Virtual large files (1GB and 10GB)"; }
-set_scenario_38_name() { scenario_name="Virtual medium files (50GB and 100GB)"; }
+set_scenario_37_name() { scenario_name="Virtual medium files (1GB and 10GB)"; }
+set_scenario_38_name() { scenario_name="Virtual large files (50GB and 100GB)"; }
 
 
 scenario_01() {
@@ -764,8 +764,8 @@ scenario_36() {
 }
 
 scenario_37() {
-    set_scenario_37_name # Virtual large files (1GB and 10GB)
-    echo "Setting up virtual filesystem for large files (1GB and 10GB)..."
+    set_scenario_37_name # Virtual medium files (1GB and 10GB)
+    echo "Setting up virtual filesystem for medium files (1GB and 10GB)..."
      
     # Mount virtual filesystems for both server and client
     if ! mount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"; then
@@ -785,8 +785,8 @@ scenario_37() {
 }
 
 scenario_38() {
-    set_scenario_38_name # Virtual medium files (50GB and 100GB)
-    echo "Setting up virtual filesystem for extremely large files (50GB and 100GB)..."
+    set_scenario_38_name # Virtual large files (50GB and 100GB)
+    echo "Setting up virtual filesystem for large files (50GB and 100GB)..."
     
     # Mount virtual filesystems for both server and client
     if ! mount_test_virtual_fs "$SERVER_ROOT" "$CLIENT_ROOT"; then

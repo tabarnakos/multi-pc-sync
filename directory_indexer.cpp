@@ -280,6 +280,7 @@ void DirectoryIndexer::indexpath(const std::filesystem::path &path, bool verbose
     std::filesystem::file_time_type filetime;
     std::filesystem::perms permissions;
     std::filesystem::file_type type;
+    // rudimentary loop to ensure the file time is not in the future
     do
     {
         indextime = std::filesystem::__file_clock::now();
