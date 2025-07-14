@@ -180,7 +180,7 @@ size_t TcpCommand::receivePayload(const int socket, const size_t maxlen) {
         size_t bytesToReceive = std::min<size_t>(remainingBytes, bufSize);
         
         ssize_t num = recv(socket, buffer, bytesToReceive, 0);
-        if (num <= 0) {
+        if (num < 0) {
             if (num == 0) {
                 std::cerr << termcolor::red << "Connection closed by peer after receiving " << totalReceived << " bytes" << "\r\n" << termcolor::reset;
             } else {
@@ -342,9 +342,9 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         // Force flush output to ensure logs appear in real-time
         if ( std::chrono::steady_clock::now() - last_report_time > std::chrono::milliseconds(FILE_TRANSFER_UPDATE_INTERVAL_MS) ) {
             last_report_time = std::chrono::steady_clock::now();
-        std::cout << termcolor::cyan << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
+            std::cout << termcolor::cyan << "Progress: " << HumanReadable(total_bytes_sent) << " of " << HumanReadable(file_size) 
                   << " (" << (total_bytes_sent * PERCENTAGE_FACTOR / file_size) << "%)" << termcolor::reset << "\r\n";
-    }
+        }
     }
 
 
@@ -442,7 +442,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
             
             if ( std::chrono::steady_clock::now() - last_report_time > std::chrono::milliseconds(FILE_TRANSFER_UPDATE_INTERVAL_MS) ) {
                 last_report_time = std::chrono::steady_clock::now();
-            std::cout << termcolor::cyan << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size)
+                std::cout << termcolor::cyan << "Progress: " << HumanReadable(received_bytes) << " of " << HumanReadable(file_size)
                       << " (" << (received_bytes * 100. / file_size) << "%)" << termcolor::reset << "\r\n";
             }
         }

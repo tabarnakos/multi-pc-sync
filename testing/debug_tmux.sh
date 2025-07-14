@@ -34,14 +34,15 @@ TEST_FOLDER="$(canonical "$SCRIPT_DIR/../test_sync_env0")"
 
 CLIENT_ROOT="$TEST_FOLDER/client"
 SERVER_ROOT="$TEST_FOLDER/server"
+CONFIG_FILE="$(canonical $TEST_FOLDER/../multi-pc-sync.config)"
 MULTI_PC_SYNC_PORT=5555
 SERVER_IP=127.0.0.1
 if [[ "$VERBOSE" != "1" ]]; then
-    CLIENT_OPTS="-s $SERVER_IP:$MULTI_PC_SYNC_PORT -y $CLIENT_ROOT"
+    CLIENT_OPTS="-s $SERVER_IP:$MULTI_PC_SYNC_PORT -y --cfg=$CONFIG_FILE $CLIENT_ROOT"
 else
-    CLIENT_OPTS="-s $SERVER_IP:$MULTI_PC_SYNC_PORT --print-before-sync $CLIENT_ROOT"
+    CLIENT_OPTS="-s $SERVER_IP:$MULTI_PC_SYNC_PORT --print-before-sync --cfg=$CONFIG_FILE $CLIENT_ROOT"
 fi
-SERVER_OPTS="-d $MULTI_PC_SYNC_PORT --exit-after-sync $SERVER_ROOT"
+SERVER_OPTS="-d $MULTI_PC_SYNC_PORT --exit-after-sync --cfg=$CONFIG_FILE $SERVER_ROOT"
 
 parse_range "$SCENARIO_RANGE"
 

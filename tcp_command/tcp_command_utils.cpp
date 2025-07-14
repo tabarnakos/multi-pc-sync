@@ -162,7 +162,7 @@ ssize_t TcpCommand::ReceiveChunk(const int socket, void* buffer, size_t len)
 
     while (chunk_received < len) {
         ssize_t num = recv(socket, static_cast<uint8_t*>(buffer) + chunk_received, len - chunk_received, 0);
-        if (num <= 0) {
+        if (num < 0) {
             if (num == 0) {
                 std::cerr << termcolor::red << "Connection closed by peer after receiving " << termcolor::magenta
                             << chunk_received << " bytes" << termcolor::reset << "\r\n";
