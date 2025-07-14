@@ -36,7 +36,7 @@
 // Section 3: Defines and Macros
 constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms
 constexpr int PERCENTAGE_FACTOR = 100;
-constexpr unsigned long NANOSECONDS_PER_SECOND = 1000000000L;
+constexpr double NANOSECONDS_PER_SECOND = 1000000000.0; // 1 billion nanoseconds in a second
 constexpr unsigned long FILE_TRANSFER_UPDATE_INTERVAL_MS = 200L; // 200ms = 5 Hz
 
 // Section 4: Static Variables
@@ -263,8 +263,8 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     std::streamsize file_size = std::filesystem::file_size(path); //file.tellg();
     //std::cout << "DEBUG: File size is " << file_size << " bytes" << "\r\n";
     if (file_size < 0 || static_cast<uint64_t>(file_size) > getMaxFileSize()) {
-        std::cerr << termcolor::red << "Invalid file size: " << file_size << " bytes (max allowed: " << getMaxFileSize() << ")" << "\r\n" << termcolor::reset;
-        return -1;
+        std::cerr << termcolor::red << "Invalid file size: " << HumanReadable(file_size) << " (max allowed: " << HumanReadable(getMaxFileSize()) << ")" << "\r\n" << termcolor::reset;
+        file_size = 0; // Set to 0 to send no content
     }
     // Send the file size
     auto file_size_net = static_cast<size_t>(file_size);
@@ -348,7 +348,7 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
     }
 
 
-    auto duration = std::chrono::steady_clock::now() - start_time;
+    auto duration = std::chrono::steady_clock::now() - start_time + std::chrono::nanoseconds(1); // Ensure non-zero duration
     std::cout << termcolor::yellow << "ALLOCATION_SIZE = " << HumanReadable(ALLOCATION_SIZE) << termcolor::reset << "\r\n";
     std::cout << termcolor::yellow << "Average send rate: " << termcolor::bright_magenta
               << HumanReadable(total_bytes_sent / (std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / NANOSECONDS_PER_SECOND)) 
@@ -394,7 +394,7 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
     if (file_size > getMaxFileSize()) {
-        std::cerr << termcolor::red << "File size exceeds maximum allowed size: " << file_size << " > " << getMaxFileSize() << "\r\n" << termcolor::reset;
+        std::cerr << termcolor::red << "File size exceeds maximum allowed size: " << HumanReadable(file_size) << " > " << HumanReadable(getMaxFileSize()) << "\r\n" << termcolor::reset;
         return -1;
     }
     //std::cout << "DEBUG: Expected file size: " << HumanReadable(file_size) << "\r\n";
