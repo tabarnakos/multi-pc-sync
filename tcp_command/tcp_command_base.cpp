@@ -12,6 +12,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h> /* Definition of AT_* constants */
+#include <sys/stat.h>
 
 // C++ Standard Library
 #include <algorithm>
@@ -32,6 +34,7 @@
 
 // Project Includes
 #include "human_readable.h"
+#include "directory_indexer.h"
 
 // Section 3: Defines and Macros
 constexpr suseconds_t TCP_COMMAND_HEADER_TIMEOUT_USEC = 10000; // 10ms
@@ -94,6 +97,10 @@ TcpCommand* TcpCommand::create(GrowingBuffer& data) {
             return new RemoteSymlinkCmd(data);
         case CMD_ID_REMOTE_MOVE:
             return new RemoteMoveCmd(data);
+        case CMD_ID_SYSTEM_CALL:
+            return new SystemCallCmd(data);
+        case CMD_ID_TOUCH:
+            return new TouchCmd(data);
     }
 }
 
@@ -258,6 +265,22 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         std::cerr << termcolor::red << "Failed to send file path" << "\r\n" << termcolor::reset;
         return -1;
     }
+
+    // Send the file's modified time
+    std::filesystem::file_time_type modTime = std::filesystem::last_write_time(path);
+    std::string modTimeStr = DirectoryIndexer::file_time_to_string(modTime);
+    size_t modTimeSize = modTimeStr.size();
+    sent_bytes = sendChunk(socket, &modTimeSize, sizeof(size_t));
+    if (sent_bytes < sizeof(size_t)) {
+        std::cerr << termcolor::red << "Failed to send modified time size" << "\r\n" << termcolor::reset;
+        return -1;
+    }
+    sent_bytes = sendChunk(socket, modTimeStr.data(), modTimeSize);
+    if (sent_bytes < modTimeSize) {
+        std::cerr << termcolor::red << "Failed to send modified time" << "\r\n" << termcolor::reset;
+        return -1;
+    }
+
     //std::cout << "DEBUG: File path sent: " << path << "\r\n";
     // Get the file size
     std::streamsize file_size = std::filesystem::file_size(path); //file.tellg();
@@ -347,12 +370,11 @@ int TcpCommand::SendFile(const std::map<std::string, std::string>& args) {
         }
     }
 
-
-    auto duration = std::chrono::steady_clock::now() - start_time + std::chrono::nanoseconds(1); // Ensure non-zero duration
-    std::cout << termcolor::yellow << "ALLOCATION_SIZE = " << HumanReadable(ALLOCATION_SIZE) << termcolor::reset << "\r\n";
-    std::cout << termcolor::yellow << "Average send rate: " << termcolor::bright_magenta
-              << HumanReadable(total_bytes_sent / (std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / NANOSECONDS_PER_SECOND)) 
-              << "ps" << termcolor::reset << "\r\n";
+    //auto duration = std::chrono::steady_clock::now() - start_time + std::chrono::nanoseconds(1); // Ensure non-zero duration
+    //std::cout << termcolor::yellow << "ALLOCATION_SIZE = " << HumanReadable(ALLOCATION_SIZE) << termcolor::reset << "\r\n";
+    //std::cout << termcolor::yellow << "Average send rate: " << termcolor::bright_magenta
+    //          << HumanReadable(total_bytes_sent / (std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / NANOSECONDS_PER_SECOND)) 
+    //          << "ps" << termcolor::reset << "\r\n";
 
     //std::cout << "DEBUG: File send complete. Total bytes sent: " << HumanReadable(total_bytes_sent) 
     //          << " of " << HumanReadable(file_size) << " expected" << "\r\n";
@@ -386,6 +408,20 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         return -1;
     }
     //std::cout << "DEBUG: Received file path: " << received_path << "\r\n";
+
+    // Receive the file's modified time
+    size_t modTimeSize;
+    received_bytes = ReceiveChunk(socket, &modTimeSize, kSizeSize);
+    if (received_bytes < kSizeSize) {
+        std::cerr << termcolor::red << "Failed to receive modified time size" << "\r\n" << termcolor::reset;
+        return -1;
+    }
+    std::string modTimeStr(modTimeSize, '\0');
+    received_bytes = ReceiveChunk(socket, modTimeStr.data(), modTimeSize);
+    if (received_bytes < modTimeSize) {
+        std::cerr << termcolor::red << "Failed to receive modified time" << "\r\n" << termcolor::reset;
+        return -1;
+    }
     
     size_t file_size;
     received_bytes = ReceiveChunk(socket, &file_size, kSizeSize);
@@ -457,6 +493,12 @@ int TcpCommand::ReceiveFile(const std::map<std::string, std::string>& args) {
         const std::string touch_command = std::string("touch ") + args.at("path");
         system(touch_command.c_str());
     }
+
+    // Set the file's modified time
+    std::array<struct timespec, 2> timeSpecsArray{ timespec{.tv_sec = 0, .tv_nsec = UTIME_OMIT}, 
+                                                   timespec{.tv_sec = 0, .tv_nsec = 0} };
+    DirectoryIndexer::make_timespec(modTimeStr, &timeSpecsArray[1]);
+    utimensat(0, args.at("path").c_str(), timeSpecsArray.data(), 0);
 
     return 0;
 }

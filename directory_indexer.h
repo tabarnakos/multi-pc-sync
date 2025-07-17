@@ -142,6 +142,16 @@ public:
      */
     bool removePath(com::fileindexer::Folder *folderIndex, const std::string &path, PATH_TYPE type);
 
+    /**
+     * Converts a modified time string to a timespec structure
+     * @param modifiedTimeString The modified time string
+     * @param timespec Pointer to the timespec structure to fill
+     * @return 0 on success, negative on error
+     */
+    static int make_timespec(const std::string &modifiedTimeString, struct timespec *timespec);
+
+    static std::string file_time_to_string(std::filesystem::file_time_type fileTime);
+
 protected:
     // (none)
 

@@ -45,6 +45,8 @@ public:
         CMD_ID_SYNC_DONE,
         CMD_ID_REMOTE_SYMLINK,
         CMD_ID_REMOTE_MOVE,
+        CMD_ID_SYSTEM_CALL,
+        CMD_ID_TOUCH,
     };
 
     /* Public Static Constants */
@@ -54,9 +56,9 @@ public:
     static constexpr size_t kCmdSize = sizeof(cmd_id_t);
     static constexpr size_t kPayloadIndex = INDEX_AFTER(kCmdIndex, kCmdSize);
 
-    static constexpr size_t ALLOCATION_SIZE = 128 * 1024;  // 128KiB
     static constexpr size_t MAX_TCP_PAYLOAD_SIZE = 1440;//1440 bytes
     static constexpr size_t MAX_PATH_LENGTH = 4095;  // 4095 characters, see Readme for details
+    static constexpr size_t ALLOCATION_SIZE = std::max<size_t>(128 * 1024, kPayloadIndex + (2*(MAX_PATH_LENGTH+1)));  // 128KiB
     static constexpr size_t MAX_FILENAME_LENGTH = 255;  // 255 characters, see Readme for details
     static constexpr size_t MAX_PATH_WARNING_LENGTH = MAX_PATH_LENGTH - MAX_FILENAME_LENGTH;  // 255 characters margin
     static constexpr size_t MAX_FILENAME_WARNING_LENGTH = MAX_FILENAME_LENGTH - 50;  // 50 characters margin
@@ -395,7 +397,6 @@ public:
     virtual ~SyncDoneCmd() override;
     int execute(std::map<std::string, std::string>& args) override;
 };
-// New derived command classes
 class RemoteSymlinkCmd : public TcpCommand {
 public:
     static constexpr size_t kSrcPathSizeIndex = kPayloadIndex;
@@ -409,7 +410,6 @@ public:
     virtual ~RemoteSymlinkCmd() override {}
     int execute(std::map<std::string, std::string>& args) override;
 };
-
 class RemoteMoveCmd : public TcpCommand {
 public:
     static constexpr size_t kSrcPathSizeIndex = kPayloadIndex;
@@ -421,6 +421,29 @@ public:
 
     RemoteMoveCmd(GrowingBuffer& data) : TcpCommand(data) {}
     virtual ~RemoteMoveCmd() override {}
+    int execute(std::map<std::string, std::string>& args) override;
+};
+class SystemCallCmd : public TcpCommand {
+public:
+    static constexpr size_t kCmdStringSizeIndex = kPayloadIndex;
+    static constexpr size_t kCmdStringSizeSize = sizeof(size_t);
+    static constexpr size_t kCmdStringIndex = INDEX_AFTER(kCmdStringSizeIndex, kCmdStringSizeSize);
+
+    SystemCallCmd(GrowingBuffer& data) : TcpCommand(data) {}
+    virtual ~SystemCallCmd() override {}
+    int execute(std::map<std::string, std::string>& args) override;
+};
+class TouchCmd : public TcpCommand {
+public:
+    static constexpr size_t kSrcPathSizeIndex = kPayloadIndex;
+    static constexpr size_t kSrcPathSizeSize = sizeof(size_t);
+    static constexpr size_t kSrcPathIndex = INDEX_AFTER(kSrcPathSizeIndex, kSrcPathSizeSize);
+    static constexpr size_t kModTimePathSizeIndex = INDEX_AFTER(kSrcPathIndex, 0); // Adjust dynamically
+    static constexpr size_t kModTimePathSizeSize = sizeof(size_t);
+    static constexpr size_t kModTimePathIndex = INDEX_AFTER(kModTimePathSizeIndex, kModTimePathSizeSize);
+
+    TouchCmd(GrowingBuffer& data) : TcpCommand(data) {}
+    virtual ~TouchCmd() override {}
     int execute(std::map<std::string, std::string>& args) override;
 };
 

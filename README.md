@@ -381,12 +381,12 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 
 ## 7. Permissions and Metadata (if applicable)
 - [ ] Permissions changed on one side
-- [ ] Timestamps changed without content change
+- [✅] Timestamps changed without content change (does not support file move at the moment)
 - [ ] Ownership or extended attributes changed
 
 ## 8. Edge Cases
 - [✅] File with special characters in the name
-- [✅] Very large file (10GB)
+- [✅] Very large file (The default max size is 64GB, configurable via config file)
 - [✅] File with 0 bytes
 - [✅] Filename case changes (case sensitivity issues)
 - [✅] Long path names (4095 characters is the limit set by Ubuntu 24.04 used in test)

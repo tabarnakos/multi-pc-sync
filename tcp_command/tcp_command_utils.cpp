@@ -95,6 +95,8 @@ const char* TcpCommand::commandName() {
         case CMD_ID_SYNC_DONE: return "SYNC_DONE";
         case CMD_ID_REMOTE_SYMLINK: return "REMOTE_SYMLINK";
         case CMD_ID_REMOTE_MOVE: return "REMOTE_MOVE";
+        case CMD_ID_SYSTEM_CALL: return "SYSTEM_CALL";
+        case CMD_ID_TOUCH: return "TOUCH";
         default: return "UNKNOWN";
     }
 }

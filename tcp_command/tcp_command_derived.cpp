@@ -11,8 +11,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
+#include <fcntl.h> /* Definition of AT_* constants */
+#include <sys/stat.h>
 
 // C++ Standard Library
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -242,6 +246,22 @@ int IndexFolderCmd::execute(std::map<std::string,std::string> &args)
             unblock_transmit();
             return -1;
         }
+
+        // Send a fake file modified time
+        std::filesystem::file_time_type modTime = std::filesystem::file_time_type::clock::now();
+        std::string modTimeStr = DirectoryIndexer::file_time_to_string(modTime);
+        size_t modTimeSize = modTimeStr.size();
+        sent_bytes = sendChunk(socket, &modTimeSize, sizeof(size_t));
+        if (sent_bytes < sizeof(size_t)) {
+            std::cerr << termcolor::red << "Failed to send modified time size" << "\r\n" << termcolor::reset;
+            return -1;
+        }
+        sent_bytes = sendChunk(socket, modTimeStr.data(), modTimeSize);
+        if (sent_bytes < modTimeSize) {
+            std::cerr << termcolor::red << "Failed to send modified time" << "\r\n" << termcolor::reset;
+            return -1;
+        }
+
         //std::cout << "DEBUG: File path sent: " << lastrunIndexFilename << "\r\n";
         size_t file_size = 0;   //file does not exist
         //std::cout << "DEBUG: File size is " << file_size << " bytes" << "\r\n";
@@ -722,4 +742,45 @@ int SyncDoneCmd::execute(std::map<std::string, std::string> &args)
     
     std::cout << termcolor::green << "Sync done for " << args.at("path") << "\r\n" << termcolor::reset;
     return 1;
+}
+
+int SystemCallCmd::execute(std::map<std::string, std::string> &args)
+{
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
+    if (bytesReceived < payloadSize) {
+        std::cerr << termcolor::red << "Error receiving payload for SystemCallCmd" << "\r\n" << termcolor::reset;
+        return -1;
+    }
+
+    std::string systemCmd = extractStringFromPayload(kCmdStringIndex, SEEK_SET);
+
+    int ret = std::system(systemCmd.c_str());
+    if (ret != 0) {
+        std::cerr << termcolor::red << "System command failed with return code: " << ret << "\r\n" << termcolor::reset;
+        MessageCmd::sendMessage(std::stoi(args.at("txsocket")), "System command failed: " + systemCmd);
+        return -1;
+    }
+    return 0;
+}
+
+int TouchCmd::execute(std::map<std::string, std::string> &args)
+{
+    size_t payloadSize = cmdSize() - kPayloadIndex;
+    size_t bytesReceived = receivePayload(std::stoi(args.at("txsocket")), ALLOCATION_SIZE);
+    unblock_receive();
+    if (bytesReceived < payloadSize) {
+        std::cerr << termcolor::red << "Error receiving payload for TouchCmd" << "\r\n" << termcolor::reset;
+        return -1;
+    }
+
+    std::string srcPath = extractStringFromPayload(kSrcPathSizeIndex, SEEK_SET);
+    std::string modTimeStr = extractStringFromPayload(0, SEEK_CUR);
+
+    std::array<struct timespec, 2> timeSpecsArray{ timespec{.tv_sec = 0, .tv_nsec = UTIME_OMIT}, 
+                                                   timespec{.tv_sec = 0, .tv_nsec = 0} };
+    DirectoryIndexer::make_timespec(modTimeStr, &timeSpecsArray[1]);
+    utimensat(0, srcPath.c_str(), timeSpecsArray.data(), 0);
+    return 0;
 }

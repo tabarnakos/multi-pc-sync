@@ -14,36 +14,46 @@ NC='\033[0m' # No Color
 # Function to check if a test passed (no missing/extra files or hashes)
 check_test_result() {
     local section="$1"
+    local has_files_hash_failure=false
+    local has_time_failure=false
     
     # Look for actual missing files (lines that start with ./ after "Missing files:")
     local missing_files_section=$(echo "$section" | sed -n '/Missing files:/,/^$/p')
     if echo "$missing_files_section" | grep -q "^\./"; then
-        echo "FAIL"
-        return
+        has_files_hash_failure=true
     fi
     
     # Look for actual extra files (lines that start with ./ after "Extra files:")
     local extra_files_section=$(echo "$section" | sed -n '/Extra files:/,/^$/p')
     if echo "$extra_files_section" | grep -q "^\./"; then
-        echo "FAIL"
-        return
+        has_files_hash_failure=true
     fi
     
     # Look for actual missing hashes (lines with hex after "Missing hashes:")
     local missing_hashes_section=$(echo "$section" | sed -n '/Missing hashes:/,/^$/p')
     if echo "$missing_hashes_section" | grep -q "^[a-f0-9]"; then
-        echo "FAIL"
-        return
+        has_files_hash_failure=true
     fi
     
     # Look for actual extra hashes (lines with hex after "Extra hashes:")
     local extra_hashes_section=$(echo "$section" | sed -n '/Extra hashes:/,/^$/p')
     if echo "$extra_hashes_section" | grep -q "^[a-f0-9]"; then
-        echo "FAIL"
-        return
+        has_files_hash_failure=true
     fi
     
-    echo "PASS"
+    # Check for file times comparison failure
+    if echo "$section" | grep -q "File times comparison failed."; then
+        has_time_failure=true
+    fi
+    
+    # Determine result based on failures
+    if [ "$has_files_hash_failure" = true ]; then
+        echo "FAIL"
+    elif [ "$has_time_failure" = true ]; then
+        echo "PART"
+    else
+        echo "PASS"
+    fi
 }
 
 # Function to draw a test result box
@@ -59,12 +69,16 @@ draw_test_box() {
     
     if [ "$client_result" = "PASS" ]; then
         client_color="$GREEN"
+    elif [ "$client_result" = "PART" ]; then
+        client_color="$YELLOW"
     else
         client_color="$RED"
     fi
     
     if [ "$server_result" = "PASS" ]; then
         server_color="$GREEN"
+    elif [ "$server_result" = "PART" ]; then
+        server_color="$YELLOW"
     else
         server_color="$RED"
     fi
@@ -152,8 +166,10 @@ create_grid_layout() {
     local current_title=""
     local client_section=""
     local server_section=""
+    local file_times_section=""
     local in_client_section=false
     local in_server_section=false
+    local in_file_times_section=false
     local scenario_complete=false
     
     while IFS= read -r line; do
@@ -163,8 +179,10 @@ create_grid_layout() {
             if [ -n "$current_scenario" ] && [ "$scenario_complete" = true ]; then
                 scenarios+=("$current_scenario")
                 scenario_titles+=("$current_title")
-                client_results+=($(check_test_result "$client_section"))
-                server_results+=($(check_test_result "$server_section"))
+                # Combine all sections for comprehensive checking
+                local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"
+                client_results+=($(check_test_result "$combined_section"))
+                server_results+=($(check_test_result "$combined_section"))
             fi
             
             current_scenario=$(echo "$line" | sed -n 's/.*Scenario \([0-9]*\).*/\1/p')
@@ -172,8 +190,10 @@ create_grid_layout() {
             current_title=$(echo "$line" | sed -n 's/^=*\s*Scenario [0-9]\+\s*-\s*\(.*\)\s*Test Report.*$/\1/p' | sed 's/[[:space:]]*$//')
             client_section=""
             server_section=""
+            file_times_section=""
             in_client_section=false
             in_server_section=false
+            in_file_times_section=false
             scenario_complete=false
             
         # Check for scenario end
@@ -183,17 +203,27 @@ create_grid_layout() {
         elif [[ "$line" =~ ^Comparing\ files\ in\ CLIENT_ROOT ]]; then
             in_client_section=true
             in_server_section=false
+            in_file_times_section=false
             client_section="$line"
             
         elif [[ "$line" =~ ^Comparing\ files\ in\ SERVER_ROOT ]]; then
             in_client_section=false
             in_server_section=true
+            in_file_times_section=false
             server_section="$line"
+            
+        elif [[ "$line" =~ ^Comparing\ file\ times ]]; then
+            in_client_section=false
+            in_server_section=false
+            in_file_times_section=true
+            file_times_section="$line"
             
         elif [ "$in_client_section" = true ]; then
             client_section="$client_section"$'\n'"$line"
         elif [ "$in_server_section" = true ]; then
             server_section="$server_section"$'\n'"$line"
+        elif [ "$in_file_times_section" = true ]; then
+            file_times_section="$file_times_section"$'\n'"$line"
         fi
     done < "$file"
     
@@ -201,8 +231,10 @@ create_grid_layout() {
     if [ -n "$current_scenario" ] && [ "$scenario_complete" = true ]; then
         scenarios+=("$current_scenario")
         scenario_titles+=("$current_title")
-        client_results+=($(check_test_result "$client_section"))
-        server_results+=($(check_test_result "$server_section"))
+        # Combine all sections for comprehensive checking
+        local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"
+        client_results+=($(check_test_result "$combined_section"))
+        server_results+=($(check_test_result "$combined_section"))
     fi
     
     # Display header
@@ -210,7 +242,7 @@ create_grid_layout() {
     echo -e "${WHITE}                           MULTI-PC-SYNC TEST REPORT VISUALIZATION            ${NC}"
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = No missing/extra files or hashes  ${RED}FAIL${NC} = Missing/extra files or hashes  ${ORANGE}PARTIAL${NC} = Mixed results"
+    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = All checks passed  ${YELLOW}PARTIAL${NC} = File times failed  ${RED}FAIL${NC} = Missing/extra files or hashes"
     echo -e "${CYAN}        CLI = Client Test Result, SRV = Server Test Result${NC}"
     echo ""
     
@@ -277,12 +309,16 @@ create_grid_layout() {
 
                 if [ "${client_results[$idx]}" = "PASS" ]; then
                     client_color="$GREEN"
+                elif [ "${client_results[$idx]}" = "PART" ]; then
+                    client_color="$YELLOW"
                 else
                     client_color="$RED"
                 fi
 
                 if [ "${server_results[$idx]}" = "PASS" ]; then
                     server_color="$GREEN"
+                elif [ "${server_results[$idx]}" = "PART" ]; then
+                    server_color="$YELLOW"
                 else
                     server_color="$RED"
                 fi
@@ -312,17 +348,20 @@ create_grid_layout() {
     # Summary
     local total_tests=$((${#scenarios[@]} * 2))  # Each scenario has client + server tests
     local passed_tests=0
+    local partial_tests=0
     
     for result in "${client_results[@]}" "${server_results[@]}"; do
         if [ "$result" = "PASS" ]; then
             ((passed_tests++))
+        elif [ "$result" = "PART" ]; then
+            ((partial_tests++))
         fi
     done
     
-    local failed_tests=$((total_tests - passed_tests))
+    local failed_tests=$((total_tests - passed_tests - partial_tests))
     
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}SUMMARY:${NC} Total Tests: $total_tests | ${GREEN}Passed: $passed_tests${NC} | ${RED}Failed: $failed_tests${NC}"
+    echo -e "${WHITE}SUMMARY:${NC} Total Tests: $total_tests | ${GREEN}Passed: $passed_tests${NC} | ${YELLOW}Partial: $partial_tests${NC} | ${RED}Failed: $failed_tests${NC}"
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
     
     # Display detailed list of scenarios with titles and status
@@ -342,12 +381,15 @@ create_grid_layout() {
         if [ "$client_result" = "PASS" ] && [ "$server_result" = "PASS" ]; then
             status_color="$GREEN"
             status="PASS"
-        elif [ "$client_result" = "FAIL" ] && [ "$server_result" = "FAIL" ]; then
+        elif [ "$client_result" = "FAIL" ] || [ "$server_result" = "FAIL" ]; then
             status_color="$RED"
             status="FAIL"
+        elif [ "$client_result" = "PART" ] || [ "$server_result" = "PART" ]; then
+            status_color="$YELLOW"
+            status="PARTIAL"
         else
             status_color="$ORANGE"
-            status="PARTIAL"
+            status="MIXED"
         fi
         
         # Add padding to scenario number for alignment

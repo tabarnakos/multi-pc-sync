@@ -13,6 +13,8 @@
 #include <list>
 #include <string>
 #include <unistd.h>
+#include <fcntl.h> /* Definition of AT_* constants */
+#include <sys/stat.h>
 
 // Third-Party Includes
 #include "termcolor/termcolor.hpp"
@@ -294,7 +296,7 @@ void DirectoryIndexer::indexpath(const std::filesystem::path &path, bool verbose
     protobufFile.set_name(file.path());
     protobufFile.set_permissions((int)permissions);
     protobufFile.set_type((::com::fileindexer::File_FileType)type);
-    protobufFile.set_modifiedtime(std::format("{0:%F}_{0:%R}.{0:%S}", filetime));
+    protobufFile.set_modifiedtime(file_time_to_string(filetime));
 
     // Check for path and filename length warnings
     std::string fullPath = file.path().string();
@@ -440,24 +442,32 @@ void DirectoryIndexer::handleFileConflict(com::fileindexer::File* remoteFile, co
 
 void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com::fileindexer::File* localFile, const std::string& remoteFilePath, const std::string& localFilePath, SyncCommands &syncCommands, bool isRemote)
 {
-    if (remoteFile.hash() != localFile->hash())
+    const FILE_TIME_COMP_RESULT timeComparisonResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
+    const bool isContentIdentical = (remoteFile.hash() == localFile->hash());
+    const bool isPermissionsIdentical = (remoteFile.permissions() == localFile->permissions());
+
+    if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
     {
-        FILE_TIME_COMP_RESULT compResult = compareFileTime(remoteFile.modifiedtime(), localFile->modifiedtime());
-        if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_LENGTH_MISMATCH)
-        {
-            std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << termcolor::reset << "\r\n";
-        }
-        else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
+        std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, STRING OF DIFFERENT LENGTHS !!" << termcolor::reset << "\r\n";
+        return; // Exit early to avoid further processing
+    }
+
+
+    if (!isContentIdentical)
+    {
+        if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
         {
             std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, DIFFERENT HASH BUT SAME MODIFIED TIME !!" << termcolor::reset << "\r\n";
+            return; // Exit early to avoid further processing
         }
-        else if (compResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
+        if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
         {
             /* remote file is younger */
             /* this is a file replace, no need to erase the old file */
             //syncCommands.emplace_back("rm", localFilePath, "", isRemote );
             syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote );
             localFile->set_hash(remoteFile.hash());
+            localFile->set_modifiedtime(remoteFile.modifiedtime());
         }
         else
         {
@@ -466,7 +476,80 @@ void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com:
             //syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote );
             syncCommands.emplace_back(isRemote ? "fetch" : "push", localFilePath, remoteFilePath, !isRemote );
             remoteFile.set_hash(localFile->hash());
+            remoteFile.set_modifiedtime(localFile->modifiedtime());
         }
+    }
+    if ( !isPermissionsIdentical )
+    {
+        // The files have the same content but different permissions
+        std::cout << termcolor::yellow << "Permissions differ for " << remoteFilePath << " and " << localFilePath << termcolor::reset << "\r\n";
+
+        // Update the permissions of the remote file to match the local file
+        if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL)
+        {
+            std::cout << termcolor::red << "ERROR IN COMPARING FILE TIMES, DIFFERENT PERMISSIONS BUT SAME MODIFIED TIME !!" << termcolor::reset << "\r\n";
+            return; // Exit early to avoid further processing
+        }
+        if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
+        {
+            /* remote file is younger */
+            std::ostringstream oss;
+            oss << std::oct << remoteFile.permissions();
+            syncCommands.emplace_back("chmod", oss.str(), localFilePath, isRemote);
+            localFile->set_permissions(remoteFile.permissions());
+        }
+        else
+        {
+            /* local file is younger */
+            std::ostringstream oss;
+            oss << std::oct << localFile->permissions();
+            syncCommands.emplace_back( "chmod", oss.str(), remoteFilePath, !isRemote );
+            remoteFile.set_permissions(localFile->permissions());
+        }
+    }
+    if ( timeComparisonResult != FILE_TIME_COMP_RESULT::FILE_TIME_EQUAL && isContentIdentical && isPermissionsIdentical)
+    {
+        std::cout << termcolor::cyan << "Files are identical in content and permissions, but differ in" << termcolor::magenta << " modified time" << termcolor::reset << "\r\n";
+        // The files are identical in content and permissions, but may differ in modified time
+        if (timeComparisonResult == FILE_TIME_COMP_RESULT::FILE_TIME_FILE_B_OLDER)
+        {
+            /* remote file is younger */
+            
+            if (isRemote)
+                syncCommands.emplace_back("touch", localFilePath, remoteFile.modifiedtime(), isRemote);
+            else
+            {
+                struct timespec remoteModifiedTimeSpec[2];
+                
+                remoteModifiedTimeSpec[0].tv_sec = 0;
+                remoteModifiedTimeSpec[0].tv_nsec = UTIME_OMIT;
+                make_timespec(remoteFile.modifiedtime(), &remoteModifiedTimeSpec[1]);
+                utimensat(0, localFilePath.c_str(), remoteModifiedTimeSpec, 0);
+            }
+
+            localFile->set_modifiedtime(remoteFile.modifiedtime());
+        }
+        else
+        {
+            /* local file is younger */
+            if (!isRemote)
+                syncCommands.emplace_back("touch", remoteFilePath, localFile->modifiedtime(), !isRemote);
+            else
+            {
+                struct timespec localModifiedTimeSpec[2];
+
+                localModifiedTimeSpec[0].tv_sec = 0;
+                localModifiedTimeSpec[0].tv_nsec = UTIME_OMIT;
+                make_timespec(localFile->modifiedtime(), &localModifiedTimeSpec[1]);
+                utimensat(0, remoteFilePath.c_str(), localModifiedTimeSpec, 0);
+            }
+
+            remoteFile.set_modifiedtime(localFile->modifiedtime());
+        }
+
+        std::cout << termcolor::green << "Files are identical: " << remoteFilePath << " and " << localFilePath << termcolor::reset << "\r\n";
+
+        //TODO: Compare the file permissions and modified time, if they differ, update the remote file
     }
 }
 
@@ -990,4 +1073,41 @@ void DirectoryIndexer::setPath( const std::string &path )
     const std::filesystem::directory_entry dirEntry(path); 
     mDir = dirEntry;
     mFolderIndex.set_name( mDir.path() );
+}
+
+// Example input: "2025-07-14_12:48.08.212691030"
+int DirectoryIndexer::make_timespec(const std::string &modifiedTimeString, struct timespec *timespec) {
+    if (timespec == nullptr) 
+        return -1;
+    int year;
+    int month;
+    int day;
+    int hour;
+    int min;
+    int sec;
+    long nsec = 0;
+
+    if (sscanf(modifiedTimeString.c_str(), "%d-%d-%d_%d:%d.%d.%ld",
+               &year, &month, &day, &hour, &min, &sec, &nsec) == 7) {
+        struct tm tm_time = {};
+        tm_time.tm_year = year - 1900;
+        tm_time.tm_mon = month - 1;
+        tm_time.tm_mday = day;
+        tm_time.tm_hour = hour;
+        tm_time.tm_min = min;
+        tm_time.tm_sec = sec;
+        timespec->tv_sec = timegm(&tm_time);
+        timespec->tv_nsec = nsec;
+        return 0;
+    }
+    
+    // handle parse error
+    timespec->tv_sec = 0;
+    timespec->tv_nsec = 0;
+    return -1;
+}
+
+std::string DirectoryIndexer::file_time_to_string(std::filesystem::file_time_type fileTime)
+{
+    return std::format("{0:%F}_{0:%R}.{0:%S}", fileTime);
 }

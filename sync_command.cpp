@@ -89,13 +89,16 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
     } else if (mCmd == "push") {
-        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 2) + destPathStripped.length();
+        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 3) + destPathStripped.length() + srcPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_PUSH_FILE;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
+        pathSize = srcPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(srcPathStripped.c_str(), pathSize);
     } else if (mCmd == "symlink") {
         size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 3) + srcPathStripped.length() + destPathStripped.length();
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
@@ -118,8 +121,18 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
-    } else
-    {
+    } else if (mCmd == "touch") {
+        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 3) + srcPathStripped.length() + destPathStripped.length();
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_TOUCH;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        pathSize = srcPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(srcPathStripped.c_str(), pathSize);
+        pathSize = destPathStripped.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(destPathStripped.c_str(), pathSize);
+    } else {
         std::cerr << termcolor::red << "Unknown command: " << mCmd << "\r\n" << termcolor::reset;
         return nullptr;
     }
@@ -177,6 +190,11 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     }
     if (mRemote || mCmd == "push" || mCmd == "fetch") {
         return executeTcpCommand(args);
+    }
+
+    if (mCmd == "touch") {
+        std::cerr << termcolor::red << "touch local sync command created, should be handled already. Path =" << mSrcPath << termcolor::reset << "\r\n";
+        return -1;
     }
 
     if (mCmd == "symlink") {
@@ -250,7 +268,7 @@ void SyncCommands::sortCommands() {
             if (command.isSymlink()) {
                 return 1; // Symlink creation
             }
-            return 5; // Other commands like mkdir
+            return 5; // Other commands like mkdir, chmod, touch
         };
         return getPriority(commandA) > getPriority(commandB);
     });

@@ -274,6 +274,43 @@ compare_files() {
     fi
 }
 
+compare_file_times() {
+    local folder1="$1"
+    local folder2="$2"
+    local report_file="$3"
+    local pass="1"
+    log_to_report $report_file $NC "Comparing file times..."
+    local files_to_ignore=$(echo "./.folderindex ./.folderindex.last_run ./.remote.folderindex ./.remote.folderindex.last_run ./sync_commands.sh" | tr ' ' '\n')
+
+    # Find all files in both folders
+    local files1=$(find "$folder1" -type f)
+    local files2=$(find "$folder2" -type f)
+
+    # Compare file times
+    for file1 in $files1; do
+        # Skip ignored files
+        local relpath="./${file1#$folder1/}"
+        if echo "$files_to_ignore" | grep -q "^$relpath$"; then
+            continue
+        fi
+        local file2="${folder2}${file1#$folder1}"
+        if [ -f "$file2" ]; then
+            local time1=$(stat -c %y "$file1")
+            local time2=$(stat -c %y "$file2")
+            if [ "$time1" != "$time2" ]; then
+                log_to_report $report_file $YELLOW "File times differ: $relpath ($time1) vs ($time2)"
+                pass="0"
+            fi
+        fi
+    done
+
+    if [[ "$pass" == "1" ]]; then
+        log_to_report $report_file $GREEN "File times comparison passed."
+    else
+        log_to_report $report_file $RED "File times comparison failed."
+    fi
+}
+
 # Function to apply or remove latency on loopback interface in milliseconds (0 removes latency)
 apply_latency() {
     local latency_ms="$1"

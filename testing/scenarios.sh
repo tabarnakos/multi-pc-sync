@@ -40,6 +40,7 @@ set_scenario_35_name() { scenario_name="Long file names"; }
 set_scenario_36_name() { scenario_name="Long file and path names warnings"; }
 set_scenario_37_name() { scenario_name="Virtual medium files (1GB and 10GB)"; }
 set_scenario_38_name() { scenario_name="Virtual large files (50GB and 100GB)"; }
+set_scenario_39_name() { scenario_name="Timestamp change without content change"; }
 
 
 scenario_01() {
@@ -803,6 +804,28 @@ scenario_38() {
 
     # Note: Virtual filesystems will be automatically unmounted by cleanup functions
     echo "Virtual extremely large files scenario setup complete"
+}
+
+scenario_39() {
+    set_scenario_39_name # Timestamp change without content change
+    echo "Creating some files"
+
+    create_file "$SERVER_ROOT" "./file1.txt" 1
+    create_file "$CLIENT_ROOT" "./file2.txt" 1
+
+    echo "Running initial sync to ensure both sides have the files."
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    wait
+
+    echo "Changing timestamps without modifying content."
+    touch "$SERVER_ROOT/file1.txt"
+    touch "$CLIENT_ROOT/file2.txt"
+    if [ "$VERBOSE" == "1" ]; then
+        echo "SERVER file1 TIMESTAMP IS $(stat -c %y "$SERVER_ROOT/file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
+        echo "CLIENT file2 TIMESTAMP IS $(stat -c %y "$CLIENT_ROOT/file2.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
 }
 
 # At the end, a dispatcher function for debug_tmux.sh:
