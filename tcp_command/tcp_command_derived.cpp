@@ -661,6 +661,13 @@ int RemoteLocalCopyCmd::execute(std::map<std::string, std::string> &args)
             std::filesystem::copy_options::overwrite_existing | 
             std::filesystem::copy_options::recursive);
         std::cout << termcolor::cyan << "Copied " << srcPath << " to " << destPath << "\r\n" << termcolor::reset;
+
+        // Need to copy the file modified time and permissions
+        std::filesystem::permissions(destPath, std::filesystem::status(srcPath).permissions(), std::filesystem::perm_options::replace);
+        auto modifiedTime = std::filesystem::last_write_time(srcPath);
+        std::filesystem::last_write_time(destPath, modifiedTime);
+        std::cout << termcolor::cyan << "Copied permissions and modified time: " << srcPath << " to " << destPath << termcolor::reset << "\r\n";
+
         return 0;
     } catch (const std::filesystem::filesystem_error &e) {
         std::cerr << termcolor::red << "Error copying " << srcPath << " to " << destPath  << termcolor::reset
