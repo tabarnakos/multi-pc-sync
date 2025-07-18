@@ -381,7 +381,7 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 
 ## 7. Permissions and Metadata (if applicable)
 - [ ] Permissions changed on one side
-- [✅] Timestamps changed without content change (does not support file move at the moment)
+- [✅] Timestamps changed without content change
 - [ ] Ownership or extended attributes changed
 
 ## 8. Edge Cases
