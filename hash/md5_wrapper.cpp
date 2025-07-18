@@ -11,8 +11,6 @@
 #include <fstream>  // IWYU pragma: keep
 #include <system_error>
 #include <string>
-#include <sstream>
-#include <iomanip>
 #include <iostream>
 
 // Project Includes
@@ -75,15 +73,7 @@ MD5Calculator(path.c_str(), verbose)
 {
 }
 
-std::string MD5Calculator::MD5Digest::to_string() {
-    std::stringstream md5Stream;
-    md5Stream << std::hex << std::setw(sizeof(uint64_t)) << std::setfill('0');
-    for (unsigned long word : digest_native)
-    {
-        md5Stream << __bswap_64(word);
-    }
-    return md5Stream.str();
-}
+
 
 bool MD5Calculator::MD5Digest::operator==(MD5Calculator::MD5Digest& other)
 {

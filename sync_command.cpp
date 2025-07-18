@@ -220,6 +220,21 @@ int SyncCommand::execute(const std::map<std::string, std::string> &args, bool ve
     if (verbose) {
         std::cout << termcolor::blue << "Command returned " << err << "\r\n" << termcolor::reset;
     }
+
+    if (mCmd == "cp")
+    {
+        // Need to copy the file modified time and permissions
+        if (err == 0)
+        {
+            stripQuotes(mSrcPath);
+            stripQuotes(mDestPath);
+            std::filesystem::permissions(mDestPath, std::filesystem::status(mSrcPath).permissions(), std::filesystem::perm_options::replace);
+            auto modifiedTime = std::filesystem::last_write_time(mSrcPath);
+            std::filesystem::last_write_time(mDestPath, modifiedTime);
+            std::cout << termcolor::cyan << "Copied permissions and modified time: " << mSrcPath << " to " << mDestPath << termcolor::reset << "\r\n";
+        }
+    }
+
     return err;
 }
 

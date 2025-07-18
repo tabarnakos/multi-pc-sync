@@ -9,6 +9,8 @@
 // C++ Standard Library
 #include <cstring>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 // Project Includes
 #include <md5.h>
@@ -31,7 +33,16 @@ public:
             uint8_t digest_bytes[MD5_DIGEST_LENGTH];
             uint64_t digest_native[MD5_DIGEST_LENGHT_NATIVE];
         };
-        std::string to_string();
+        constexpr std::string to_string() {
+            std::stringstream md5Stream;
+            md5Stream << std::hex << std::setfill('0') << std::setw(2*sizeof(uint64_t));
+            for (auto i = 0; i < 2; ++i)
+            {
+                const uint64_t word = digest_native[i];
+                md5Stream << __bswap_64(word);
+            }
+            return md5Stream.str();
+        }
         bool operator==(_MD5Digest& other);
     };
 

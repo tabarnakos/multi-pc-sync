@@ -7,11 +7,13 @@
 #include "md5_wrapper.h"
 #include "sync_command.h"
 #include "tcp_command.h"
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
 #include <list>
 #include <string>
+#include <thread>
 #include <unistd.h>
 #include <fcntl.h> /* Definition of AT_* constants */
 #include <sys/stat.h>
@@ -611,6 +613,7 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
             }
             else
             {
+                std::cout << termcolor::yellow << "File " << termcolor::magenta << remoteFilePath << termcolor::yellow << " is missing locally, but found in remote index with hash " << termcolor::magenta << remoteFile.hash() << termcolor::reset << "\r\n";
                 checkPathLengthWarnings(localFilePath, "copy new file");
                 syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
             }
@@ -1052,6 +1055,8 @@ DirectoryIndexer::FILE_TIME_COMP_RESULT DirectoryIndexer::compareFileTime(const 
 
 void DirectoryIndexer::checkPathLengthWarnings(const std::string& path, const std::string& operation) {
     std::string filename = std::filesystem::path(path).filename().string();
+
+    std::cout << termcolor::white << "Checking path length for " << operation << ": " << termcolor::reset << path << "\r\n";
     
     if (path.length() > TcpCommand::MAX_PATH_WARNING_LENGTH) {
         std::cout << termcolor::yellow << "Warning: " << operation << " path length (" << termcolor::magenta 

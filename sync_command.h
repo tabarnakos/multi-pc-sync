@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <string>
+#include <iostream>
 #include "tcp_command.h"
 
 // Section 3: Defines and Macros
@@ -124,6 +125,11 @@ class SyncCommands : public std::list<SyncCommand> {
 public:
     int exportToFile(const std::filesystem::path &path, bool verbose = false);
     int executeAll(const std::map<std::string, std::string> &args, bool verbose = false);
+
+    void emplace_back(const char * arg1, const std::string &arg2, const std::string &arg3, const bool &isRemote) {
+        std::cout << "Adding sync command: " << arg1 << " " << arg2 << " " << arg3 << (isRemote ? " (remote)" : "") << "\r\n";
+        std::list<SyncCommand>::emplace_back(arg1, arg2, arg3, isRemote);
+    }
 
     /**
      * Sorts the list of commands, moving all removal commands to the end.
