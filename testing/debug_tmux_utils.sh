@@ -311,6 +311,43 @@ compare_file_times() {
     fi
 }
 
+compare_file_permissions() {
+    local folder1="$1"
+    local folder2="$2"
+    local report_file="$3"
+    local pass="1"
+    log_to_report $report_file $NC "Comparing file permissions..."
+    local files_to_ignore=$(echo "./.folderindex ./.folderindex.last_run ./.remote.folderindex ./.remote.folderindex.last_run ./sync_commands.sh" | tr ' ' '\n')
+
+    # Find all files in both folders
+    local files1=$(find "$folder1" -type f)
+    local files2=$(find "$folder2" -type f)
+
+    # Compare file permissions
+    for file1 in $files1; do
+        # Skip ignored files
+        local relpath="./${file1#$folder1/}"
+        if echo "$files_to_ignore" | grep -q "^$relpath$"; then
+            continue
+        fi
+        local file2="${folder2}${file1#$folder1}"
+        if [ -f "$file2" ]; then
+            local perm1=$(stat -c %a "$file1")
+            local perm2=$(stat -c %a "$file2")
+            if [ "$perm1" != "$perm2" ]; then
+                log_to_report $report_file $YELLOW "File permissions differ: $relpath ($perm1) vs ($perm2)"
+                pass="0"
+            fi
+        fi
+    done
+
+    if [[ "$pass" == "1" ]]; then
+        log_to_report $report_file $GREEN "File permissions comparison passed."
+    else
+        log_to_report $report_file $RED "File permissions comparison failed."
+    fi
+}
+
 # Function to apply or remove latency on loopback interface in milliseconds (0 removes latency)
 apply_latency() {
     local latency_ms="$1"

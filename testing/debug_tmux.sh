@@ -197,6 +197,8 @@ for scenario in $SCENARIOS; do
 
     echo "Comparing file times between SERVER_ROOT and CLIENT_ROOT..." >> "$SCRIPT_DIR/test_report.txt"
     compare_file_times "$SERVER_ROOT" "$CLIENT_ROOT" "$SCRIPT_DIR/test_report.txt"
+    echo "Comparing file permissions between SERVER_ROOT and CLIENT_ROOT..." >> "$SCRIPT_DIR/test_report.txt"
+    compare_file_permissions "$SERVER_ROOT" "$CLIENT_ROOT" "$SCRIPT_DIR/test_report.txt"
 
     # Clean up virtual filesystems if they were mounted for this scenario
     if [ -d "$SERVER_ROOT/virtual" ] && mountpoint -q "$SERVER_ROOT/virtual" 2>/dev/null; then

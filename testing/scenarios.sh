@@ -41,6 +41,8 @@ set_scenario_36_name() { scenario_name="Long file and path names warnings"; }
 set_scenario_37_name() { scenario_name="Virtual medium files (1GB and 10GB)"; }
 set_scenario_38_name() { scenario_name="Virtual large files (50GB and 100GB)"; }
 set_scenario_39_name() { scenario_name="Timestamp change without content change"; }
+set_scenario_40_name() { scenario_name="Permissions changed on server"; }
+set_scenario_41_name() { scenario_name="Permissions changed on client"; }
 
 
 scenario_01() {
@@ -825,6 +827,41 @@ scenario_39() {
     if [ "$VERBOSE" == "1" ]; then
         echo "SERVER file1 TIMESTAMP IS $(stat -c %y "$SERVER_ROOT/file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
         echo "CLIENT file2 TIMESTAMP IS $(stat -c %y "$CLIENT_ROOT/file2.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+}
+
+scenario_40() {
+    set_scenario_40_name # Permissions changed on server
+    echo "Creating a file on server with default permissions"
+    create_file "$SERVER_ROOT" "./file1.txt" 1
+    echo "Running initial sync to ensure client has the file."
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    wait
+
+    echo "Changing permissions on server file1.txt to read-only."
+    chmod 444 "$SERVER_ROOT/file1.txt"
+    if [ "$VERBOSE" == "1" ]; then
+        echo "SERVER file1 PERMISSIONS ARE $(stat -c %a "$SERVER_ROOT/file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+
+}
+
+scenario_41() {
+    set_scenario_41_name # Permissions changed on client
+    echo "Creating a file on client with default permissions"
+    create_file "$CLIENT_ROOT" "./file1.txt" 1
+    echo "Running initial sync to ensure server has the file."
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    wait
+
+    echo "Changing permissions on client file1.txt to read-only."
+    chmod 444 "$CLIENT_ROOT/file1.txt"
+    if [ "$VERBOSE" == "1" ]; then
+        echo "CLIENT file1 PERMISSIONS ARE $(stat -c %a "$CLIENT_ROOT/file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
     fi
 }
 

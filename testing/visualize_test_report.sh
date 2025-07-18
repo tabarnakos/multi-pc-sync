@@ -46,6 +46,11 @@ check_test_result() {
         has_time_failure=true
     fi
     
+    # Check for file permissions comparison failure
+    if echo "$section" | grep -q "File permissions comparison failed."; then
+        has_time_failure=true
+    fi
+    
     # Determine result based on failures
     if [ "$has_files_hash_failure" = true ]; then
         echo "FAIL"
@@ -167,9 +172,11 @@ create_grid_layout() {
     local client_section=""
     local server_section=""
     local file_times_section=""
+    local file_permissions_section=""
     local in_client_section=false
     local in_server_section=false
     local in_file_times_section=false
+    local in_file_permissions_section=false
     local scenario_complete=false
     
     while IFS= read -r line; do
@@ -180,7 +187,7 @@ create_grid_layout() {
                 scenarios+=("$current_scenario")
                 scenario_titles+=("$current_title")
                 # Combine all sections for comprehensive checking
-                local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"
+                local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"$'\n'"$file_permissions_section"
                 client_results+=($(check_test_result "$combined_section"))
                 server_results+=($(check_test_result "$combined_section"))
             fi
@@ -191,9 +198,11 @@ create_grid_layout() {
             client_section=""
             server_section=""
             file_times_section=""
+            file_permissions_section=""
             in_client_section=false
             in_server_section=false
             in_file_times_section=false
+            in_file_permissions_section=false
             scenario_complete=false
             
         # Check for scenario end
@@ -204,19 +213,29 @@ create_grid_layout() {
             in_client_section=true
             in_server_section=false
             in_file_times_section=false
+            in_file_permissions_section=false
             client_section="$line"
             
         elif [[ "$line" =~ ^Comparing\ files\ in\ SERVER_ROOT ]]; then
             in_client_section=false
             in_server_section=true
             in_file_times_section=false
+            in_file_permissions_section=false
             server_section="$line"
             
         elif [[ "$line" =~ ^Comparing\ file\ times ]]; then
             in_client_section=false
             in_server_section=false
             in_file_times_section=true
+            in_file_permissions_section=false
             file_times_section="$line"
+            
+        elif [[ "$line" =~ ^Comparing\ file\ permissions ]]; then
+            in_client_section=false
+            in_server_section=false
+            in_file_times_section=false
+            in_file_permissions_section=true
+            file_permissions_section="$line"
             
         elif [ "$in_client_section" = true ]; then
             client_section="$client_section"$'\n'"$line"
@@ -224,6 +243,8 @@ create_grid_layout() {
             server_section="$server_section"$'\n'"$line"
         elif [ "$in_file_times_section" = true ]; then
             file_times_section="$file_times_section"$'\n'"$line"
+        elif [ "$in_file_permissions_section" = true ]; then
+            file_permissions_section="$file_permissions_section"$'\n'"$line"
         fi
     done < "$file"
     
@@ -232,7 +253,7 @@ create_grid_layout() {
         scenarios+=("$current_scenario")
         scenario_titles+=("$current_title")
         # Combine all sections for comprehensive checking
-        local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"
+        local combined_section="$client_section"$'\n'"$server_section"$'\n'"$file_times_section"$'\n'"$file_permissions_section"
         client_results+=($(check_test_result "$combined_section"))
         server_results+=($(check_test_result "$combined_section"))
     fi
@@ -242,7 +263,7 @@ create_grid_layout() {
     echo -e "${WHITE}                           MULTI-PC-SYNC TEST REPORT VISUALIZATION            ${NC}"
     echo -e "${WHITE}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = All checks passed  ${YELLOW}PARTIAL${NC} = File times failed  ${RED}FAIL${NC} = Missing/extra files or hashes"
+    echo -e "${CYAN}Legend: ${GREEN}PASS${NC} = All checks passed  ${YELLOW}PARTIAL${NC} = File times/permissions failed  ${RED}FAIL${NC} = Missing/extra files or hashes"
     echo -e "${CYAN}        CLI = Client Test Result, SRV = Server Test Result${NC}"
     echo ""
     
