@@ -24,4 +24,5 @@ message File {
   
   optional FileType type = 4;
   optional string hash = 5;
+  optional string changeTime = 6;
 }

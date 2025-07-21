@@ -26,4 +26,5 @@ message Folder {
   optional FileType type = 4;
   repeated Folder Folders = 5;
   repeated File Files = 6;
+  optional string changeTime = 7;
 }
