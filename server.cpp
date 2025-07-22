@@ -57,12 +57,12 @@ void ServerThread::runserver(context &ctx)
 
     if (bind(serverSocket, serverSocketAddr, sizeof(serverAddress)) != 0)
     {
-        std::cout << termcolor::red << "Unable to bind to port " << ntohs(serverAddress.sin_port) << "\r\n" << termcolor::reset;
+        std::cout << termcolor::red << "Unable to bind to port " << ntohs(serverAddress.sin_port) << termcolor::reset << "\r\n";
         exit(0);
     }
     if (listen(serverSocket, SERVER_LISTEN_BACKLOG) != 0)
     {
-        std::cout << termcolor::red << "Unable to listen on socket" << "\r\n" << termcolor::reset;
+        std::cout << termcolor::red << "Unable to listen on socket" << termcolor::reset << "\r\n";
         exit(0);
     }
 
@@ -70,7 +70,7 @@ void ServerThread::runserver(context &ctx)
 
     while (!ctx.quit.load())
     {
-        std::cout << termcolor::green << "Waiting for incoming connections on port " << ctx.opts.port << "\r\n" << termcolor::reset;
+        std::cout << termcolor::green << "Waiting for incoming connections on port " << ctx.opts.port << termcolor::reset << "\r\n";
 
         sockaddr_in clientAddress;
         auto* clientSocketAddr = reinterpret_cast<sockaddr*>(&clientAddress);
@@ -83,7 +83,7 @@ void ServerThread::runserver(context &ctx)
         }
         options["txsocket"] = std::to_string(clientSocket);
         options["ip"] = inet_ntoa(clientAddress.sin_addr);
-        std::cout << termcolor::cyan << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << "\r\n" << termcolor::reset;
+        std::cout << termcolor::cyan << "Incoming connection from " << options["ip"] << ":" << clientAddress.sin_port << termcolor::reset << "\r\n";
         ctx.con_opened = true;
 
         while ((!ctx.quit.load()) && ctx.con_opened)
@@ -91,7 +91,7 @@ void ServerThread::runserver(context &ctx)
             TcpCommand *receivedCommand = TcpCommand::receiveHeader(clientSocket);
             if (receivedCommand == nullptr)
             {
-                std::cout << termcolor::red << "Error receiving command from client" << "\r\n" << termcolor::reset;
+                std::cout << termcolor::red << "Error receiving command from client" << termcolor::reset << "\r\n";
                 ctx.con_opened = false;
                 break;
             }
@@ -99,15 +99,15 @@ void ServerThread::runserver(context &ctx)
             int err = receivedCommand->execute(options);
             if (err < 0)
             {
-                std::cout << termcolor::red << "Error executing command: " << receivedCommand->commandName() << "\r\n" << termcolor::reset;
+                std::cout << termcolor::red << "Error executing command: " << receivedCommand->commandName() << termcolor::reset << "\r\n";
                 ctx.con_opened = false;
             } else if (err > 0)
             {
-                std::cout << termcolor::green << "Finished" << "\r\n" << termcolor::reset;
+                std::cout << termcolor::green << "Finished" << termcolor::reset << "\r\n";
                 ctx.con_opened = false;
             } else
             {
-                std::cout << termcolor::cyan << "Executed command: " << receivedCommand->commandName() << "\r\n" << termcolor::reset;
+                std::cout << termcolor::green << "Executed command: " << receivedCommand->commandName() << termcolor::reset << "\r\n";
 
                 // Handle command-specific logic here
                 if (receivedCommand->command() == TcpCommand::CMD_ID_INDEX_FOLDER)
@@ -120,7 +120,7 @@ void ServerThread::runserver(context &ctx)
                     //update the index
                     // If the command is a removal, we need to remove it from the local indexer
                     // This is necessary to keep the local indexer in sync with the remote indexer
-                    std::cout << termcolor::cyan << "Removing path from local index: " << options["removed_path"] << "\r\n" << termcolor::reset;
+                    std::cout << termcolor::cyan << "Removing path from local index: " << options["removed_path"] << termcolor::reset << "\r\n";
 
                     DirectoryIndexer::PATH_TYPE pathType = std::filesystem::is_directory(options["removed_path"]) ? DirectoryIndexer::PATH_TYPE::FOLDER : DirectoryIndexer::PATH_TYPE::FILE;
 
@@ -133,7 +133,7 @@ void ServerThread::runserver(context &ctx)
         if (localIndexer != nullptr)
         {
             // Store the local index after each command execution
-            std::cout << termcolor::cyan << "Storing local index after command execution" << "\r\n" << termcolor::reset;
+            std::cout << termcolor::cyan << "Storing local index after command execution" << termcolor::reset << "\r\n";
             localIndexer->dumpIndexToFile({});
         }
     }
@@ -141,5 +141,5 @@ void ServerThread::runserver(context &ctx)
     ctx.active = false;
     ctx.active.notify_all();
     close(serverSocket);
-    std::cout << termcolor::blue << "Server thread exiting" << "\r\n" << termcolor::reset;
+    std::cout << termcolor::blue << "Server thread exiting" << termcolor::reset << "\r\n";
 }

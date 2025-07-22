@@ -51,9 +51,8 @@ int main(int argc, char *argv[])
         }
 
         server->start();
-        while (!server->isActive())
-            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));
-
+        server->waitForActive();
+        
         std::cout << termcolor::green << "Server is active and waiting for connections..." << "\r\n" << termcolor::reset;
 
         while (server->isActive())
@@ -86,13 +85,8 @@ int main(int argc, char *argv[])
         }
 
         client->start();
-        if ( !client->waitForActive() )
-        {
-            std::cout << termcolor::red << "Client thread failed to start" << "\r\n" << termcolor::reset;
-            delete client;
-            return -1;
-        }
-
+        client->waitForActive();
+        
         while (client->isActive())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION_MS));

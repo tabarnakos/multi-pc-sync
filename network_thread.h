@@ -73,18 +73,14 @@ public:
      * Checks if the thread is currently active
      * @return true if thread is running
      */
-    [[nodiscard]] bool isActive() const { return ctx.active.load() && (ctx.thread != nullptr) && !ctx.thread->joinable(); }
+    [[nodiscard]] bool isActive() const { return ctx.active.load(); }
 
     /**
      * Waits for the thread to become active
      */
-    [[nodiscard]] bool waitForActive() const
+    void waitForActive() const
     {
-        if (ctx.thread->joinable())
-            return false;
-
         ctx.active.wait(false);
-        return true;
     }
 
     /**
