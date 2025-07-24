@@ -84,6 +84,8 @@ public:
 
     [[nodiscard]] bool isSystem() const;
 
+    [[nodiscard]] bool isChmod() const;
+
     /**
      * Gets the first path (usually source)
      * @return First path string

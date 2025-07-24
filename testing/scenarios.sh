@@ -198,11 +198,7 @@ scenario_10() {
     create_file "$SERVER_ROOT" "./folder1/file5.txt" 1  # File5 will be moved to folder3
     create_folder "$SERVER_ROOT" "./folder2"
     # need to run a sync here to ensure the client has the initial files
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving folder1 to folder3 on server."
     #mv "$SERVER_ROOT/folder1" "$SERVER_ROOT/folder3"
     move_path "$SERVER_ROOT" "./folder1" "./folder3"
@@ -222,11 +218,7 @@ scenario_11() {
     create_folder "$CLIENT_ROOT" "./folder2"
 
     # need to run a sync here to ensure the server has the initial files
-    echo "Running initial sync to ensure server has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving folder1 to folder3 on client."
     move_path "$CLIENT_ROOT" "./folder1" "./folder3"
     move_path "$CLIENT_ROOT" "./file1.txt" "./file1_renamed.txt"
@@ -249,11 +241,7 @@ scenario_12() {
     create_folder "$SERVER_ROOT" "./folder2"
 
     # need to run a sync here to ensure the client has the initial files
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Editing file4 and file5 on server."
     edit_file "$SERVER_ROOT" "./folder1/file4.txt"
     edit_file "$SERVER_ROOT" "./folder1/file5.txt"
@@ -275,11 +263,7 @@ scenario_13() {
     create_file "$SERVER_ROOT" "./folder1/file5.txt" 2                       # File5 will be edited, store its hash later
     create_folder "$SERVER_ROOT" "./folder2"
     # need to run a sync here to ensure the server has the initial files
-    echo "Running initial sync to ensure server has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Editing file4 and file5 on client."
     edit_file "$CLIENT_ROOT" "./folder1/file4.txt"
     edit_file "$CLIENT_ROOT" "./folder1/file5.txt"
@@ -293,11 +277,7 @@ scenario_14() {
     create_file "$SERVER_ROOT" "./1MBfile.bin" 1
     create_file "$SERVER_ROOT" "./10MBfile.bin" 10
     create_file "$SERVER_ROOT" "./100MBfile.bin" 100
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Deleting file1 and 10MBfile on server."
     remove_path "$SERVER_ROOT" "./file1.txt"
     remove_path "$SERVER_ROOT" "./10MBfile.bin"
@@ -311,11 +291,7 @@ scenario_15() {
     create_file "$SERVER_ROOT" "./1MBfile.bin" 1
     create_file "$SERVER_ROOT" "./10MBfile.bin" 10
     create_file "$SERVER_ROOT" "./100MBfile.bin" 100
-    echo "Running initial sync to ensure server has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Deleting file1 and 10MBfile on client."
     remove_path "$CLIENT_ROOT" "./file1.txt"
     remove_path "$CLIENT_ROOT" "./10MBfile.bin"
@@ -324,11 +300,7 @@ scenario_15() {
 scenario_16() {
     set_scenario_16_name # Re-sync: File deleted on both sides.
     create_file "$SERVER_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Deleting file1 on both sides."
     remove_path "$SERVER_ROOT" "./file1.txt"
     remove_path "$CLIENT_ROOT" "./file1.txt"
@@ -337,11 +309,7 @@ scenario_16() {
 scenario_17() {
     set_scenario_17_name # Re-sync: File modified differently on both sides.
     create_file "$SERVER_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Modifying file1 on both sides."
     edit_file "$SERVER_ROOT" "./file1.txt"
     edit_file "$CLIENT_ROOT" "./file1.txt"
@@ -360,11 +328,7 @@ scenario_18() {
     set_scenario_18_name # Re-sync: File moved to another folder on server.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_folder "$SERVER_ROOT" "./folder1"
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving file1 to another folder on server."
     move_path "$SERVER_ROOT" "./file1.txt" "./folder1/file1.txt"
 }
@@ -373,11 +337,7 @@ scenario_19() {
     set_scenario_19_name # Re-sync: File moved to another folder on client.
     create_file "$CLIENT_ROOT" "./file1.txt" 1
     create_folder "$CLIENT_ROOT" "./folder1"
-    echo "Running initial sync to ensure server has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving file1 to another folder on client."
     move_path "$CLIENT_ROOT" "./file1.txt" "./folder1/file1.txt"
 }
@@ -386,11 +346,7 @@ scenario_20() {
     set_scenario_20_name # Re-sync: File moved and modified simultaneously on one side.
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_folder "$SERVER_ROOT" "./folder1"
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving file1 to another folder on server."
     move_path "$SERVER_ROOT" "./file1.txt" "./folder1/file1.txt"
     echo "Modifying file1 on server."
@@ -414,11 +370,7 @@ scenario_21() {
 scenario_22() {
     set_scenario_22_name # Re-sync: Multiple operations on same file - modify then rename.
     create_file "$SERVER_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Editing file1 on server."
     edit_file "$SERVER_ROOT" "./file1.txt"
     echo "Renaming file1 to file1_renamed.txt on server."
@@ -431,11 +383,7 @@ scenario_23() {
     create_file "$SERVER_ROOT" "./dirA/file1.txt" 1
     create_file "$SERVER_ROOT" "./dirA/file2.txt" 1
     create_file "$SERVER_ROOT" "./dirA/file3.txt" 1
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Renaming dirA to dirB on server."
     move_path "$SERVER_ROOT" "./dirA" "./dirB"
     echo "Renaming file1.txt to file1_renamed.txt inside dirB on server."
@@ -453,11 +401,7 @@ scenario_24() {
     create_file "$SERVER_ROOT" "./parentA/childA/file1.txt" 1
     create_file "$SERVER_ROOT" "./parentA/childA/file2.txt" 1
     create_file "$SERVER_ROOT" "./parentA/childA/file3.txt" 1
-    echo "Running initial sync to ensure client has the initial files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving childA from parentA to parentB on server."
     create_folder "$SERVER_ROOT" "./parentB"
     move_path "$SERVER_ROOT" "./parentA/childA" "./parentB/childA"
@@ -473,11 +417,7 @@ scenario_25() {
     set_scenario_25_name # Re-sync: Circular rename (A→B, B→A across sides).
     create_file "$SERVER_ROOT" "./fileA.txt" 1
     create_file "$SERVER_ROOT" "./fileB.txt" 1
-    echo "Running initial sync to ensure both sides have fileA.txt and fileB.txt."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
 
     if [ "$VERBOSE" == "1" ]; then
         echo "FileA FILE HASH IS $(hash_file "$SERVER_ROOT" "./fileA.txt")" >> "$SCRIPT_DIR/test_report.txt"
@@ -495,11 +435,7 @@ scenario_25() {
 scenario_26() {
     set_scenario_26_name # Re-sync: File deleted on the server, modified on the client.
     create_file "$SERVER_ROOT" "./file26.txt" 1
-    echo "Running initial sync..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Deleting file26 on server, modifying on client..."
     rm "${SERVER_ROOT}/file26.txt"
     edit_file "$CLIENT_ROOT" "./file26.txt"
@@ -508,11 +444,7 @@ scenario_26() {
 scenario_27() {
     set_scenario_27_name # Re-sync: File deleted on the client, modified on the server.
     create_file "$CLIENT_ROOT" "./file27.txt" 1
-    echo "Running initial sync..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Deleting file27 on client, modifying on server..."
     rm "${CLIENT_ROOT}/file27.txt"
     edit_file "$SERVER_ROOT" "./file27.txt"
@@ -521,11 +453,7 @@ scenario_27() {
 scenario_28() {
     set_scenario_28_name # Re-sync: File moved on the server, renamed on the client.
     create_file "$SERVER_ROOT" "./file28.txt" 1
-    echo "Running initial sync..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving file28 on server, renaming on client..."
     create_folder "$SERVER_ROOT" "./folder_move"
     move_path "$SERVER_ROOT" "./file28.txt" "./folder_move/file28.txt"
@@ -536,11 +464,7 @@ scenario_28() {
 scenario_29() {
     set_scenario_29_name # Re-sync: File moved on the client, renamed on the server.
     create_file "$CLIENT_ROOT" "./file29.txt" 1
-    echo "Running initial sync..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Moving file29 on client, renaming on server..."
     create_folder "$CLIENT_ROOT" "./folder_move"
     move_path "$CLIENT_ROOT" "./file29.txt" "./folder_move/file29.txt"
@@ -551,11 +475,7 @@ scenario_29() {
 scenario_30() {
     set_scenario_30_name # Re-sync: Filename case changes.
     create_file "$SERVER_ROOT" "./CaseTest.txt" 1
-    echo "Running initial sync..."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
     echo "Renaming CaseTest.txt to casetest.txt on server."
     move_path "$SERVER_ROOT" "./CaseTest.txt" "./casetest.txt"
 }
@@ -818,11 +738,7 @@ scenario_39() {
     create_file "$SERVER_ROOT" "./file1.txt" 1
     create_file "$CLIENT_ROOT" "./file2.txt" 1
 
-    echo "Running initial sync to ensure both sides have the files."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    run_initial_sync
 
     echo "Changing timestamps without modifying content."
     touch "$SERVER_ROOT/file1.txt"
@@ -837,11 +753,8 @@ scenario_40() {
     set_scenario_40_name # Permissions changed on server
     echo "Creating a file on server with default permissions"
     create_file "$SERVER_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure client has the file."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    
+    run_initial_sync
 
     echo "Changing permissions on server file1.txt to read-only."
     chmod 444 "$SERVER_ROOT/file1.txt"
@@ -855,11 +768,8 @@ scenario_41() {
     set_scenario_41_name # Permissions changed on client
     echo "Creating a file on client with default permissions"
     create_file "$CLIENT_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure server has the file."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    
+    run_initial_sync
 
     echo "Changing permissions on client file1.txt to read-only."
     chmod 444 "$CLIENT_ROOT/file1.txt"
@@ -872,11 +782,8 @@ scenario_42() {
     set_scenario_42_name # Permissions changed on server moved file
     echo "Creating a file on client with default permissions"
     create_file "$CLIENT_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure server has the file."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    
+    run_initial_sync
 
     echo "Renaming to file1_renamed.txt."
     move_path "$SERVER_ROOT" "./file1.txt" "./file1_renamed.txt"
@@ -891,11 +798,8 @@ scenario_43() {
     set_scenario_43_name # Permissions changed on client moved file
     echo "Creating a file on client with default permissions"
     create_file "$CLIENT_ROOT" "./file1.txt" 1
-    echo "Running initial sync to ensure server has the file."
-    $SERVER_CMD_LINE &
-    wait_for_server_start
-    $CLIENT_CMD_LINE &
-    wait
+    
+    run_initial_sync
 
     echo "Renaming to file1_renamed.txt."
     move_path "$CLIENT_ROOT" "./file1.txt" "./file1_renamed.txt"
@@ -906,7 +810,18 @@ scenario_43() {
     fi
 }
 
-# At the end, a dispatcher function for debug_tmux.sh:
+run_initial_sync() {
+    echo "Running initial sync to ensure both sides have the initial files."
+    exec 3>&1
+    exec 1> >(paste /dev/null -)
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    exec 1>&3 3>&-
+    wait
+}
+
+
 run_scenario() {
     local scenario_num="$1"
     local func="scenario_$(printf '%02d' "$scenario_num")"

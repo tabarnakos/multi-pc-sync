@@ -258,6 +258,7 @@ bool SyncCommand::isFileMove() const { return mCmd == "mv"; }
 bool SyncCommand::isCopy() const { return mCmd == "cp" || mCmd == "push" || mCmd == "fetch"; }
 bool SyncCommand::isSymlink() const { return mCmd == "symlink"; }
 bool SyncCommand::isSystem() const { return mCmd == "system"; }
+bool SyncCommand::isChmod() const { return mCmd == "chmod"; }
 std::string & SyncCommand::path1() { return mSrcPath; }
 std::string & SyncCommand::path2() { return mDestPath; }
 
@@ -285,7 +286,7 @@ void SyncCommands::sortCommands() {
             if (command.isCopy()) {
                 return 5; // File creation commands
             }
-            if (command.isSystem()) { //System commands like chmod
+            if (command.isSystem() || command.isChmod()) { //System commands like chmod
                 return 4; // System commands
             }
             if (command.isFileMove()) {

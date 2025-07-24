@@ -578,7 +578,7 @@ void DirectoryIndexer::handleFileExists(com::fileindexer::File& remoteFile, com:
     }
 }
 
-void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, SyncCommands &syncCommands, bool isRemote, bool forcePull, bool verbose)
+void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, const std::string& remoteFilePath, const std::string& localFilePath, DirectoryIndexer* past, DirectoryIndexer* remotePast, SyncCommands &syncCommands, bool isRemote, bool forcePull, bool verbose)
 {
     if (forcePull)
     {
@@ -598,6 +598,8 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
     else
     {
         auto *localPastFile = static_cast<com::fileindexer::File *>(past->extract(nullptr, localFilePath, FILE));
+        auto localCopiesList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
+        auto *remotePastFile = remotePast != nullptr ?static_cast<com::fileindexer::File *>(remotePast->extract(nullptr, remoteFilePath, FILE)) : nullptr;
         if (localPastFile != nullptr)
         {
             // We have a past version of the file, but no current version on the local side
@@ -630,10 +632,15 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
                 syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);
             }
         }
+        else if (remotePastFile != nullptr)
+        {
+            // The remote file used to exist at that path, but is no longer there
+            // Remove the remote copy of the file
+            syncCommands.emplace_back("rm", remoteFilePath, "", !isRemote);
+        }
         else
         {
-            auto fileList = findFileFromHash(nullptr, remoteFile.hash(), true, verbose);
-            if (fileList.empty())
+            if (localCopiesList.empty())
             {
                 checkPathLengthWarnings(localFilePath, "fetch/push new file");
                 syncCommands.emplace_back(isRemote ? "push" : "fetch", remoteFilePath, localFilePath, !isRemote);
@@ -642,7 +649,7 @@ void DirectoryIndexer::handleFileMissing(com::fileindexer::File& remoteFile, con
             {
                 std::cout << termcolor::yellow << "File " << termcolor::magenta << remoteFilePath << termcolor::yellow << " is missing locally, but found in remote index with hash " << termcolor::magenta << remoteFile.hash() << termcolor::reset << "\r\n";
                 checkPathLengthWarnings(localFilePath, "copy new file");
-                syncCommands.emplace_back("cp", (*fileList.cbegin())->name(), localFilePath, isRemote);
+                syncCommands.emplace_back("cp", (*localCopiesList.cbegin())->name(), localFilePath, isRemote);
                 
                 std::ostringstream oss;
                 oss << std::oct << remoteFile.permissions();
@@ -714,7 +721,7 @@ void DirectoryIndexer::syncFiles(com::fileindexer::Folder *folderIndex, Director
         {
             if (verbose)
                 std::cout << termcolor::white << "file missing! " << localFilePath << termcolor::reset << "\r\n";
-            handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, syncCommands, isRemote, forcePull, verbose);
+            handleFileMissing(remoteFile, remoteFilePath, localFilePath, past, remotePast, syncCommands, isRemote, forcePull, verbose);
         }
     }
 }
