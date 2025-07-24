@@ -82,6 +82,8 @@ public:
 
     [[nodiscard]] bool isSymlink() const;
 
+    [[nodiscard]] bool isSystem() const;
+
     /**
      * Gets the first path (usually source)
      * @return First path string

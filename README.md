@@ -380,7 +380,9 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] File moved on the client, renamed on the server    (currently causes data loss)
 
 ## 7. Permissions and Metadata (if applicable)
-- [ ] Permissions changed on one side
+- [✅] Permissions changed on one side
+- [ ] Permissions changed on server moved file
+- [✅] Permissions changed on client moved file
 - [✅] Timestamps changed without content change
 - [ ] Ownership or extended attributes changed
 

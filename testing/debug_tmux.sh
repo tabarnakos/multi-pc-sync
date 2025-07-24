@@ -34,7 +34,7 @@ TEST_FOLDER="$(canonical "$SCRIPT_DIR/../test_sync_env0")"
 
 CLIENT_ROOT="$TEST_FOLDER/client"
 SERVER_ROOT="$TEST_FOLDER/server"
-CONFIG_FILE="$(canonical $TEST_FOLDER/../multi-pc-sync.config)"
+CONFIG_FILE="$(canonical $SCRIPT_DIR/../multi-pc-sync.config)"
 MULTI_PC_SYNC_PORT=5555
 SERVER_IP=127.0.0.1
 if [[ "$VERBOSE" != "1" ]]; then

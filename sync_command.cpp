@@ -132,6 +132,16 @@ TcpCommand* SyncCommand::createTcpCommand() {
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
+    } else if (mCmd == "system") {
+        // For system commands, we just send the command string as a payload
+        auto systemCommand = srcPathStripped + " " + destPathStripped;
+        size_t cmdSize = TcpCommand::kCmdSize + (TcpCommand::kSizeSize * 2) + systemCommand.length();
+        commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
+        TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYSTEM_CALL;
+        commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        pathSize = systemCommand.length();
+        commandbuf.write(&pathSize, sizeof(size_t));
+        commandbuf.write(systemCommand.c_str(), pathSize);
     } else {
         std::cerr << termcolor::red << "Unknown command: " << mCmd << "\r\n" << termcolor::reset;
         return nullptr;
@@ -247,6 +257,7 @@ bool SyncCommand::isRemoval() const { return mCmd == "rm" || mCmd == "rmdir"; }
 bool SyncCommand::isFileMove() const { return mCmd == "mv"; }
 bool SyncCommand::isCopy() const { return mCmd == "cp" || mCmd == "push" || mCmd == "fetch"; }
 bool SyncCommand::isSymlink() const { return mCmd == "symlink"; }
+bool SyncCommand::isSystem() const { return mCmd == "system"; }
 std::string & SyncCommand::path1() { return mSrcPath; }
 std::string & SyncCommand::path2() { return mDestPath; }
 
@@ -272,7 +283,10 @@ void SyncCommands::sortCommands() {
     this->sort([](const SyncCommand &commandA, const SyncCommand &commandB) {
         auto getPriority = [](const SyncCommand &command) {
             if (command.isCopy()) {
-                return 4; // File creation commands
+                return 5; // File creation commands
+            }
+            if (command.isSystem()) { //System commands like chmod
+                return 4; // System commands
             }
             if (command.isFileMove()) {
                 return 3; // File move operations
@@ -283,7 +297,7 @@ void SyncCommands::sortCommands() {
             if (command.isSymlink()) {
                 return 1; // Symlink creation
             }
-            return 5; // Other commands like mkdir, chmod, touch
+            return 6; // Other commands like mkdir, touch
         };
         return getPriority(commandA) > getPriority(commandB);
     });

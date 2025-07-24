@@ -151,6 +151,7 @@ public:
     static int make_timespec(const std::string &modifiedTimeString, struct timespec *timespec);
 
     static std::string file_time_to_string(std::filesystem::file_time_type fileTime);
+    static std::string file_time_to_string(const struct timespec &timespec);
 
 protected:
     // (none)

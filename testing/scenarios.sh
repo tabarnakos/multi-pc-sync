@@ -43,6 +43,8 @@ set_scenario_38_name() { scenario_name="Virtual large files (50GB and 100GB)"; }
 set_scenario_39_name() { scenario_name="Timestamp change without content change"; }
 set_scenario_40_name() { scenario_name="Permissions changed on server"; }
 set_scenario_41_name() { scenario_name="Permissions changed on client"; }
+set_scenario_42_name() { scenario_name="Permissions changed on server moved file"; }
+set_scenario_43_name() { scenario_name="Permissions changed on client moved file"; }
 
 
 scenario_01() {
@@ -204,7 +206,7 @@ scenario_10() {
     echo "Moving folder1 to folder3 on server."
     #mv "$SERVER_ROOT/folder1" "$SERVER_ROOT/folder3"
     move_path "$SERVER_ROOT" "./folder1" "./folder3"
-    
+    move_path "$SERVER_ROOT" "./file1.txt" "./file1_renamed.txt"
 }
 
 scenario_11() {
@@ -227,6 +229,7 @@ scenario_11() {
     wait
     echo "Moving folder1 to folder3 on client."
     move_path "$CLIENT_ROOT" "./folder1" "./folder3"
+    move_path "$CLIENT_ROOT" "./file1.txt" "./file1_renamed.txt"
 }
 
 scenario_12() {
@@ -862,6 +865,44 @@ scenario_41() {
     chmod 444 "$CLIENT_ROOT/file1.txt"
     if [ "$VERBOSE" == "1" ]; then
         echo "CLIENT file1 PERMISSIONS ARE $(stat -c %a "$CLIENT_ROOT/file1.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+}
+
+scenario_42() {
+    set_scenario_42_name # Permissions changed on server moved file
+    echo "Creating a file on client with default permissions"
+    create_file "$CLIENT_ROOT" "./file1.txt" 1
+    echo "Running initial sync to ensure server has the file."
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    wait
+
+    echo "Renaming to file1_renamed.txt."
+    move_path "$SERVER_ROOT" "./file1.txt" "./file1_renamed.txt"
+    echo "Changing permissions on server file1_renamed.txt to read-only."
+    chmod 444 "$SERVER_ROOT/file1_renamed.txt"
+    if [ "$VERBOSE" == "1" ]; then
+        echo "SERVER file1 PERMISSIONS ARE $(stat -c %a "$SERVER_ROOT/file1_renamed.txt")" >> "$SCRIPT_DIR/test_report.txt"
+    fi
+}
+
+scenario_43() {
+    set_scenario_43_name # Permissions changed on client moved file
+    echo "Creating a file on client with default permissions"
+    create_file "$CLIENT_ROOT" "./file1.txt" 1
+    echo "Running initial sync to ensure server has the file."
+    $SERVER_CMD_LINE &
+    wait_for_server_start
+    $CLIENT_CMD_LINE &
+    wait
+
+    echo "Renaming to file1_renamed.txt."
+    move_path "$CLIENT_ROOT" "./file1.txt" "./file1_renamed.txt"
+    echo "Changing permissions on client file1_renamed.txt to read-only."
+    chmod 444 "$CLIENT_ROOT/file1_renamed.txt"
+    if [ "$VERBOSE" == "1" ]; then
+        echo "CLIENT file1 PERMISSIONS ARE $(stat -c %a "$CLIENT_ROOT/file1_renamed.txt")" >> "$SCRIPT_DIR/test_report.txt"
     fi
 }
 

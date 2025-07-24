@@ -761,7 +761,7 @@ int SystemCallCmd::execute(std::map<std::string, std::string> &args)
         return -1;
     }
 
-    std::string systemCmd = extractStringFromPayload(kCmdStringIndex, SEEK_SET);
+    std::string systemCmd = extractStringFromPayload(kCmdStringSizeIndex, SEEK_SET);
 
     int ret = std::system(systemCmd.c_str());
     if (ret != 0) {
