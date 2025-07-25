@@ -384,7 +384,6 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] Permissions changed on server moved file
 - [✅] Permissions changed on client moved file
 - [✅] Timestamps changed without content change
-- [ ] Ownership or extended attributes changed
 
 ## 8. Edge Cases
 - [✅] File with special characters in the name
@@ -393,7 +392,6 @@ Call it a feature or a bug, I don't know if the other sync programs have such ex
 - [✅] Filename case changes (case sensitivity issues)
 - [✅] Long path names (4095 characters is the limit set by Ubuntu 24.04 used in test)
 - [✅] Long file names (255 characters is the limit for the EXT4 filesystem used in test)
-- [ ] Files with identical hashes but different content
 
 ## 9. Repeatability and Idempotency
 - [✅] Running sync twice with no changes (should be a no-op)
