@@ -150,6 +150,14 @@ TcpCommand* TcpCommand::receiveHeader(const int socket) {
         return nullptr;
     }
     buffer.write(cmd);
+    
+    std::array<uint8_t, MD5_DIGEST_LENGTH> receivedhash;
+    if (recv(socket, receivedhash.data(), MD5_DIGEST_LENGTH, 0) <= 0)
+    {
+        MessageCmd::sendMessage(socket, "Failed to receive command hash");
+        return nullptr;
+    }
+    buffer.write(receivedhash);
 
     TcpCommand *command = TcpCommand::create(buffer);
     if (command == nullptr)

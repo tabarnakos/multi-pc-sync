@@ -1,5 +1,6 @@
 // Section 1: Main Header
 #include "sync_command.h"
+#include "md5_wrapper.h"
 #include "tcp_command.h"
 
 // Section 2: Includes
@@ -50,6 +51,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_RM_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -58,6 +60,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_RMDIR_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -66,6 +69,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_MKDIR_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -74,6 +78,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_LOCAL_COPY;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -85,6 +90,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_FETCH_FILE_REQUEST;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -93,6 +99,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_PUSH_FILE;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = destPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(destPathStripped.c_str(), pathSize);
@@ -104,6 +111,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_SYMLINK;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -115,6 +123,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_REMOTE_MOVE; // Using copy for move
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -126,6 +135,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_TOUCH;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = srcPathStripped.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(srcPathStripped.c_str(), pathSize);
@@ -139,6 +149,7 @@ TcpCommand* SyncCommand::createTcpCommand() {
         commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYSTEM_CALL;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        commandbuf.write(hash());
         pathSize = systemCommand.length();
         commandbuf.write(&pathSize, sizeof(size_t));
         commandbuf.write(systemCommand.c_str(), pathSize);
@@ -261,6 +272,11 @@ bool SyncCommand::isSystem() const { return mCmd == "system"; }
 bool SyncCommand::isChmod() const { return mCmd == "chmod"; }
 std::string & SyncCommand::path1() { return mSrcPath; }
 std::string & SyncCommand::path2() { return mDestPath; }
+std::array<uint8_t, MD5_DIGEST_LENGTH> SyncCommand::hash() const
+{
+    MD5Calculator sum(string().c_str(), string().length(), false);
+    return std::to_array(sum.getDigest().digest_bytes);
+}
 
 int SyncCommands::exportToFile(const std::filesystem::path &path, bool verbose) {
     std::ofstream file(path);

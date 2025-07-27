@@ -19,6 +19,7 @@
 
 // Project Includes
 #include "growing_buffer.h"
+#include "hash/md5_wrapper.h"
 
 /* Section 3: Defines and Macros */
 #define INDEX_AFTER(prevIdx,prevIdxSiz)    ((prevIdx)+(prevIdxSiz))
@@ -54,7 +55,9 @@ public:
     static constexpr size_t kSizeSize = sizeof(size_t);
     static constexpr size_t kCmdIndex = INDEX_AFTER(kSizeIndex, kSizeSize);
     static constexpr size_t kCmdSize = sizeof(cmd_id_t);
-    static constexpr size_t kPayloadIndex = INDEX_AFTER(kCmdIndex, kCmdSize);
+    static constexpr size_t kCmdHashIndex = INDEX_AFTER(kCmdIndex, kCmdSize);
+    static constexpr size_t kCmdHashSize = MD5_DIGEST_LENGTH; // MD5 hash size
+    static constexpr size_t kPayloadIndex = INDEX_AFTER(kCmdHashIndex, kCmdHashSize);
 
     static constexpr size_t MAX_TCP_PAYLOAD_SIZE = 1440;//1440 bytes
     static constexpr size_t MAX_PATH_LENGTH = 4095;  // 4095 characters, see Readme for details

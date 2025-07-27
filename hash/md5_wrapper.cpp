@@ -73,7 +73,23 @@ MD5Calculator(path.c_str(), verbose)
 {
 }
 
+MD5Calculator::MD5Calculator(const void *data, size_t size, bool verbose)
+{
+    memset(mDigest.digest_native, 0, MD5_DIGEST_LENGHT_NATIVE*sizeof(uint64_t));
 
+    if (data == nullptr) {
+        std::cerr << "Invalid data for MD5 calculation" << "\r\n";
+        return;
+    }
+
+    if (verbose)
+        std::cout << "Calculating MD5 for data of size: " << size << " bytes\r\n";
+
+    MD5_CTX ctx;
+    MD5Init(&ctx);
+    MD5Update(&ctx, reinterpret_cast<const uint8_t*>(data), size);
+    MD5Final(mDigest.digest_bytes, &ctx);
+}
 
 bool MD5Calculator::MD5Digest::operator==(MD5Calculator::MD5Digest& other)
 {

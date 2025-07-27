@@ -24,6 +24,7 @@ class MD5Calculator
 public:
     MD5Calculator(const char *path, bool verbose);
     MD5Calculator(const std::string &path, bool verbose);
+    MD5Calculator(const void *data, size_t size, bool verbose);
     virtual ~MD5Calculator() {}
 
     using MD5Digest = struct _MD5Digest

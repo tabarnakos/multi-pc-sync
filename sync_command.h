@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <list>
 #include <map>
+#include <md5.h>
 #include <string>
 #include <iostream>
 #include "tcp_command.h"
@@ -97,13 +98,15 @@ public:
      * @return Second path string
      */
     [[nodiscard]] std::string & path2();
-    
+
     /**
      * Removes quotes from path string
      * @param path Path string to process
      * @return Reference to the modified path string
      */
     static std::string & stripQuotes(std::string &path);
+
+    [[nodiscard]] std::array<uint8_t, MD5_DIGEST_LENGTH> hash() const;
 
 private:
     std::string mCmd;      ///< Command type

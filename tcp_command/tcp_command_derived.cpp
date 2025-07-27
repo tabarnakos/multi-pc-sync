@@ -55,6 +55,10 @@ MessageCmd::MessageCmd(const std::string &message)
     cmd_id_t cmd = CMD_ID_MESSAGE;
     mData.write(&cmd, TcpCommand::kCmdSize);
 
+    // Write the MD5 hash of the command (dummy for now)
+    std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+    mData.write(dummyhash);
+
     // Write the error message size
     mData.write(&messageSize, sizeof(size_t));
 
@@ -189,6 +193,8 @@ int IndexFolderCmd::execute(std::map<std::string,std::string> &args)
     size_t commandSize = 0; //placeholder
     commandbuf.write(commandSize);
     commandbuf.write(cmd);
+    std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+    commandbuf.write(dummyhash);
     commandbuf.write(path_length);
     commandbuf.write(args.at("path").data(), path_length);
     // --- Insert deletion log into commandbuf ---
@@ -381,6 +387,8 @@ int IndexPayloadCmd::execute(std::map<std::string, std::string> &args)
         commandbuf.write(&commandSize, TcpCommand::kSizeSize);
         TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_COMPLETE;
         commandbuf.write(&cmd, TcpCommand::kCmdSize);
+        std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+        commandbuf.write(dummyhash);
         TcpCommand *command = TcpCommand::create(commandbuf);
         if (command == nullptr)
         {
@@ -541,6 +549,8 @@ int IndexPayloadCmd::execute(std::map<std::string, std::string> &args)
     commandbuf.write(&commandSize, TcpCommand::kSizeSize);
     TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_COMPLETE;
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
+    std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+    commandbuf.write(dummyhash);
     TcpCommand *command = TcpCommand::create(commandbuf);
     if (command == nullptr)
     {
@@ -723,6 +733,9 @@ int SyncCompleteCmd::execute(std::map<std::string, std::string> &args)
     commandbuf.write(&commandSize, TcpCommand::kSizeSize);
     TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_SYNC_DONE;
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
+    std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+    commandbuf.write(dummyhash);
+
     TcpCommand *command = TcpCommand::create(commandbuf);
     if (command == nullptr)
     {

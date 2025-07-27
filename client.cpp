@@ -137,7 +137,9 @@ int ClientThread::requestIndexFromServer(const std::map<std::string, std::string
     commandbuf.write(&cmdSize, TcpCommand::kSizeSize);
     TcpCommand::cmd_id_t cmd = TcpCommand::CMD_ID_INDEX_FOLDER;
     commandbuf.write(&cmd, TcpCommand::kCmdSize);
-
+    std::array<uint8_t, MD5_DIGEST_LENGTH> dummyhash{0};
+    commandbuf.write(dummyhash);
+    
     TcpCommand *command = TcpCommand::create(commandbuf);
     if (command == nullptr)
         return -1;
