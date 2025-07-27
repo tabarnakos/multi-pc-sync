@@ -615,3 +615,15 @@ std::shared_ptr<DirectoryIndexer> TcpCommand::getLocalIndexer() {
     auto *command = dynamic_cast<IndexFolderCmd*>(this);
     return (command != nullptr) ? command->localIndexer : nullptr;
 }
+
+std::array<uint8_t, MD5_DIGEST_LENGTH> TcpCommand::getCommandHash()
+{
+    mData.seek(kCmdHashIndex, SEEK_SET);
+    std::array<uint8_t, MD5_DIGEST_LENGTH> hash;
+    if (mData.read(hash.data(), kCmdHashSize) != kCmdHashSize)
+    {
+        std::cerr << termcolor::red << "Error reading command hash from buffer" << "\r\n" << termcolor::reset;
+        return {};
+    }
+    return hash;
+}

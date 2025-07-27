@@ -152,7 +152,7 @@ public:
      * Gets the string representation of the command type
      * @return A string containing the command name
      */
-    const char* commandName();
+    [[nodiscard]] const char* commandName();
 
     /**
      * Receives payload data from a socket
@@ -212,7 +212,7 @@ public:
      * Gets the total size of the command data
      * @return Size of the command in bytes
      */
-    size_t cmdSize();
+    [[nodiscard]] size_t cmdSize();
 
     /**
      * Sets the total size of the command data
@@ -224,13 +224,13 @@ public:
      * Gets the current size of the internal buffer
      * @return Size of the buffer in bytes
      */
-    size_t bufferSize();
+    [[nodiscard]] size_t bufferSize();
 
     /**
      * Gets the command type identifier
      * @return Command type enumeration value
      */
-    cmd_id_t command();
+    [[nodiscard]] cmd_id_t command();
 
     /**
      * Executes the command with the given arguments
@@ -244,6 +244,8 @@ public:
      * @return A shared pointer to the local DirectoryIndexer
      */
     std::shared_ptr<DirectoryIndexer> getLocalIndexer();
+
+    [[nodiscard]] std::array<uint8_t, MD5_DIGEST_LENGTH> getCommandHash();
 
 protected:
     static std::binary_semaphore TCPSendSemaphore;
